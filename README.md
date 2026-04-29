@@ -1,4 +1,4 @@
-# Smart Store Value Realization Simulator
+# Store-Base-Planner
 
 Interactive dashboard to simulate monthly value realization for a smart autonomous store.
 
