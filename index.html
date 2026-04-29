@@ -1,0 +1,2232 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Smart Store Value Realization Simulator</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --card: rgba(21, 28, 52, 0.72);
+        --card-2: rgba(35, 45, 80, 0.58);
+        --text: #eff3ff;
+        --muted: #a8b0cc;
+        --accent: #8c5bff;
+        --accent-2: #2fe4ff;
+        --ok: #35d399;
+        --warn: #fbbf24;
+        --bad: #fb7185;
+        --border: rgba(255, 255, 255, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Inter, Avenir, Segoe UI, Roboto, Arial, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 18% 2%, #6f3cff2b 0, transparent 36%),
+          radial-gradient(circle at 80% 12%, #2dd4ff1f 0, transparent 34%),
+          linear-gradient(170deg, #070d1d 0%, #090f25 35%, #0d1430 100%);
+      }
+
+      .container {
+        max-width: 1480px;
+        margin: 0 auto;
+        padding: 10px 18px 28px;
+      }
+
+      .topbar {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 14px;
+        padding: 10px 14px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: rgba(10, 18, 42, 0.92);
+        margin-bottom: 10px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .logo-dot {
+        width: 23px;
+        height: 23px;
+        border-radius: 8px;
+        background: linear-gradient(145deg, #7c59ff, #3b82f6);
+        display: grid;
+        place-items: center;
+        font-size: 0.74rem;
+        font-weight: 700;
+      }
+
+      .brand-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+      }
+
+      .brand-sub {
+        margin-left: 8px;
+        color: var(--muted);
+        font-size: 0.72rem;
+        letter-spacing: 0.8px;
+      }
+
+      .hero {
+        padding: 18px;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: linear-gradient(135deg, #111a38c7, #0b1430c7);
+        backdrop-filter: blur(10px);
+        margin-bottom: 10px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 16px;
+        align-items: center;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(1.65rem, 2.4vw, 2.8rem);
+        font-family: "Times New Roman", Georgia, serif;
+        font-weight: 500;
+      }
+
+      .subtitle {
+        margin: 0;
+        color: var(--muted);
+        max-width: 740px;
+        line-height: 1.45;
+      }
+
+      .layout {
+        margin-top: 0;
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 12px;
+      }
+
+      .tabs {
+        margin-top: 0;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .share-actions {
+        margin-top: 0;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .action-btn {
+        padding: 8px 12px;
+        border-radius: 9px;
+        border: 1px solid var(--border);
+        background: #101a34;
+        color: var(--text);
+        cursor: pointer;
+        font-size: 0.84rem;
+      }
+
+      .action-btn:hover {
+        border-color: #5264a8;
+      }
+
+      .offline-note {
+        margin: 0;
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
+
+      .formula-chip {
+        font-size: 0.78rem;
+        color: #d9e3ff;
+        background: rgba(17, 28, 58, 0.84);
+        border: 1px solid #334171;
+        border-radius: 10px;
+        padding: 10px 12px;
+        max-width: 360px;
+      }
+
+      .tab-btn {
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #121a34;
+        color: var(--text);
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      .tab-btn.active {
+        background: linear-gradient(135deg, #2f1f63, #13406a);
+        border-color: #6f58d3;
+      }
+
+      .tab-panel {
+        margin-top: 12px;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .panel {
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: var(--card);
+        backdrop-filter: blur(14px);
+      }
+
+      .controls {
+        padding: 14px;
+        position: sticky;
+        top: 16px;
+        height: fit-content;
+      }
+
+      .section-title {
+        margin: 0 0 12px;
+        font-size: 1rem;
+      }
+
+      .control-group {
+        margin-bottom: 10px;
+        padding: 10px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--card-2);
+      }
+
+      .control-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+      }
+
+      .control-row label {
+        font-size: 0.92rem;
+      }
+
+      .pill {
+        font-variant-numeric: tabular-nums;
+        font-size: 0.82rem;
+        color: #d7def7;
+        background: #111937;
+        border: 1px solid var(--border);
+        padding: 2px 8px;
+        border-radius: 999px;
+      }
+
+      input[type="range"] {
+        width: 100%;
+        accent-color: var(--accent);
+      }
+
+      .dashboard {
+        padding: 16px;
+      }
+
+      .kpis {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(120px, 1fr));
+        gap: 8px;
+      }
+
+      .kpi {
+        padding: 10px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: linear-gradient(155deg, #1b2342a8, #10172ea8);
+      }
+
+      .kpi-label {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.83rem;
+      }
+
+      .kpi-value {
+        margin: 8px 0 4px;
+        font-size: clamp(1.1rem, 1.8vw, 1.6rem);
+        font-weight: 700;
+        letter-spacing: 0.2px;
+      }
+
+      .kpi-hint {
+        margin: 0;
+        font-size: 0.8rem;
+      }
+
+      .grid-2 {
+        margin-top: 8px;
+        display: grid;
+        grid-template-columns: 1.1fr 1fr;
+        gap: 12px;
+      }
+
+      .card {
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: linear-gradient(180deg, #1a2341a0, #10172ea0);
+      }
+
+      .card h3 {
+        margin: 0 0 10px;
+        font-size: 0.98rem;
+      }
+
+      .stack {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .bar-wrap {
+        display: grid;
+        grid-template-columns: 130px 1fr 84px;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .bar-label {
+        font-size: 0.82rem;
+        color: #d9def2;
+      }
+
+      .bar-track {
+        height: 11px;
+        border-radius: 999px;
+        background: #0d152c;
+        border: 1px solid #243056;
+        overflow: hidden;
+      }
+
+      .bar-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      }
+
+      .bar-value {
+        text-align: right;
+        font-size: 0.82rem;
+        color: #d8def7;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .insight-list {
+        margin: 0;
+        padding-left: 18px;
+        color: #dfe5ff;
+        line-height: 1.5;
+      }
+
+      .insight-list li + li {
+        margin-top: 8px;
+      }
+
+      .tag {
+        display: inline-block;
+        margin-left: 8px;
+        font-size: 0.73rem;
+        padding: 2px 7px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: #0f1833;
+        color: #c4cdf1;
+      }
+
+      .table-wrap {
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 1020px;
+      }
+
+      th,
+      td {
+        text-align: left;
+        padding: 10px 12px;
+        border-bottom: 1px solid #2b355a;
+        vertical-align: top;
+        font-size: 0.86rem;
+      }
+
+      th {
+        position: sticky;
+        top: 0;
+        background: #131d3a;
+        color: #dde4ff;
+        z-index: 1;
+      }
+
+      .risk {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        border: 1px solid var(--border);
+      }
+
+      .risk-critical {
+        color: #ffd5dd;
+        background: #4a1220;
+      }
+
+      .risk-high {
+        color: #ffeacc;
+        background: #4a2d0e;
+      }
+
+      .risk-medium {
+        color: #fff7cc;
+        background: #3a320e;
+      }
+
+      .risk-low {
+        color: #dafce9;
+        background: #123323;
+      }
+
+      .filters {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(160px, 1fr));
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .filter-box {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #0f1833;
+        padding: 8px 10px;
+      }
+
+      .filter-box label {
+        display: block;
+        font-size: 0.76rem;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+
+      .filter-box select {
+        width: 100%;
+        border-radius: 8px;
+        border: 1px solid #344372;
+        background: #121d3c;
+        color: var(--text);
+        padding: 6px 8px;
+      }
+
+      .readiness-card {
+        margin-bottom: 12px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+        background: linear-gradient(180deg, #1a2341a0, #10172ea0);
+      }
+
+      .readiness-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .readiness-score {
+        font-size: 1.4rem;
+        font-weight: 700;
+      }
+
+      .readiness-sub {
+        margin: 5px 0 0;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      .progress-track {
+        margin-top: 10px;
+        width: 100%;
+        height: 12px;
+        border-radius: 999px;
+        border: 1px solid #344372;
+        background: #111936;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, #ef4444, #f59e0b, #22c55e);
+      }
+
+      .answer-input,
+      .answer-risk-select {
+        width: 100%;
+        border-radius: 8px;
+        border: 1px solid #344372;
+        background: #121d3c;
+        color: var(--text);
+        padding: 6px 8px;
+        font-size: 0.82rem;
+      }
+
+      .dr-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+        gap: 12px;
+      }
+
+      .dr-metric {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #101a35;
+        padding: 12px;
+      }
+
+      .dr-metric p {
+        margin: 0;
+      }
+
+      .dr-value {
+        margin-top: 6px;
+        font-size: 1.55rem;
+        font-weight: 700;
+      }
+
+      @media (max-width: 1020px) {
+        .filters {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      .planner-layout {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 12px;
+      }
+
+      .planner-tools {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #101a35;
+        padding: 12px;
+      }
+
+      .planner-tools h4 {
+        margin: 0 0 10px;
+        font-size: 0.9rem;
+      }
+
+      .planner-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+
+      .planner-grid label {
+        display: block;
+        font-size: 0.75rem;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+
+      .planner-grid input {
+        width: 100%;
+        border-radius: 8px;
+        border: 1px solid #344372;
+        background: #121d3c;
+        color: var(--text);
+        padding: 6px 8px;
+      }
+
+      .planner-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+
+      .planner-actions .action-btn {
+        flex: 1 1 130px;
+      }
+
+      .planner-canvas-wrap {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: auto;
+        background: #0f172f;
+      }
+
+      .planner-canvas-wrap #plannerCanvas,
+      .planner-canvas-wrap .lower-canvas {
+        background: #eef3ff;
+      }
+
+      .planner-canvas-wrap .upper-canvas {
+        background: transparent;
+      }
+
+      @media (max-width: 1080px) {
+        .planner-layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 1080px) {
+        .topbar {
+          grid-template-columns: 1fr;
+        }
+        .hero {
+          grid-template-columns: 1fr;
+        }
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        .controls {
+          position: static;
+        }
+      }
+
+      @media (max-width: 820px) {
+        .kpis {
+          grid-template-columns: repeat(2, minmax(130px, 1fr));
+        }
+        .grid-2 {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <section class="topbar">
+        <div class="brand">
+          <div class="logo-dot">S</div>
+          <div>
+            <span class="brand-title">Smart Store</span>
+            <span class="brand-sub">STORE 042 - LISBON</span>
+          </div>
+        </div>
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="simulator">Simulator</button>
+          <button class="tab-btn" data-tab="discovery">Discovery Questions</button>
+          <button class="tab-btn" data-tab="disaster">Disaster Recovery</button>
+          <button class="tab-btn" data-tab="planner">Store Planner</button>
+        </div>
+        <div class="share-actions">
+          <button class="action-btn" id="resetDataBtn">Reset</button>
+          <button class="action-btn" id="exportDataBtn">Export JSON</button>
+          <button class="action-btn" id="importDataBtn">Share Snapshot</button>
+          <input id="importDataInput" type="file" accept="application/json" style="display: none;" />
+        </div>
+      </section>
+
+      <section class="hero">
+        <div>
+          <p class="offline-note" style="letter-spacing: 1.4px; text-transform: uppercase; margin-bottom: 8px;">Value Realization Console</p>
+          <h1>Every lever, down to the last euro.</h1>
+          <p class="subtitle">
+            Simulate monthly revenue outcomes for walk-in / walk-out operations. The model traces peak traffic, checkout tempo,
+            stock repositioning, exception handling, staffing, and utility tradeoffs into one net value target.
+          </p>
+        </div>
+        <div class="formula-chip">
+          Net Value = Potential Revenue - (Operating Costs + Exception Penalties + Downtime)
+          <div class="offline-note" style="margin-top: 8px;">Period: Monthly  |  Currency: EUR  |  Fiscal model: v4.2</div>
+        </div>
+      </section>
+
+      <section class="layout tab-panel" id="simulatorTab">
+        <aside class="panel controls">
+          <h2 class="section-title">Simulation Levers</h2>
+
+          <div class="control-group">
+            <div class="control-row">
+              <label for="baseVisitors">Daily visitors (x30 monthly)</label>
+              <span class="pill" id="baseVisitorsVal"></span>
+            </div>
+            <input id="baseVisitors" type="range" min="500" max="6000" value="2400" step="50" />
+          </div>
+
+          <div class="control-group">
+            <div class="control-row">
+              <label for="peakLift">Peak hour uplift (%)</label>
+              <span class="pill" id="peakLiftVal"></span>
+            </div>
+            <input id="peakLift" type="range" min="5" max="60" value="28" step="1" />
+          </div>
+
+          <div class="control-group">
+            <div class="control-row">
+              <label for="queueTime">Queue checkout time (sec)</label>
+              <span class="pill" id="queueTimeVal"></span>
+            </div>
+            <input id="queueTime" type="range" min="6" max="240" value="38" step="2" />
+          </div>
+
+          <div class="control-group">
+            <div class="control-row">
+              <label for="restockTime">Stock reposition time (min)</label>
+              <span class="pill" id="restockTimeVal"></span>
+            </div>
+            <input id="restockTime" type="range" min="2" max="90" value="20" step="1" />
+          </div>
+
+          <div class="control-group">
+            <div class="control-row">
+              <label for="exceptionRate">Exception base rate (%)</label>
+              <span class="pill" id="exceptionRateVal"></span>
+            </div>
+            <input id="exceptionRate" type="range" min="0.5" max="12" value="4" step="0.1" />
+          </div>
+
+          <div class="control-group">
+            <div class="control-row">
+              <label for="staffCount">Store personnel</label>
+              <span class="pill" id="staffCountVal"></span>
+            </div>
+            <input id="staffCount" type="range" min="2" max="20" value="8" step="1" />
+            <p style="margin: 8px 0 0; font-size: 0.78rem; color: var(--muted);">
+              Assuming an average of 1 FTE per 35 sqm.
+            </p>
+          </div>
+
+          <div class="control-group">
+            <div class="control-row">
+              <label for="energyComms">Energy & Communications (EUR/month)</label>
+              <span class="pill" id="energyCommsVal"></span>
+            </div>
+            <input id="energyComms" type="range" min="600" max="5000" value="1800" step="50" />
+          </div>
+
+          <div class="control-group">
+            <div class="control-row">
+              <label for="smartTechCost">Smart Store Technology (EUR/month)</label>
+              <span class="pill" id="smartTechCostVal"></span>
+            </div>
+            <input id="smartTechCost" type="range" min="0" max="30000" value="0" step="250" />
+          </div>
+
+          <div class="control-group">
+            <div class="control-row">
+              <label for="downtimeHours">Downtime penalty (hours)</label>
+              <span class="pill" id="downtimeHoursVal"></span>
+            </div>
+            <input id="downtimeHours" type="range" min="0" max="12" value="0" step="1" />
+          </div>
+        </aside>
+
+        <main class="panel dashboard">
+          <div class="kpis">
+            <article class="kpi">
+              <p class="kpi-label">Potential Revenue</p>
+              <p id="kpiRevenue" class="kpi-value"></p>
+              <p class="kpi-hint">Monthly top-line from products sold</p>
+            </article>
+            <article class="kpi">
+              <p class="kpi-label">Operating Costs</p>
+              <p id="kpiOperating" class="kpi-value"></p>
+              <p class="kpi-hint">Monthly fixed + staffing + utilities + tech</p>
+            </article>
+            <article class="kpi">
+              <p class="kpi-label">Exception Penalties</p>
+              <p id="kpiPenalty" class="kpi-value"></p>
+              <p class="kpi-hint">Loss due to unresolved exceptions</p>
+            </article>
+            <article class="kpi">
+              <p class="kpi-label">Downtime Penalty</p>
+              <p id="kpiDowntimePenalty" class="kpi-value"></p>
+              <p class="kpi-hint">Revenue impact from operational downtime</p>
+            </article>
+            <article class="kpi">
+              <p class="kpi-label">Net Value Realization</p>
+              <p id="kpiNet" class="kpi-value"></p>
+              <p id="kpiMargin" class="kpi-hint"></p>
+            </article>
+          </div>
+
+          <div class="grid-2">
+            <section class="card">
+              <h3>Revenue Composition</h3>
+              <div class="stack">
+                <div class="bar-wrap">
+                  <div class="bar-label">Transactions</div>
+                  <div class="bar-track"><div class="bar-fill" id="barTransactions"></div></div>
+                  <div class="bar-value" id="barTransactionsVal"></div>
+                </div>
+                <div class="bar-wrap">
+                  <div class="bar-label">Products Sold</div>
+                  <div class="bar-track"><div class="bar-fill" id="barProducts"></div></div>
+                  <div class="bar-value" id="barProductsVal"></div>
+                </div>
+                <div class="bar-wrap">
+                  <div class="bar-label">Exception Volume</div>
+                  <div class="bar-track"><div class="bar-fill" id="barExceptions"></div></div>
+                  <div class="bar-value" id="barExceptionsVal"></div>
+                </div>
+              </div>
+            </section>
+
+            <section class="card">
+              <h3>Margin Pressure</h3>
+              <div class="stack">
+                <div class="bar-wrap">
+                  <div class="bar-label">Operating Cost Ratio</div>
+                  <div class="bar-track"><div class="bar-fill" id="barOpRatio"></div></div>
+                  <div class="bar-value" id="barOpRatioVal"></div>
+                </div>
+                <div class="bar-wrap">
+                  <div class="bar-label">Penalty Ratio</div>
+                  <div class="bar-track"><div class="bar-fill" id="barPenaltyRatio"></div></div>
+                  <div class="bar-value" id="barPenaltyRatioVal"></div>
+                </div>
+                <div class="bar-wrap">
+                  <div class="bar-label">Net Margin</div>
+                  <div class="bar-track"><div class="bar-fill" id="barNetMargin"></div></div>
+                  <div class="bar-value" id="barNetMarginVal"></div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div class="grid-2">
+            <section class="card">
+              <h3>Top Efficiency Opportunities</h3>
+              <ol class="insight-list" id="efficiencyList"></ol>
+            </section>
+
+            <section class="card">
+              <h3>Operational Notes</h3>
+              <ul class="insight-list">
+                <li>Peak windows modeled for 7:00-10:00 and 17:00-20:30 commuter bursts.</li>
+                <li>Checkout friction directly impacts conversion and basket completion.</li>
+                <li>Staffing lowers exceptions but raises monthly operating costs.<span class="tag">Tradeoff</span></li>
+                <li>Energy and communications costs are modeled as a direct monthly lever.</li>
+                <li>Smart store technology cost is modeled as a monthly operating expense.</li>
+                <li>Downtime penalty scales from 15% at 1h to 100% revenue loss at 12h.</li>
+                <li>Restock responsiveness protects availability for high-demand SKUs.</li>
+              </ul>
+            </section>
+          </div>
+        </main>
+      </section>
+
+      <section class="tab-panel hidden" id="discoveryTab">
+        <article class="panel dashboard">
+          <div class="card">
+            <h3>Discovery Questions Tracker</h3>
+            <div class="readiness-card">
+              <div class="readiness-head">
+                <span>Readiness Score</span>
+                <span class="readiness-score" id="readinessScore">0%</span>
+              </div>
+              <p class="readiness-sub" id="readinessDetails">0 of 0 questions answered</p>
+              <div class="progress-track">
+                <div class="progress-fill" id="readinessProgress"></div>
+              </div>
+            </div>
+            <div class="filters">
+              <div class="filter-box">
+                <label for="categoryFilter">Filter by Category</label>
+                <select id="categoryFilter">
+                  <option value="all">All categories</option>
+                  <option value="Hardware &amp; Space">Hardware & Space</option>
+                  <option value="Operations">Operations</option>
+                  <option value="Systems &amp; Data">Systems & Data</option>
+                  <option value="Product Catalog">Product Catalog</option>
+                </select>
+              </div>
+              <div class="filter-box">
+                <label for="questionRiskFilter">Filter by Question Risk</label>
+                <select id="questionRiskFilter">
+                  <option value="all">All risks</option>
+                  <option value="Critical">Critical</option>
+                  <option value="High">High</option>
+                  <option value="Medium">Medium</option>
+                </select>
+              </div>
+              <div class="filter-box">
+                <label for="answerRiskFilter">Filter by Answer Risk</label>
+                <select id="answerRiskFilter">
+                  <option value="all">All answer risks</option>
+                  <option value="Not Set">Not Set</option>
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                  <option value="Critical">Critical</option>
+                </select>
+              </div>
+              <div class="filter-box">
+                <label for="answerStatusFilter">Filter by Answer Status</label>
+                <select id="answerStatusFilter">
+                  <option value="all">All</option>
+                  <option value="answered">Answered</option>
+                  <option value="unanswered">Unanswered</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table id="discoveryTable">
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th>Discovery Question / Item</th>
+                    <th>Risk Level</th>
+                    <th>Mitigation / Notes</th>
+                    <th>Sensei Owner</th>
+                    <th>Client Owner</th>
+                    <th>Answer</th>
+                    <th>Answer Risk</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr data-category="Hardware & Space" data-question-risk="Critical">
+                    <td>Hardware &amp; Space</td>
+                    <td>What are the exact ceiling heights, lux lighting levels, and power paths? Are there structural blockers?</td>
+                    <td><span class="risk risk-critical">Critical</span></td>
+                    <td>Conduct physical site survey. Map cable trays, perform 3D scan for camera overlap, and identify dark spots.</td>
+                    <td>Tech Lead</td>
+                    <td>Facilities Mgr</td>
+                    <td><input class="answer-input" type="text" placeholder="Add answer..." value="" /></td>
+                    <td>
+                      <select class="answer-risk-select">
+                        <option>Not Set</option>
+                        <option>Low</option>
+                        <option>Medium</option>
+                        <option>High</option>
+                        <option>Critical</option>
+                      </select>
+                    </td>
+                  </tr>
+                  <tr data-category="Hardware & Space" data-question-risk="Critical">
+                    <td>Hardware &amp; Space</td>
+                    <td>Is there a secure, climate-controlled comms closet to house the Edge servers? What is the UPS capacity?</td>
+                    <td><span class="risk risk-critical">Critical</span></td>
+                    <td>Verify HVAC capacity. Audit current UPS load to ensure safe edge server shutdown during power outages.</td>
+                    <td>Hardware Eng</td>
+                    <td>IT Admin</td>
+                    <td><input class="answer-input" type="text" placeholder="Add answer..." value="" /></td>
+                    <td>
+                      <select class="answer-risk-select">
+                        <option>Not Set</option>
+                        <option>Low</option>
+                        <option>Medium</option>
+                        <option>High</option>
+                        <option>Critical</option>
+                      </select>
+                    </td>
+                  </tr>
+                  <tr data-category="Hardware & Space" data-question-risk="High">
+                    <td>Hardware &amp; Space</td>
+                    <td>What are the specific local privacy laws regarding CCTV and skeletal tracking?</td>
+                    <td><span class="risk risk-high">High</span></td>
+                    <td>Consult legal. Ensure warning signage is printed and visible at entrance. Confirm data retention policies.</td>
+                    <td>Legal Team</td>
+                    <td>Legal</td>
+                    <td><input class="answer-input" type="text" placeholder="Add answer..." value="" /></td>
+                    <td>
+                      <select class="answer-risk-select">
+                        <option>Not Set</option>
+                        <option>Low</option>
+                        <option>Medium</option>
+                        <option>High</option>
+                        <option>Critical</option>
+                      </select>
+                    </td>
+                  </tr>
+                  <tr data-category="Operations" data-question-risk="Medium">
+                    <td>Operations</td>
+                    <td>Can we phase the hardware installation (12 AM - 4 AM) to keep the store operational? Where is the staging area?</td>
+                    <td><span class="risk risk-medium">Medium</span></td>
+                    <td>Draft night-shift schedule. Define Zone A/B rollout. Confirm delivery hours and security clearance.</td>
+                    <td>Project Mgr</td>
+                    <td>Ops Manager</td>
+                    <td><input class="answer-input" type="text" placeholder="Add answer..." value="" /></td>
+                    <td>
+                      <select class="answer-risk-select">
+                        <option>Not Set</option>
+                        <option>Low</option>
+                        <option>Medium</option>
+                        <option>High</option>
+                        <option>Critical</option>
+                      </select>
+                    </td>
+                  </tr>
+                  <tr data-category="Operations" data-question-risk="Medium">
+                    <td>Operations</td>
+                    <td>How are deliveries scheduled? Do restocking carts block aisles during peak operating hours?</td>
+                    <td><span class="risk risk-medium">Medium</span></td>
+                    <td>Map delivery schedule. Recommend shifting bulk restocking to off-peak hours to avoid camera occlusion.</td>
+                    <td>Cust. Success</td>
+                    <td>Store Manager</td>
+                    <td><input class="answer-input" type="text" placeholder="Add answer..." value="" /></td>
+                    <td>
+                      <select class="answer-risk-select">
+                        <option>Not Set</option>
+                        <option>Low</option>
+                        <option>Medium</option>
+                        <option>High</option>
+                        <option>Critical</option>
+                      </select>
+                    </td>
+                  </tr>
+                  <tr data-category="Systems & Data" data-question-risk="Medium">
+                    <td>Systems &amp; Data</td>
+                    <td>What are the specific vendors/versions of legacy ERP &amp; POS? Do they expose REST APIs or use SFTP/XML?</td>
+                    <td><span class="risk risk-medium">Medium</span></td>
+                    <td>Request architecture docs. Determine Translation Middleware requirements (e.g., MuleSoft) to map JSON to legacy.</td>
+                    <td>Integration Eng</td>
+                    <td>IT Director</td>
+                    <td><input class="answer-input" type="text" placeholder="Add answer..." value="" /></td>
+                    <td>
+                      <select class="answer-risk-select">
+                        <option>Not Set</option>
+                        <option>Low</option>
+                        <option>Medium</option>
+                        <option>High</option>
+                        <option>Critical</option>
+                      </select>
+                    </td>
+                  </tr>
+                  <tr data-category="Systems & Data" data-question-risk="High">
+                    <td>Systems &amp; Data</td>
+                    <td>How frequently is pricing, promotional data, and tax configuration pushed from HQ to the store?</td>
+                    <td><span class="risk risk-high">High</span></td>
+                    <td>Define sync frequency (e.g., 15 mins). Map complex promo logic (BOGO, meal deals) to edge logic.</td>
+                    <td>Integration Eng</td>
+                    <td>Pricing Mgr</td>
+                    <td><input class="answer-input" type="text" placeholder="Add answer..." value="" /></td>
+                    <td>
+                      <select class="answer-risk-select">
+                        <option>Not Set</option>
+                        <option>Low</option>
+                        <option>Medium</option>
+                        <option>High</option>
+                        <option>Critical</option>
+                      </select>
+                    </td>
+                  </tr>
+                  <tr data-category="Systems & Data" data-question-risk="High">
+                    <td>Systems &amp; Data</td>
+                    <td>What are the firewall, VPN, or IP whitelisting requirements to establish a secure connection to HQ?</td>
+                    <td><span class="risk risk-high">High</span></td>
+                    <td>Exchange security questionnaires. Set up secure site-to-site VPN tunnel.</td>
+                    <td>Security Eng</td>
+                    <td>Net Security</td>
+                    <td><input class="answer-input" type="text" placeholder="Add answer..." value="" /></td>
+                    <td>
+                      <select class="answer-risk-select">
+                        <option>Not Set</option>
+                        <option>Low</option>
+                        <option>Medium</option>
+                        <option>High</option>
+                        <option>Critical</option>
+                      </select>
+                    </td>
+                  </tr>
+                  <tr data-category="Product Catalog" data-question-risk="High">
+                    <td>Product Catalog</td>
+                    <td>What percentage of items are variable-weight? Are there visually similar items (e.g., Diet vs Regular)?</td>
+                    <td><span class="risk risk-high">High</span></td>
+                    <td>Extract active SKU list. Identify items requiring load-cell precision tuning vs. visual tracking.</td>
+                    <td>Data Eng</td>
+                    <td>Category Mgr</td>
+                    <td><input class="answer-input" type="text" placeholder="Add answer..." value="" /></td>
+                    <td>
+                      <select class="answer-risk-select">
+                        <option>Not Set</option>
+                        <option>Low</option>
+                        <option>Medium</option>
+                        <option>High</option>
+                        <option>Critical</option>
+                      </select>
+                    </td>
+                  </tr>
+                  <tr data-category="Product Catalog" data-question-risk="Critical">
+                    <td>Product Catalog</td>
+                    <td>How is SKU master data structured? What is the ongoing SOP for introducing a net-new SKU post-launch?</td>
+                    <td><span class="risk risk-critical">Critical</span></td>
+                    <td>Provide standard CSV ingestion template. Document standard procedure for weighing new items before shelving.</td>
+                    <td>Data Eng</td>
+                    <td>Master Data</td>
+                    <td><input class="answer-input" type="text" placeholder="Add answer..." value="" /></td>
+                    <td>
+                      <select class="answer-risk-select">
+                        <option>Not Set</option>
+                        <option>Low</option>
+                        <option>Medium</option>
+                        <option>High</option>
+                        <option>Critical</option>
+                      </select>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="tab-panel hidden" id="disasterTab">
+        <article class="panel dashboard">
+          <div class="card">
+            <h3>Disaster Recovery</h3>
+            <div class="dr-grid">
+              <div class="dr-metric">
+                <p>Recovery Point Objective (RPO)</p>
+                <p class="dr-value">15 min</p>
+                <p class="readiness-sub">Maximum tolerable data loss window for basket, pricing, and telemetry records.</p>
+              </div>
+              <div class="dr-metric">
+                <p>Recovery Time Objective (RTO)</p>
+                <p class="dr-value">60 min</p>
+                <p class="readiness-sub">Maximum tolerable time to restore core autonomous checkout operations.</p>
+              </div>
+            </div>
+          </div>
+          <div class="grid-2">
+            <section class="card">
+              <h3>Recovery Processes</h3>
+              <ol class="insight-list">
+                <li>Detect outage and trigger incident command with Severity classification.</li>
+                <li>Fail over edge orchestration to standby node and isolate failed components.</li>
+                <li>Restore last consistent data checkpoint within RPO target.</li>
+                <li>Validate basket accuracy, payment reconciliation, and stock event integrity.</li>
+                <li>Switch store mode back to autonomous operations after business sign-off.</li>
+              </ol>
+            </section>
+            <section class="card">
+              <h3>Controls & Validation</h3>
+              <ul class="insight-list">
+                <li>Run quarterly DR drills with measured RPO/RTO outcomes and postmortems.</li>
+                <li>Maintain backup connectivity path (secondary ISP or LTE failover).</li>
+                <li>Define manual fallback checkout SOP for prolonged outages.</li>
+                <li>Track unresolved high-risk incidents before go-live gates.</li>
+                <li>Publish runbook ownership across SRE, store ops, and security teams.</li>
+              </ul>
+            </section>
+          </div>
+        </article>
+      </section>
+
+      <section class="tab-panel hidden" id="plannerTab">
+        <article class="panel dashboard">
+          <div class="card">
+            <h3>Store Planner Canvas</h3>
+            <p class="readiness-sub">
+              Set store dimensions in square meters, add layout objects, drag to position, and export your plan.
+            </p>
+            <div class="planner-layout">
+              <aside class="planner-tools">
+                <h4>Store Dimensions</h4>
+                <div class="planner-grid">
+                  <div>
+                    <label for="plannerWidth">Width (m)</label>
+                    <input id="plannerWidth" type="number" min="5" max="200" value="20" />
+                  </div>
+                  <div>
+                    <label for="plannerHeight">Depth (m)</label>
+                    <input id="plannerHeight" type="number" min="5" max="200" value="20" />
+                  </div>
+                </div>
+                <button class="action-btn" id="applyStoreSizeBtn">Apply Store Size</button>
+                <p class="offline-note">Area: <span id="plannerArea">400 m²</span></p>
+                <p class="offline-note" id="plannerStatus">Planner ready.</p>
+
+                <h4 style="margin-top: 14px;">Add Objects</h4>
+                <div class="planner-actions">
+                  <button class="action-btn planner-add-btn" data-kind="server">Server</button>
+                  <button class="action-btn planner-add-btn" data-kind="aisle">Aisle</button>
+                  <button class="action-btn planner-add-btn" data-kind="entry-open">Entry (Open)</button>
+                  <button class="action-btn planner-add-btn" data-kind="entry-gated">Entry (Gated)</button>
+                  <button class="action-btn planner-add-btn" data-kind="checkout">Checkout</button>
+                  <button class="action-btn planner-add-btn" data-kind="warehouse">Warehouse Area</button>
+                  <button class="action-btn planner-add-btn" data-kind="technical">Technical Area</button>
+                  <button class="action-btn planner-add-btn" data-kind="separator-wall">Separator Wall</button>
+                  <button class="action-btn planner-add-btn" data-kind="security-cage">Security Cage</button>
+                  <button class="action-btn planner-add-btn" data-kind="entry-zone">Entry Zone</button>
+                  <button class="action-btn" id="plannerDeleteSelectedBtn">Delete Selected</button>
+                </div>
+
+                <h4>Export / Import</h4>
+                <div class="planner-actions">
+                  <button class="action-btn" id="plannerExportPngBtn">Export PNG</button>
+                  <button class="action-btn" id="plannerExportSvgBtn">Export SVG</button>
+                  <button class="action-btn" id="plannerExportJsonBtn">Export Plan JSON</button>
+                  <button class="action-btn" id="plannerImportJsonBtn">Import Plan JSON</button>
+                  <button class="action-btn" id="plannerClearBtn">Clear Planner</button>
+                  <input id="plannerImportInput" type="file" accept="application/json" style="display: none;" />
+                </div>
+              </aside>
+
+              <div class="planner-canvas-wrap">
+                <canvas id="plannerCanvas" width="960" height="620"></canvas>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+    </div>
+
+    <script src="libs/fabric.min.js"></script>
+    <script>
+      const sliders = {
+        baseVisitors: document.getElementById("baseVisitors"),
+        peakLift: document.getElementById("peakLift"),
+        queueTime: document.getElementById("queueTime"),
+        restockTime: document.getElementById("restockTime"),
+        exceptionRate: document.getElementById("exceptionRate"),
+        staffCount: document.getElementById("staffCount"),
+        energyComms: document.getElementById("energyComms"),
+        smartTechCost: document.getElementById("smartTechCost"),
+        downtimeHours: document.getElementById("downtimeHours")
+      };
+
+      const valueLabels = {
+        baseVisitors: document.getElementById("baseVisitorsVal"),
+        peakLift: document.getElementById("peakLiftVal"),
+        queueTime: document.getElementById("queueTimeVal"),
+        restockTime: document.getElementById("restockTimeVal"),
+        exceptionRate: document.getElementById("exceptionRateVal"),
+        staffCount: document.getElementById("staffCountVal"),
+        energyComms: document.getElementById("energyCommsVal"),
+        smartTechCost: document.getElementById("smartTechCostVal"),
+        downtimeHours: document.getElementById("downtimeHoursVal")
+      };
+
+      const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+      const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+
+      const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+      const defaultForecast = {
+        transactions: 0,
+        productsSold: 0,
+        revenue: 0,
+        exceptionVolume: 0,
+        exceptionPenalty: 0,
+        downtimePenalty: 0,
+        downtimePenaltyRate: 0,
+        operatingCosts: 0,
+        netValue: 0,
+        netMargin: 0
+      };
+
+      const modelConstants = {
+        daysPerMonth: 30,
+        baseConversion: 0.42,
+        averageItemsPerTransaction: 2.6,
+        averageProductPrice: 4.8,
+        baseFixedMonthlyCosts: 54000,
+        laborCostPerPerson: 145,
+        penaltyPerException: 16,
+        downtimePenaltyAt0h: 0,
+        downtimePenaltyAt12h: 1
+      };
+
+      function computeForecast(input) {
+        const peakTrafficFactor = 1 + input.peakLift / 100;
+        const queueEfficiency = clamp(1.34 - input.queueTime / 190, 0.42, 1.22);
+        const restockEfficiency = clamp(1.26 - input.restockTime / 120, 0.58, 1.19);
+        const staffExceptionMitigation = clamp(input.staffCount * 0.042, 0, 0.68);
+
+        const effectiveConversion = modelConstants.baseConversion * queueEfficiency;
+        const dailyTransactions = input.baseVisitors * peakTrafficFactor * effectiveConversion;
+        const dailyProductsSold = dailyTransactions * modelConstants.averageItemsPerTransaction * restockEfficiency;
+        const dailyRevenue = dailyProductsSold * modelConstants.averageProductPrice;
+
+        const effectiveExceptionRate = (input.exceptionRate / 100) * (1 - staffExceptionMitigation);
+        const dailyExceptionVolume = dailyTransactions * effectiveExceptionRate;
+        const dailyExceptionPenalty = dailyExceptionVolume * modelConstants.penaltyPerException;
+
+        const transactions = dailyTransactions * modelConstants.daysPerMonth;
+        const productsSold = dailyProductsSold * modelConstants.daysPerMonth;
+        const revenue = dailyRevenue * modelConstants.daysPerMonth;
+        const exceptionVolume = dailyExceptionVolume * modelConstants.daysPerMonth;
+        const exceptionPenalty = dailyExceptionPenalty * modelConstants.daysPerMonth;
+
+        const staffingMonthlyCost = input.staffCount * modelConstants.laborCostPerPerson * modelConstants.daysPerMonth;
+        const operatingCosts = modelConstants.baseFixedMonthlyCosts + staffingMonthlyCost + input.energyComms + input.smartTechCost;
+        const downtimePenaltyRate =
+          modelConstants.downtimePenaltyAt0h +
+          (input.downtimeHours / 12) * (modelConstants.downtimePenaltyAt12h - modelConstants.downtimePenaltyAt0h);
+        const downtimePenalty = revenue * clamp(downtimePenaltyRate, modelConstants.downtimePenaltyAt0h, modelConstants.downtimePenaltyAt12h);
+        const netValue = revenue - (operatingCosts + exceptionPenalty + downtimePenalty);
+        const netMargin = revenue > 0 ? netValue / revenue : 0;
+
+        return {
+          transactions,
+          productsSold,
+          revenue,
+          exceptionVolume,
+          exceptionPenalty,
+          downtimePenalty,
+          downtimePenaltyRate,
+          operatingCosts,
+          netValue,
+          netMargin
+        };
+      }
+
+      async function fetchForecast(input) {
+        try {
+          return computeForecast(input);
+        } catch (_err) {
+          return defaultForecast;
+        }
+      }
+
+      function getInputValues() {
+        return {
+          baseVisitors: Number(sliders.baseVisitors.value),
+          peakLift: Number(sliders.peakLift.value),
+          queueTime: Number(sliders.queueTime.value),
+          restockTime: Number(sliders.restockTime.value),
+          exceptionRate: Number(sliders.exceptionRate.value),
+          staffCount: Number(sliders.staffCount.value),
+          energyComms: Number(sliders.energyComms.value),
+          smartTechCost: Number(sliders.smartTechCost.value),
+          downtimeHours: Number(sliders.downtimeHours.value)
+        };
+      }
+
+      function setBar(id, percent) {
+        document.getElementById(id).style.width = `${clamp(percent, 2, 100)}%`;
+      }
+
+      async function computeOpportunities(baseInput, baseNetValue) {
+        const candidates = [
+          {
+            name: "Reduce queue time by 20%",
+            tweak: (x) => ({ ...x, queueTime: Math.max(6, x.queueTime * 0.8) })
+          },
+          {
+            name: "Reduce stock reposition time by 25%",
+            tweak: (x) => ({ ...x, restockTime: Math.max(2, x.restockTime * 0.75) })
+          },
+          {
+            name: "Raise peak traffic capture by +10 pts",
+            tweak: (x) => ({ ...x, peakLift: Math.min(60, x.peakLift + 10) })
+          },
+          {
+            name: "Reduce exceptions by 1.5 pts",
+            tweak: (x) => ({ ...x, exceptionRate: Math.max(0.5, x.exceptionRate - 1.5) })
+          },
+          {
+            name: "Add 2 personnel for floor support",
+            tweak: (x) => ({ ...x, staffCount: Math.min(20, x.staffCount + 2) })
+          },
+          {
+            name: "Reduce energy & communications by 15%",
+            tweak: (x) => ({ ...x, energyComms: Math.max(600, x.energyComms * 0.85) })
+          }
+        ];
+
+        const projected = await Promise.all(candidates.map((item) => fetchForecast(item.tweak(baseInput))));
+        return candidates
+          .map((item, index) => ({
+            label: item.name,
+            uplift: projected[index].netValue - baseNetValue
+          }))
+          .sort((a, b) => b.uplift - a.uplift)
+          .slice(0, 3);
+      }
+
+      async function updateUI() {
+        const input = getInputValues();
+
+        valueLabels.baseVisitors.textContent = number.format(input.baseVisitors);
+        valueLabels.peakLift.textContent = `${input.peakLift.toFixed(0)}%`;
+        valueLabels.queueTime.textContent = `${input.queueTime.toFixed(0)}s`;
+        valueLabels.restockTime.textContent = `${input.restockTime.toFixed(0)}m`;
+        valueLabels.exceptionRate.textContent = `${input.exceptionRate.toFixed(1)}%`;
+        valueLabels.staffCount.textContent = input.staffCount.toFixed(0);
+        valueLabels.energyComms.textContent = currency.format(input.energyComms);
+        valueLabels.smartTechCost.textContent = currency.format(input.smartTechCost);
+        const downtimeRatePct = (input.downtimeHours / 12) * 100;
+        valueLabels.downtimeHours.textContent = `${input.downtimeHours.toFixed(0)}h (${downtimeRatePct.toFixed(0)}%)`;
+
+        const out = await fetchForecast(input);
+
+        document.getElementById("kpiRevenue").textContent = currency.format(out.revenue);
+        document.getElementById("kpiOperating").textContent = currency.format(out.operatingCosts);
+        document.getElementById("kpiPenalty").textContent = currency.format(out.exceptionPenalty);
+        document.getElementById("kpiDowntimePenalty").textContent = currency.format(out.downtimePenalty);
+        document.getElementById("kpiNet").textContent = currency.format(out.netValue);
+        document.getElementById("kpiNet").style.color = out.netValue >= 0 ? "var(--ok)" : "var(--bad)";
+        document.getElementById("kpiMargin").textContent = `Net margin: ${(out.netMargin * 100).toFixed(1)}%`;
+        document.getElementById("kpiMargin").style.color = out.netMargin > 0.3 ? "var(--ok)" : out.netMargin < 0.12 ? "var(--bad)" : "var(--warn)";
+
+        const maxTx = 4200;
+        const maxProducts = 13000;
+        const maxExceptions = 240;
+
+        setBar("barTransactions", (out.transactions / maxTx) * 100);
+        setBar("barProducts", (out.productsSold / maxProducts) * 100);
+        setBar("barExceptions", (out.exceptionVolume / maxExceptions) * 100);
+        document.getElementById("barTransactionsVal").textContent = number.format(out.transactions);
+        document.getElementById("barProductsVal").textContent = number.format(out.productsSold);
+        document.getElementById("barExceptionsVal").textContent = number.format(out.exceptionVolume);
+
+        const opRatio = out.revenue > 0 ? (out.operatingCosts / out.revenue) * 100 : 0;
+        const penaltyRatio = out.revenue > 0 ? ((out.exceptionPenalty + out.downtimePenalty) / out.revenue) * 100 : 0;
+        const netMarginPct = out.netMargin * 100;
+        setBar("barOpRatio", opRatio);
+        setBar("barPenaltyRatio", penaltyRatio);
+        setBar("barNetMargin", netMarginPct);
+        document.getElementById("barOpRatioVal").textContent = `${opRatio.toFixed(1)}%`;
+        document.getElementById("barPenaltyRatioVal").textContent = `${penaltyRatio.toFixed(1)}%`;
+        document.getElementById("barNetMarginVal").textContent = `${netMarginPct.toFixed(1)}%`;
+
+        const top = await computeOpportunities(input, out.netValue);
+        const list = document.getElementById("efficiencyList");
+        list.innerHTML = "";
+        top.forEach((item) => {
+          const li = document.createElement("li");
+          const sign = item.uplift >= 0 ? "+" : "";
+          li.textContent = `${item.label} -> ${sign}${currency.format(item.uplift)} net value uplift`;
+          list.appendChild(li);
+        });
+      }
+
+      const tabButtons = document.querySelectorAll(".tab-btn");
+      const simulatorTab = document.getElementById("simulatorTab");
+      const discoveryTab = document.getElementById("discoveryTab");
+      const disasterTab = document.getElementById("disasterTab");
+      const plannerTab = document.getElementById("plannerTab");
+      const exportDataBtn = document.getElementById("exportDataBtn");
+      const importDataBtn = document.getElementById("importDataBtn");
+      const resetDataBtn = document.getElementById("resetDataBtn");
+      const importDataInput = document.getElementById("importDataInput");
+      const categoryFilter = document.getElementById("categoryFilter");
+      const questionRiskFilter = document.getElementById("questionRiskFilter");
+      const answerRiskFilter = document.getElementById("answerRiskFilter");
+      const answerStatusFilter = document.getElementById("answerStatusFilter");
+      const readinessScore = document.getElementById("readinessScore");
+      const readinessDetails = document.getElementById("readinessDetails");
+      const readinessProgress = document.getElementById("readinessProgress");
+      const discoveryRows = Array.from(document.querySelectorAll("#discoveryTable tbody tr"));
+      const plannerWidthInput = document.getElementById("plannerWidth");
+      const plannerHeightInput = document.getElementById("plannerHeight");
+      const plannerAreaLabel = document.getElementById("plannerArea");
+      const applyStoreSizeBtn = document.getElementById("applyStoreSizeBtn");
+      const plannerAddButtons = Array.from(document.querySelectorAll(".planner-add-btn"));
+      const plannerExportPngBtn = document.getElementById("plannerExportPngBtn");
+      const plannerExportSvgBtn = document.getElementById("plannerExportSvgBtn");
+      const plannerExportJsonBtn = document.getElementById("plannerExportJsonBtn");
+      const plannerImportJsonBtn = document.getElementById("plannerImportJsonBtn");
+      const plannerImportInput = document.getElementById("plannerImportInput");
+      const plannerClearBtn = document.getElementById("plannerClearBtn");
+      const plannerDeleteSelectedBtn = document.getElementById("plannerDeleteSelectedBtn");
+      const plannerStatus = document.getElementById("plannerStatus");
+      const STORAGE_KEY = "smart_store_simulator_v1";
+      const plannerState = {
+        canvas: null,
+        scale: 22,
+        widthMeters: 20,
+        heightMeters: 20,
+        boundary: null,
+        gridObjects: []
+      };
+
+      function serializeAppState() {
+        return {
+          sliders: Object.fromEntries(Object.entries(sliders).map(([key, el]) => [key, Number(el.value)])),
+          filters: {
+            categoryFilter: categoryFilter.value,
+            questionRiskFilter: questionRiskFilter.value,
+            answerRiskFilter: answerRiskFilter.value,
+            answerStatusFilter: answerStatusFilter.value
+          },
+          discovery: discoveryRows.map((row) => ({
+            answer: row.querySelector(".answer-input").value,
+            answerRisk: row.querySelector(".answer-risk-select").value
+          })),
+          planner: plannerState.canvas
+            ? {
+                widthMeters: plannerState.widthMeters,
+                heightMeters: plannerState.heightMeters,
+                canvasJson: plannerState.canvas.toDatalessJSON(["plannerKind"])
+              }
+            : null
+        };
+      }
+
+      function applyAppState(state) {
+        if (!state || typeof state !== "object") return;
+
+        if (state.sliders) {
+          Object.entries(sliders).forEach(([key, el]) => {
+            if (state.sliders[key] !== undefined) el.value = String(state.sliders[key]);
+          });
+        }
+
+        if (state.filters) {
+          if (state.filters.categoryFilter) categoryFilter.value = state.filters.categoryFilter;
+          if (state.filters.questionRiskFilter) questionRiskFilter.value = state.filters.questionRiskFilter;
+          if (state.filters.answerRiskFilter) answerRiskFilter.value = state.filters.answerRiskFilter;
+          if (state.filters.answerStatusFilter) answerStatusFilter.value = state.filters.answerStatusFilter;
+        }
+
+        if (Array.isArray(state.discovery)) {
+          discoveryRows.forEach((row, index) => {
+            const item = state.discovery[index];
+            if (!item) return;
+            row.querySelector(".answer-input").value = item.answer || "";
+            row.querySelector(".answer-risk-select").value = item.answerRisk || "Not Set";
+          });
+        }
+
+        if (state.planner) {
+          if (state.planner.widthMeters) plannerWidthInput.value = state.planner.widthMeters;
+          if (state.planner.heightMeters) plannerHeightInput.value = state.planner.heightMeters;
+          applyStoreDimensions();
+          if (state.planner.canvasJson && plannerState.canvas) {
+            plannerState.canvas.loadFromJSON(state.planner.canvasJson, () => {
+              plannerState.canvas.renderAll();
+              syncPlannerMetaFromCanvas();
+            });
+          }
+        }
+      }
+
+      function persistState() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeAppState()));
+        } catch (_err) {
+          // Ignore storage failures in restricted environments.
+        }
+      }
+
+      function loadPersistedState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return;
+          const parsed = JSON.parse(raw);
+          applyAppState(parsed);
+        } catch (_err) {
+          // Ignore malformed stored values.
+        }
+      }
+
+      function updatePlannerArea() {
+        const area = plannerState.widthMeters * plannerState.heightMeters;
+        plannerAreaLabel.textContent = `${number.format(area)} m²`;
+      }
+
+      function metersToPx(meters) {
+        return meters * plannerState.scale;
+      }
+
+      function syncPlannerMetaFromCanvas() {
+        if (!plannerState.canvas) return;
+        plannerState.canvas.getObjects().forEach((obj) => {
+          if (!obj.plannerKind && obj.type === "group" && obj._objects && obj._objects[1] && obj._objects[1].text) {
+            obj.plannerKind = obj._objects[1].text;
+          }
+        });
+      }
+
+      function clearPlannerObjects() {
+        if (!plannerState.canvas) return;
+        const toRemove = plannerState.canvas.getObjects().filter((obj) => obj !== plannerState.boundary && !plannerState.gridObjects.includes(obj));
+        toRemove.forEach((obj) => plannerState.canvas.remove(obj));
+      }
+
+      function drawPlannerGrid() {
+        if (!plannerState.canvas) return;
+        plannerState.gridObjects.forEach((obj) => plannerState.canvas.remove(obj));
+        plannerState.gridObjects = [];
+
+        const startX = 20;
+        const startY = 20;
+        const widthPx = metersToPx(plannerState.widthMeters);
+        const heightPx = metersToPx(plannerState.heightMeters);
+        const oneMeterPx = metersToPx(1);
+
+        for (let x = 0; x <= widthPx; x += oneMeterPx) {
+          const isMajor = (x / oneMeterPx) % 5 === 0;
+          const line = new fabric.Line([startX + x, startY, startX + x, startY + heightPx], {
+            stroke: isMajor ? "#5b7bd5" : "#8aa0d6",
+            strokeWidth: isMajor ? 1.5 : 0.95,
+            selectable: false,
+            evented: false,
+            excludeFromExport: true
+          });
+          plannerState.canvas.add(line);
+          plannerState.gridObjects.push(line);
+        }
+
+        for (let y = 0; y <= heightPx; y += oneMeterPx) {
+          const isMajor = (y / oneMeterPx) % 5 === 0;
+          const line = new fabric.Line([startX, startY + y, startX + widthPx, startY + y], {
+            stroke: isMajor ? "#5b7bd5" : "#8aa0d6",
+            strokeWidth: isMajor ? 1.5 : 0.95,
+            selectable: false,
+            evented: false,
+            excludeFromExport: true
+          });
+          plannerState.canvas.add(line);
+          plannerState.gridObjects.push(line);
+        }
+      }
+
+      function deleteSelectedPlannerObjects() {
+        if (!plannerState.canvas) return;
+        const selected = plannerState.canvas.getActiveObjects();
+        if (!selected || selected.length === 0) {
+          plannerStatus.textContent = "No selected object to delete.";
+          plannerStatus.style.color = "var(--warn)";
+          return;
+        }
+
+        selected.forEach((obj) => {
+          if (obj !== plannerState.boundary) plannerState.canvas.remove(obj);
+        });
+        plannerState.canvas.discardActiveObject();
+        plannerState.canvas.requestRenderAll();
+        plannerStatus.textContent = "Selected object deleted.";
+        plannerStatus.style.color = "var(--ok)";
+        persistState();
+      }
+
+      function drawPlannerBoundary() {
+        if (!plannerState.canvas) return;
+        if (plannerState.boundary) plannerState.canvas.remove(plannerState.boundary);
+        drawPlannerGrid();
+        const boundary = new fabric.Rect({
+          left: 20,
+          top: 20,
+          width: metersToPx(plannerState.widthMeters),
+          height: metersToPx(plannerState.heightMeters),
+          fill: "transparent",
+          stroke: "#2b4da7",
+          strokeWidth: 2,
+          rx: 2,
+          ry: 2,
+          selectable: false,
+          evented: false,
+          excludeFromExport: true
+        });
+        plannerState.boundary = boundary;
+        plannerState.canvas.add(boundary);
+        boundary.bringToFront();
+        updatePlannerArea();
+        plannerState.canvas.renderAll();
+      }
+
+      function applyStoreDimensions() {
+        const widthMeters = clamp(Number(plannerWidthInput.value) || 20, 5, 200);
+        const heightMeters = clamp(Number(plannerHeightInput.value) || 20, 5, 200);
+        plannerState.widthMeters = widthMeters;
+        plannerState.heightMeters = heightMeters;
+        plannerWidthInput.value = String(widthMeters);
+        plannerHeightInput.value = String(heightMeters);
+        drawPlannerBoundary();
+        persistState();
+      }
+
+      function addPlannerObject(kind) {
+        if (!plannerState.canvas) return;
+        const spec = {
+          server: { label: "Server", w: 1.2, h: 0.8, fill: "#93c5fd" },
+          aisle: { label: "Aisle", w: 7, h: 1.3, fill: "#86efac" },
+          "entry-open": { label: "Entry Open", w: 3, h: 0.9, fill: "#c4b5fd" },
+          "entry-gated": { label: "Entry Gated", w: 3, h: 0.9, fill: "#f9a8d4" },
+          checkout: { label: "Checkout", w: 2.5, h: 1.2, fill: "#fcd34d" },
+          warehouse: { label: "Warehouse", w: 4.5, h: 4.5, fill: "#a16207" },
+          technical: { label: "Technical", w: 3.6, h: 3.6, fill: "#16a34a" },
+          "separator-wall": { label: "Wall", w: 6, h: 0.25, fill: "#64748b" },
+          "security-cage": { label: "Security Cage", w: 3.8, h: 3.8, fill: "#ef4444" },
+          "entry-zone": { label: "Entry Zone", w: 3.6, h: 3.6, fill: "#facc15" }
+        }[kind];
+
+        if (!spec) return;
+        const width = metersToPx(spec.w);
+        const height = metersToPx(spec.h);
+        const shapes = [];
+
+        if (kind === "server") {
+          const topCap = new fabric.Ellipse({
+            rx: width / 2,
+            ry: Math.max(6, height * 0.22),
+            left: 0,
+            top: -height * 0.35,
+            fill: "#bfdbfe",
+            stroke: "#1e3a8a",
+            strokeWidth: 1.5,
+            originX: "center",
+            originY: "center"
+          });
+          const body = new fabric.Rect({
+            width,
+            height: height * 0.7,
+            left: 0,
+            top: 0,
+            fill: "#93c5fd",
+            stroke: "#1e3a8a",
+            strokeWidth: 1.5,
+            originX: "center",
+            originY: "center"
+          });
+          const bottomCap = new fabric.Ellipse({
+            rx: width / 2,
+            ry: Math.max(6, height * 0.22),
+            left: 0,
+            top: height * 0.35,
+            fill: "#7dd3fc",
+            stroke: "#1e3a8a",
+            strokeWidth: 1.5,
+            originX: "center",
+            originY: "center"
+          });
+          shapes.push(topCap, body, bottomCap);
+        } else if (kind === "aisle") {
+          const base = new fabric.Rect({
+            width,
+            height,
+            fill: "#86efac",
+            stroke: "#166534",
+            strokeWidth: 1.5,
+            rx: 8,
+            ry: 8,
+            originX: "center",
+            originY: "center"
+          });
+          const divider1 = new fabric.Rect({
+            width: 2,
+            height: height - 6,
+            left: -width * 0.2,
+            top: 0,
+            fill: "#166534",
+            originX: "center",
+            originY: "center"
+          });
+          const divider2 = new fabric.Rect({
+            width: 2,
+            height: height - 6,
+            left: width * 0.2,
+            top: 0,
+            fill: "#166534",
+            originX: "center",
+            originY: "center"
+          });
+          shapes.push(base, divider1, divider2);
+        } else if (kind === "entry-open") {
+          const gate = new fabric.Rect({
+            width,
+            height,
+            fill: "#ddd6fe",
+            stroke: "#5b21b6",
+            strokeWidth: 1.5,
+            rx: 6,
+            ry: 6,
+            originX: "center",
+            originY: "center"
+          });
+          const openArrow = new fabric.Triangle({
+            width: 14,
+            height: 12,
+            left: 0,
+            top: 0,
+            angle: 90,
+            fill: "#5b21b6",
+            originX: "center",
+            originY: "center"
+          });
+          shapes.push(gate, openArrow);
+        } else if (kind === "entry-gated") {
+          const gate = new fabric.Rect({
+            width,
+            height,
+            fill: "#fbcfe8",
+            stroke: "#9d174d",
+            strokeWidth: 1.5,
+            rx: 6,
+            ry: 6,
+            originX: "center",
+            originY: "center"
+          });
+          const bar1 = new fabric.Rect({
+            width: 3,
+            height: height - 6,
+            left: -width * 0.22,
+            top: 0,
+            fill: "#9d174d",
+            originX: "center",
+            originY: "center"
+          });
+          const bar2 = new fabric.Rect({
+            width: 3,
+            height: height - 6,
+            left: 0,
+            top: 0,
+            fill: "#9d174d",
+            originX: "center",
+            originY: "center"
+          });
+          const bar3 = new fabric.Rect({
+            width: 3,
+            height: height - 6,
+            left: width * 0.22,
+            top: 0,
+            fill: "#9d174d",
+            originX: "center",
+            originY: "center"
+          });
+          shapes.push(gate, bar1, bar2, bar3);
+        } else if (kind === "warehouse") {
+          const zone = new fabric.Rect({
+            width,
+            height,
+            fill: "#a16207",
+            stroke: "#713f12",
+            strokeWidth: 2,
+            rx: 3,
+            ry: 3,
+            originX: "center",
+            originY: "center"
+          });
+          const hatch1 = new fabric.Line([-width / 2 + 8, -height / 2 + 8, width / 2 - 8, height / 2 - 8], {
+            stroke: "#fef3c7",
+            strokeWidth: 1
+          });
+          const hatch2 = new fabric.Line([-width / 2 + 8, height / 2 - 8, width / 2 - 8, -height / 2 + 8], {
+            stroke: "#fef3c7",
+            strokeWidth: 1
+          });
+          shapes.push(zone, hatch1, hatch2);
+        } else if (kind === "technical") {
+          const zone = new fabric.Rect({
+            width,
+            height,
+            fill: "#16a34a",
+            stroke: "#14532d",
+            strokeWidth: 2,
+            rx: 3,
+            ry: 3,
+            originX: "center",
+            originY: "center"
+          });
+          const gearCore = new fabric.Circle({
+            radius: Math.min(width, height) * 0.16,
+            fill: "#dcfce7",
+            stroke: "#14532d",
+            strokeWidth: 1.2,
+            originX: "center",
+            originY: "center"
+          });
+          shapes.push(zone, gearCore);
+        } else if (kind === "separator-wall") {
+          const wall = new fabric.Rect({
+            width,
+            height,
+            fill: "#64748b",
+            stroke: "#334155",
+            strokeWidth: 1.5,
+            rx: 2,
+            ry: 2,
+            originX: "center",
+            originY: "center"
+          });
+          shapes.push(wall);
+        } else if (kind === "security-cage") {
+          const cageBase = new fabric.Rect({
+            width,
+            height,
+            fill: "#ffffff",
+            stroke: "#991b1b",
+            strokeWidth: 2,
+            rx: 2,
+            ry: 2,
+            originX: "center",
+            originY: "center"
+          });
+          shapes.push(cageBase);
+
+          const stripeCount = 7;
+          for (let i = 0; i < stripeCount; i += 1) {
+            const x = -width / 2 + ((i + 0.5) * width) / stripeCount;
+            const stripe = new fabric.Rect({
+              width: Math.max(5, width / (stripeCount * 1.8)),
+              height,
+              left: x,
+              top: 0,
+              angle: 28,
+              fill: "#ef4444",
+              opacity: 0.88,
+              originX: "center",
+              originY: "center"
+            });
+            shapes.push(stripe);
+          }
+
+          const frame = new fabric.Rect({
+            width,
+            height,
+            fill: "transparent",
+            stroke: "#7f1d1d",
+            strokeWidth: 2.2,
+            rx: 2,
+            ry: 2,
+            originX: "center",
+            originY: "center"
+          });
+          shapes.push(frame);
+        } else if (kind === "entry-zone") {
+          const zoneBase = new fabric.Rect({
+            width,
+            height,
+            fill: "#ffffff",
+            stroke: "#ca8a04",
+            strokeWidth: 2,
+            rx: 2,
+            ry: 2,
+            originX: "center",
+            originY: "center"
+          });
+          shapes.push(zoneBase);
+
+          const stripeCount = 8;
+          for (let i = 0; i < stripeCount; i += 1) {
+            const x = -width / 2 + ((i + 0.5) * width) / stripeCount;
+            const stripe = new fabric.Rect({
+              width: Math.max(5, width / (stripeCount * 1.9)),
+              height,
+              left: x,
+              top: 0,
+              angle: 28,
+              fill: "#facc15",
+              opacity: 0.9,
+              originX: "center",
+              originY: "center"
+            });
+            shapes.push(stripe);
+          }
+
+          const frame = new fabric.Rect({
+            width,
+            height,
+            fill: "transparent",
+            stroke: "#a16207",
+            strokeWidth: 2.2,
+            rx: 2,
+            ry: 2,
+            originX: "center",
+            originY: "center"
+          });
+          shapes.push(frame);
+        } else {
+          const checkout = new fabric.Rect({
+            width,
+            height,
+            fill: "#fcd34d",
+            stroke: "#92400e",
+            strokeWidth: 1.5,
+            rx: 8,
+            ry: 8,
+            originX: "center",
+            originY: "center"
+          });
+          const posScreen = new fabric.Rect({
+            width: Math.max(12, width * 0.2),
+            height: Math.max(8, height * 0.45),
+            left: width * 0.25,
+            top: -height * 0.1,
+            fill: "#78350f",
+            originX: "center",
+            originY: "center"
+          });
+          shapes.push(checkout, posScreen);
+        }
+
+        const text = new fabric.Text(spec.label, {
+          fontSize: 12,
+          fill: "#0f172a",
+          left: 0,
+          top: height * 0.9,
+          originX: "center",
+          originY: "center"
+        });
+        shapes.push(text);
+
+        const group = new fabric.Group(shapes, {
+          left: 80 + Math.random() * 320,
+          top: 80 + Math.random() * 220,
+          hasRotatingPoint: true,
+          cornerStyle: "circle",
+          transparentCorners: false
+        });
+        group.plannerKind = kind;
+        plannerState.canvas.add(group);
+        plannerState.canvas.setActiveObject(group);
+        plannerState.canvas.renderAll();
+        persistState();
+      }
+
+      function initPlanner() {
+        if (plannerState.canvas) return true;
+        if (!window.fabric) {
+          plannerStatus.textContent = "Planner library failed to load. Refresh the page.";
+          plannerStatus.style.color = "var(--bad)";
+          return false;
+        }
+        plannerState.canvas = new fabric.Canvas("plannerCanvas", {
+          preserveObjectStacking: true,
+          selection: true
+        });
+
+        drawPlannerBoundary();
+        plannerState.canvas.on("object:modified", persistState);
+        plannerState.canvas.on("object:added", persistState);
+        plannerState.canvas.on("object:removed", persistState);
+        plannerStatus.textContent = "Planner ready. Add objects and drag them on the canvas.";
+        plannerStatus.style.color = "var(--ok)";
+        return true;
+      }
+
+      function updateReadinessAndFilters() {
+        const total = discoveryRows.length;
+        let answered = 0;
+
+        discoveryRows.forEach((row) => {
+          const answerValue = row.querySelector(".answer-input").value.trim();
+          const answerRiskValue = row.querySelector(".answer-risk-select").value;
+          const categoryValue = row.dataset.category;
+          const questionRiskValue = row.dataset.questionRisk;
+
+          const isAnswered = answerValue.length > 0;
+          if (isAnswered) answered += 1;
+
+          const categoryOk = categoryFilter.value === "all" || categoryFilter.value === categoryValue;
+          const questionRiskOk = questionRiskFilter.value === "all" || questionRiskFilter.value === questionRiskValue;
+          const answerRiskOk = answerRiskFilter.value === "all" || answerRiskFilter.value === answerRiskValue;
+          const statusOk =
+            answerStatusFilter.value === "all" ||
+            (answerStatusFilter.value === "answered" && isAnswered) ||
+            (answerStatusFilter.value === "unanswered" && !isAnswered);
+
+          row.style.display = categoryOk && questionRiskOk && answerRiskOk && statusOk ? "" : "none";
+        });
+
+        const score = total ? (answered / total) * 100 : 0;
+        readinessScore.textContent = `${score.toFixed(0)}%`;
+        readinessDetails.textContent = `${answered} of ${total} questions answered`;
+        readinessProgress.style.width = `${score}%`;
+        persistState();
+      }
+
+      tabButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const tab = button.dataset.tab;
+          simulatorTab.classList.toggle("hidden", tab !== "simulator");
+          discoveryTab.classList.toggle("hidden", tab !== "discovery");
+          disasterTab.classList.toggle("hidden", tab !== "disaster");
+          plannerTab.classList.toggle("hidden", tab !== "planner");
+          tabButtons.forEach((btn) => btn.classList.toggle("active", btn === button));
+          if (tab === "planner") {
+            initPlanner();
+            if (plannerState.canvas) plannerState.canvas.requestRenderAll();
+          }
+        });
+      });
+
+      [categoryFilter, questionRiskFilter, answerRiskFilter, answerStatusFilter].forEach((filter) =>
+        filter.addEventListener("change", updateReadinessAndFilters)
+      );
+
+      document.querySelectorAll(".answer-input, .answer-risk-select").forEach((field) =>
+        field.addEventListener("input", updateReadinessAndFilters)
+      );
+
+      Object.values(sliders).forEach((slider) =>
+        slider.addEventListener("input", () => {
+          updateUI();
+          persistState();
+        })
+      );
+
+      exportDataBtn.addEventListener("click", () => {
+        const payload = {
+          exportedAt: new Date().toISOString(),
+          app: "Smart Store Value Realization Simulator",
+          version: 1,
+          data: serializeAppState()
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = "smart-store-simulator-data.json";
+        anchor.click();
+        URL.revokeObjectURL(url);
+      });
+
+      importDataBtn.addEventListener("click", () => importDataInput.click());
+      importDataInput.addEventListener("change", async (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const parsed = JSON.parse(text);
+          const state = parsed.data || parsed;
+          applyAppState(state);
+          updateUI();
+          updateReadinessAndFilters();
+          persistState();
+        } catch (_err) {
+          alert("Could not import file. Please use a valid simulator JSON export.");
+        }
+        event.target.value = "";
+      });
+
+      resetDataBtn.addEventListener("click", () => {
+        Object.entries(sliders).forEach(([key, slider]) => {
+          slider.value = slider.defaultValue;
+        });
+        discoveryRows.forEach((row) => {
+          row.querySelector(".answer-input").value = "";
+          row.querySelector(".answer-risk-select").value = "Not Set";
+        });
+        categoryFilter.value = "all";
+        questionRiskFilter.value = "all";
+        answerRiskFilter.value = "all";
+        answerStatusFilter.value = "all";
+        plannerWidthInput.value = "20";
+        plannerHeightInput.value = "20";
+        plannerState.widthMeters = 20;
+        plannerState.heightMeters = 20;
+        applyStoreDimensions();
+        clearPlannerObjects();
+        updateUI();
+        updateReadinessAndFilters();
+        persistState();
+      });
+
+      applyStoreSizeBtn.addEventListener("click", () => {
+        if (!plannerState.canvas) initPlanner();
+        applyStoreDimensions();
+      });
+      plannerAddButtons.forEach((button) =>
+        button.addEventListener("click", () => {
+          if (!plannerState.canvas) initPlanner();
+          addPlannerObject(button.dataset.kind);
+        })
+      );
+      plannerClearBtn.addEventListener("click", () => {
+        if (!plannerState.canvas) initPlanner();
+        clearPlannerObjects();
+        if (plannerState.canvas) plannerState.canvas.renderAll();
+        persistState();
+      });
+      plannerDeleteSelectedBtn.addEventListener("click", () => {
+        if (!plannerState.canvas) initPlanner();
+        deleteSelectedPlannerObjects();
+      });
+
+      plannerExportPngBtn.addEventListener("click", () => {
+        if (!plannerState.canvas) initPlanner();
+        if (!plannerState.canvas) return;
+        const dataURL = plannerState.canvas.toDataURL({ format: "png", multiplier: 2 });
+        const anchor = document.createElement("a");
+        anchor.href = dataURL;
+        anchor.download = "store-planner-layout.png";
+        anchor.click();
+      });
+
+      plannerExportSvgBtn.addEventListener("click", () => {
+        if (!plannerState.canvas) initPlanner();
+        if (!plannerState.canvas) return;
+        const svg = plannerState.canvas.toSVG();
+        const blob = new Blob([svg], { type: "image/svg+xml" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = "store-planner-layout.svg";
+        anchor.click();
+        URL.revokeObjectURL(url);
+      });
+
+      plannerExportJsonBtn.addEventListener("click", () => {
+        if (!plannerState.canvas) initPlanner();
+        if (!plannerState.canvas) return;
+        const plannerPayload = {
+          exportedAt: new Date().toISOString(),
+          widthMeters: plannerState.widthMeters,
+          heightMeters: plannerState.heightMeters,
+          canvasJson: plannerState.canvas.toDatalessJSON(["plannerKind"])
+        };
+        const blob = new Blob([JSON.stringify(plannerPayload, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = "store-planner-layout.json";
+        anchor.click();
+        URL.revokeObjectURL(url);
+      });
+
+      plannerImportJsonBtn.addEventListener("click", () => plannerImportInput.click());
+      plannerImportInput.addEventListener("change", async (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!plannerState.canvas) initPlanner();
+        if (!file || !plannerState.canvas) return;
+        try {
+          const text = await file.text();
+          const parsed = JSON.parse(text);
+          if (parsed.widthMeters) plannerWidthInput.value = parsed.widthMeters;
+          if (parsed.heightMeters) plannerHeightInput.value = parsed.heightMeters;
+          applyStoreDimensions();
+          if (parsed.canvasJson) {
+            plannerState.canvas.loadFromJSON(parsed.canvasJson, () => {
+              plannerState.canvas.renderAll();
+              syncPlannerMetaFromCanvas();
+              persistState();
+            });
+          }
+        } catch (_err) {
+          alert("Could not import planner JSON file.");
+        }
+        event.target.value = "";
+      });
+
+      window.addEventListener("keydown", (event) => {
+        if (!plannerState.canvas || plannerTab.classList.contains("hidden")) return;
+        if (event.key !== "Delete" && event.key !== "Backspace") return;
+
+        const activeEl = document.activeElement;
+        if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.tagName === "SELECT")) {
+          return;
+        }
+
+        event.preventDefault();
+        deleteSelectedPlannerObjects();
+      });
+
+      initPlanner();
+      loadPersistedState();
+      updateUI();
+      updateReadinessAndFilters();
+    </script>
+  </body>
+</html>
