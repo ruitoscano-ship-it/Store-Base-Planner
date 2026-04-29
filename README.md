@@ -1,6 +1,6 @@
 # Store-Base-Planner
 
-Interactive dashboard to simulate monthly value realization for a smart autonomous store.
+Interactive dashboard to simulate monthly value realization for a smart tech AI in retail stores.
 
 ## What it models
 
