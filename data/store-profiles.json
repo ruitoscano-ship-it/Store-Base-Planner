@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "updatedAt": "2026-05-28T00:00:00.000Z",
+  "costs": {
+    "ambientShelf": 1500,
+    "coldShelf": 4200,
+    "hotShelf": 3600,
+    "installPerShelf": 280
+  },
+  "bespoke": {
+    "areaDivisors": {
+      "ambient": 13,
+      "cold": 32,
+      "hot": 45
+    },
+    "mins": {
+      "ambient": 12,
+      "cold": 4,
+      "hot": 2
+    },
+    "maxs": {
+      "ambient": 80,
+      "cold": 28,
+      "hot": 16
+    },
+    "integrationFixed": 30000,
+    "setupPercent": 18,
+    "contingencyPercent": 12
+  },
+  "profiles": {
+    "small": {
+      "id": "small",
+      "label": "Small",
+      "blurb": "~100 m² convenience / kiosk",
+      "widthMeters": 10,
+      "heightMeters": 10,
+      "shelves": {
+        "ambient": 10,
+        "cold": 4,
+        "hot": 2
+      },
+      "integrationFixed": 8500,
+      "setupPercent": 12,
+      "contingencyPercent": 8
+    },
+    "medium": {
+      "id": "medium",
+      "label": "Medium",
+      "blurb": "~250 m² neighbourhood store",
+      "widthMeters": 18,
+      "heightMeters": 14,
+      "shelves": {
+        "ambient": 18,
+        "cold": 8,
+        "hot": 4
+      },
+      "integrationFixed": 12000,
+      "setupPercent": 15,
+      "contingencyPercent": 10
+    },
+    "large": {
+      "id": "large",
+      "label": "Large",
+      "blurb": "~620 m² supermarket format",
+      "widthMeters": 28,
+      "heightMeters": 22,
+      "shelves": {
+        "ambient": 34,
+        "cold": 16,
+        "hot": 8
+      },
+      "integrationFixed": 22000,
+      "setupPercent": 15,
+      "contingencyPercent": 10
+    },
+    "xlarge": {
+      "id": "xlarge",
+      "label": "X-Large",
+      "blurb": "~1,200 m² hypermarket / flagship",
+      "widthMeters": 40,
+      "heightMeters": 30,
+      "shelves": {
+        "ambient": 52,
+        "cold": 24,
+        "hot": 14
+      },
+      "integrationFixed": 40000,
+      "setupPercent": 16,
+      "contingencyPercent": 12
+    },
+    "bespoke": {
+      "id": "bespoke",
+      "label": "Bespoke",
+      "blurb": "Uses custom width/depth · custom engineering",
+      "dynamicSize": true,
+      "integrationFixed": 30000,
+      "setupPercent": 18,
+      "contingencyPercent": 12
+    }
+  }
+}

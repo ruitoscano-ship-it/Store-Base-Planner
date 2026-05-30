@@ -572,11 +572,34 @@
         flex: 1 1 130px;
       }
 
+      .planner-preset-actions .action-btn {
+        flex: 1 1 88px;
+        font-size: 0.78rem;
+      }
+
+      .planner-preset-btn.active {
+        background: #d9f04f;
+        border-color: #111111;
+      }
+
       .planner-canvas-wrap {
         border: 1px solid var(--border);
         border-radius: 12px;
-        overflow: auto;
-        background: #0f172f;
+        overflow: hidden;
+        background: #f3f4f0;
+        width: 100%;
+        height: min(72vh, 720px);
+        min-height: 500px;
+      }
+
+      @media (min-width: 1024px) and (max-width: 1440px) {
+        .planner-layout {
+          grid-template-columns: 272px 1fr;
+        }
+        .planner-canvas-wrap {
+          height: min(68vh, 640px);
+          min-height: 480px;
+        }
       }
 
       .planner-canvas-wrap #plannerCanvas,
@@ -591,6 +614,10 @@
       @media (max-width: 1080px) {
         .planner-layout {
           grid-template-columns: 1fr;
+        }
+        .planner-canvas-wrap {
+          height: 70vh;
+          min-height: 480px;
         }
       }
 
@@ -617,6 +644,175 @@
           grid-template-columns: 1fr;
         }
       }
+
+      /* Brand restyle to match attached reference */
+      :root {
+        --bg: #e9eae6;
+        --card: #e9eae6;
+        --card-2: #eeefeb;
+        --text: #111111;
+        --muted: #3d3d3d;
+        --accent: #0b0b0b;
+        --accent-2: #2a2a2a;
+        --ok: #1f7a3f;
+        --warn: #9a6a00;
+        --bad: #7d1820;
+        --border: #1a1a1a;
+      }
+
+      body {
+        color: var(--text);
+        background: var(--bg);
+      }
+
+      .container {
+        max-width: 1540px;
+        padding: 16px 22px 28px;
+      }
+
+      .topbar,
+      .hero,
+      .panel,
+      .card,
+      .kpi,
+      .readiness-card,
+      .planner-tools,
+      .dr-metric {
+        background: var(--card);
+        border: 1px solid var(--border);
+        backdrop-filter: none;
+        box-shadow: none;
+      }
+
+      .topbar,
+      .hero,
+      .panel,
+      .card,
+      .kpi,
+      .readiness-card,
+      .planner-tools,
+      .dr-metric,
+      .control-group,
+      .formula-chip,
+      .table-wrap,
+      .planner-canvas-wrap {
+        border-radius: 0;
+      }
+
+      .brand-title {
+        font-size: 1.05rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+      }
+
+      .brand-sub,
+      .offline-note,
+      .subtitle,
+      .kpi-hint,
+      .readiness-sub,
+      .filter-box label,
+      .planner-grid label {
+        color: var(--muted);
+      }
+
+      .kpi-label,
+      .bar-label,
+      .bar-value,
+      .insight-list,
+      .tag,
+      .formula-chip,
+      .pill,
+      .section-title,
+      .card h3,
+      .planner-tools h4 {
+        color: #1f1f1f;
+      }
+
+      .logo-dot {
+        border-radius: 0;
+        background: #0b0b0b;
+        color: #d9e57a;
+      }
+
+      h1 {
+        font-family: Inter, Avenir, Segoe UI, Roboto, Arial, sans-serif;
+        font-size: clamp(2rem, 4.6vw, 4rem);
+        font-weight: 800;
+        line-height: 1.02;
+        letter-spacing: -0.02em;
+        text-transform: uppercase;
+      }
+
+      .formula-chip,
+      .control-group,
+      .pill,
+      .tag,
+      .filter-box,
+      .bar-track,
+      .progress-track,
+      .table-wrap,
+      .planner-canvas-wrap,
+      .planner-canvas-wrap #plannerCanvas,
+      .planner-canvas-wrap .lower-canvas {
+        background: #eceee8;
+        border: 1px solid var(--border);
+      }
+
+      .bar-fill,
+      .progress-fill {
+        background: #0b0b0b;
+      }
+
+      .action-btn,
+      .tab-btn {
+        border-radius: 0;
+        border: 1px solid #0b0b0b;
+        background: #e9eae6;
+        color: #151515;
+        font-weight: 700;
+      }
+
+      .tab-btn.active {
+        background: #d9f04f;
+        border-color: #111111;
+      }
+
+      .action-btn:hover,
+      .tab-btn:hover {
+        background: #dff45f;
+        border-color: #111111;
+      }
+
+      th {
+        background: #eceee8;
+        color: #0b0b0b;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid #111111;
+      }
+
+      .risk,
+      .risk-critical,
+      .risk-high,
+      .risk-medium,
+      .risk-low {
+        color: #0b0b0b;
+        background: #eceee8;
+        border: 1px solid #0b0b0b;
+      }
+
+      .answer-input,
+      .answer-risk-select,
+      .filter-box select,
+      .planner-grid input {
+        border-radius: 0;
+        border: 1px solid #0b0b0b;
+        background: #f3f4f0;
+        color: #0b0b0b;
+      }
     </style>
   </head>
   <body>
@@ -636,6 +832,7 @@
           <button class="tab-btn" data-tab="planner">Store Planner</button>
         </div>
         <div class="share-actions">
+          <a class="action-btn" href="/backoffice.html" style="text-decoration: none; display: inline-flex; align-items: center;">Backoffice</a>
           <button class="action-btn" id="resetDataBtn">Reset</button>
           <button class="action-btn" id="exportDataBtn">Export JSON</button>
           <button class="action-btn" id="importDataBtn">Share Snapshot</button>
@@ -1153,12 +1350,29 @@
                 </div>
                 <button class="action-btn" id="applyStoreSizeBtn">Apply Store Size</button>
                 <p class="offline-note">Area: <span id="plannerArea">400 m²</span></p>
+                <p class="offline-note">Grid scale: <span id="plannerGridScale">1 m ≈ 26 px</span></p>
                 <p class="offline-note" id="plannerStatus">Planner ready.</p>
+
+                <h4 style="margin-top: 14px;">Baseline store setups</h4>
+                <p class="readiness-sub" style="margin: 0 0 8px;">
+                  Load a reference footprint, fixture mix, and shelf counts to benchmark cost.
+                </p>
+                <div class="planner-actions planner-preset-actions">
+                  <button type="button" class="action-btn planner-preset-btn" data-preset="small">Small</button>
+                  <button type="button" class="action-btn planner-preset-btn" data-preset="medium">Medium</button>
+                  <button type="button" class="action-btn planner-preset-btn" data-preset="large">Large</button>
+                  <button type="button" class="action-btn planner-preset-btn" data-preset="xlarge">X-Large</button>
+                  <button type="button" class="action-btn planner-preset-btn" data-preset="bespoke">Bespoke</button>
+                </div>
+                <p class="offline-note" id="plannerPresetSummary">No baseline loaded.</p>
 
                 <h4 style="margin-top: 14px;">Add Objects</h4>
                 <div class="planner-actions">
                   <button class="action-btn planner-add-btn" data-kind="server">Server</button>
                   <button class="action-btn planner-add-btn" data-kind="aisle">Aisle</button>
+                  <button class="action-btn planner-add-btn" data-kind="shelf-ambient">Shelf Ambient</button>
+                  <button class="action-btn planner-add-btn" data-kind="shelf-cold">Shelf Cold</button>
+                  <button class="action-btn planner-add-btn" data-kind="shelf-hot">Shelf Hot</button>
                   <button class="action-btn planner-add-btn" data-kind="entry-open">Entry (Open)</button>
                   <button class="action-btn planner-add-btn" data-kind="entry-gated">Entry (Gated)</button>
                   <button class="action-btn planner-add-btn" data-kind="checkout">Checkout</button>
@@ -1172,16 +1386,58 @@
 
                 <h4>Export / Import</h4>
                 <div class="planner-actions">
+                  <button class="action-btn" id="plannerLoadBlueprintBtn">Load Blueprint PDF</button>
+                  <button class="action-btn" id="plannerClearBlueprintBtn">Clear Blueprint</button>
                   <button class="action-btn" id="plannerExportPngBtn">Export PNG</button>
                   <button class="action-btn" id="plannerExportSvgBtn">Export SVG</button>
                   <button class="action-btn" id="plannerExportJsonBtn">Export Plan JSON</button>
                   <button class="action-btn" id="plannerImportJsonBtn">Import Plan JSON</button>
                   <button class="action-btn" id="plannerClearBtn">Clear Planner</button>
+                  <input id="plannerBlueprintInput" type="file" accept="application/pdf,.pdf" style="display: none;" />
                   <input id="plannerImportInput" type="file" accept="application/json" style="display: none;" />
                 </div>
+
+                <h4>Shelf Cost Estimator</h4>
+                <div class="planner-grid">
+                  <div>
+                    <label for="costAmbientShelf">Ambient shelf unit cost (EUR)</label>
+                    <input id="costAmbientShelf" type="number" min="0" value="1500" step="50" />
+                  </div>
+                  <div>
+                    <label for="costColdShelf">Cold shelf unit cost (EUR)</label>
+                    <input id="costColdShelf" type="number" min="0" value="4200" step="50" />
+                  </div>
+                  <div>
+                    <label for="costHotShelf">Hot shelf unit cost (EUR)</label>
+                    <input id="costHotShelf" type="number" min="0" value="3600" step="50" />
+                  </div>
+                  <div>
+                    <label for="costInstallPerShelf">Install cost per shelf (EUR)</label>
+                    <input id="costInstallPerShelf" type="number" min="0" value="280" step="10" />
+                  </div>
+                  <div>
+                    <label for="costIntegrationFixed">Fixed integration cost (EUR)</label>
+                    <input id="costIntegrationFixed" type="number" min="0" value="12000" step="100" />
+                  </div>
+                  <div>
+                    <label for="costSetupPercent">General setup overhead (%)</label>
+                    <input id="costSetupPercent" type="number" min="0" max="100" value="15" step="0.5" />
+                  </div>
+                  <div>
+                    <label for="costContingencyPercent">Contingency (%)</label>
+                    <input id="costContingencyPercent" type="number" min="0" max="100" value="10" step="0.5" />
+                  </div>
+                </div>
+                <p class="offline-note">Counts from canvas: Ambient <span id="countAmbientShelf">0</span> | Cold <span id="countColdShelf">0</span> | Hot <span id="countHotShelf">0</span></p>
+                <p class="offline-note">Shelf + install subtotal: <strong id="plannerEstimatedSubtotal">€0</strong></p>
+                <p class="offline-note">General setup add-on: <strong id="plannerEstimatedSetup">€0</strong></p>
+                <p class="offline-note">Contingency add-on: <strong id="plannerEstimatedContingency">€0</strong></p>
+                <p class="offline-note">Estimated CAPEX ballpark: <strong id="plannerEstimatedCapex">€0</strong></p>
+                <p class="offline-note">Estimated cost per m²: <strong id="plannerEstimatedCostPerSqm">€0</strong></p>
+                <p class="offline-note">Estimated monthly service (12%/year): <strong id="plannerEstimatedMonthly">€0</strong></p>
               </aside>
 
-              <div class="planner-canvas-wrap">
+              <div class="planner-canvas-wrap" id="plannerCanvasWrap">
                 <canvas id="plannerCanvas" width="960" height="620"></canvas>
               </div>
             </div>
@@ -1191,6 +1447,7 @@
     </div>
 
     <script src="libs/fabric.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
       const sliders = {
         baseVisitors: document.getElementById("baseVisitors"),
@@ -1430,6 +1687,10 @@
       const plannerWidthInput = document.getElementById("plannerWidth");
       const plannerHeightInput = document.getElementById("plannerHeight");
       const plannerAreaLabel = document.getElementById("plannerArea");
+      const plannerGridScaleLabel = document.getElementById("plannerGridScale");
+      const plannerPresetSummary = document.getElementById("plannerPresetSummary");
+      const plannerPresetButtons = Array.from(document.querySelectorAll(".planner-preset-btn"));
+      const plannerCanvasWrap = document.getElementById("plannerCanvasWrap");
       const applyStoreSizeBtn = document.getElementById("applyStoreSizeBtn");
       const plannerAddButtons = Array.from(document.querySelectorAll(".planner-add-btn"));
       const plannerExportPngBtn = document.getElementById("plannerExportPngBtn");
@@ -1437,18 +1698,173 @@
       const plannerExportJsonBtn = document.getElementById("plannerExportJsonBtn");
       const plannerImportJsonBtn = document.getElementById("plannerImportJsonBtn");
       const plannerImportInput = document.getElementById("plannerImportInput");
+      const plannerLoadBlueprintBtn = document.getElementById("plannerLoadBlueprintBtn");
+      const plannerClearBlueprintBtn = document.getElementById("plannerClearBlueprintBtn");
+      const plannerBlueprintInput = document.getElementById("plannerBlueprintInput");
       const plannerClearBtn = document.getElementById("plannerClearBtn");
       const plannerDeleteSelectedBtn = document.getElementById("plannerDeleteSelectedBtn");
       const plannerStatus = document.getElementById("plannerStatus");
+      const costAmbientShelfInput = document.getElementById("costAmbientShelf");
+      const costColdShelfInput = document.getElementById("costColdShelf");
+      const costHotShelfInput = document.getElementById("costHotShelf");
+      const costInstallPerShelfInput = document.getElementById("costInstallPerShelf");
+      const costIntegrationFixedInput = document.getElementById("costIntegrationFixed");
+      const costSetupPercentInput = document.getElementById("costSetupPercent");
+      const costContingencyPercentInput = document.getElementById("costContingencyPercent");
+      const countAmbientShelfLabel = document.getElementById("countAmbientShelf");
+      const countColdShelfLabel = document.getElementById("countColdShelf");
+      const countHotShelfLabel = document.getElementById("countHotShelf");
+      const plannerEstimatedSubtotalLabel = document.getElementById("plannerEstimatedSubtotal");
+      const plannerEstimatedSetupLabel = document.getElementById("plannerEstimatedSetup");
+      const plannerEstimatedContingencyLabel = document.getElementById("plannerEstimatedContingency");
+      const plannerEstimatedCapexLabel = document.getElementById("plannerEstimatedCapex");
+      const plannerEstimatedCostPerSqmLabel = document.getElementById("plannerEstimatedCostPerSqm");
+      const plannerEstimatedMonthlyLabel = document.getElementById("plannerEstimatedMonthly");
       const STORAGE_KEY = "smart_store_simulator_v1";
+      const PLANNER_MARGIN = 20;
+      const PLANNER_MIN_PX_PER_M = 18;
+      const PLANNER_MAX_PX_PER_M = 30;
+
+      const PLANNER_ARTIFACTS = {
+        server: { label: "Server", w: 0.6, h: 0.6, type: "rack" },
+        aisle: { label: "Aisle", w: 1.4, h: 4, type: "aisle" },
+        "shelf-ambient": { label: "Ambient", w: 1.2, h: 0.45, type: "gondola", palette: { fill: "#f4eed8", stroke: "#5c4a1f" } },
+        "shelf-cold": { label: "Cold", w: 1.2, h: 0.55, type: "gondola", palette: { fill: "#dbeafe", stroke: "#1e40af" } },
+        "shelf-hot": { label: "Hot", w: 1.0, h: 0.6, type: "gondola", palette: { fill: "#ffedd5", stroke: "#9a3412" } },
+        "entry-open": { label: "Entry", w: 1.8, h: 0.12, type: "entry-open" },
+        "entry-gated": { label: "Gated", w: 1.8, h: 0.18, type: "entry-gated" },
+        checkout: { label: "POS", w: 1.6, h: 0.9, type: "checkout" },
+        warehouse: { label: "Warehouse", w: 4, h: 3, type: "zone", palette: { fill: "#e8dfd0", stroke: "#713f12" } },
+        technical: { label: "Tech", w: 3, h: 2.5, type: "zone", palette: { fill: "#dcefe3", stroke: "#14532d" } },
+        "separator-wall": { label: "Wall", w: 4, h: 0.12, type: "wall" },
+        "security-cage": { label: "Secure", w: 3, h: 3, type: "cage" },
+        "entry-zone": { label: "Entry zone", w: 3, h: 2.5, type: "entry-zone" }
+      };
+
       const plannerState = {
         canvas: null,
-        scale: 22,
+        scale: 26,
         widthMeters: 20,
         heightMeters: 20,
         boundary: null,
-        gridObjects: []
+        gridObjects: [],
+        blueprintObject: null,
+        activePresetId: null
       };
+
+      const FIXTURE_TEMPLATE_18x14 = [
+        { kind: "entry-gated", x: 7.2, y: 0.25 },
+        { kind: "entry-zone", x: 5.8, y: 1.05 },
+        { kind: "checkout", x: 10.2, y: 1 },
+        { kind: "server", x: 0.7, y: 12.2 },
+        { kind: "technical", x: 0.7, y: 9.2 },
+        { kind: "warehouse", x: 12.8, y: 8.8 },
+        { kind: "aisle", x: 7, y: 5, angle: 0 }
+      ];
+
+      const CLIENT_PRESET_LAYOUT = {
+        small: {
+          fixtures: [
+            { kind: "entry-gated", x: 4.1, y: 0.2 },
+            { kind: "entry-zone", x: 3.1, y: 1 },
+            { kind: "checkout", x: 6.2, y: 1 },
+            { kind: "server", x: 0.6, y: 8.6 },
+            { kind: "technical", x: 0.6, y: 6.8 },
+            { kind: "aisle", x: 3.8, y: 4.2, angle: 90 }
+          ]
+        },
+        medium: {
+          fixtures: FIXTURE_TEMPLATE_18x14
+        },
+        large: {
+          fixtures: FIXTURE_TEMPLATE_18x14,
+          refW: 18,
+          refH: 14,
+          extras: [
+            { kind: "checkout", x: 14.5, y: 1 },
+            { kind: "security-cage", x: 23.5, y: 1.2 },
+            { kind: "aisle", x: 14, y: 12, angle: 90 }
+          ]
+        },
+        xlarge: {
+          fixtures: FIXTURE_TEMPLATE_18x14,
+          refW: 18,
+          refH: 14,
+          extras: [
+            { kind: "checkout", x: 16, y: 1 },
+            { kind: "checkout", x: 22, y: 1 },
+            { kind: "security-cage", x: 34, y: 1.2 },
+            { kind: "warehouse", x: 32, y: 22 },
+            { kind: "aisle", x: 20, y: 16, angle: 0 },
+            { kind: "aisle", x: 28, y: 10, angle: 90 }
+          ]
+        },
+        bespoke: {
+          fixtures: FIXTURE_TEMPLATE_18x14,
+          refW: 18,
+          refH: 14,
+          dynamicSize: true
+        }
+      };
+
+      let storeProfileConfig = null;
+      let STORE_PRESETS = {};
+
+      function buildStorePresetsFromConfig(config) {
+        if (!config) return {};
+        const merged = {};
+        Object.keys(config.profiles).forEach((id) => {
+          const profile = config.profiles[id];
+          const layout = CLIENT_PRESET_LAYOUT[id] || {};
+          merged[id] = {
+            ...layout,
+            ...profile,
+            shelves: profile.shelves ? { ...profile.shelves } : layout.shelves
+          };
+        });
+        return merged;
+      }
+
+      function getDefaultPlannerCostModel() {
+        const costs = storeProfileConfig?.costs || legacyDefaultPlannerCostModel;
+        return {
+          ambientShelf: costs.ambientShelf ?? legacyDefaultPlannerCostModel.ambientShelf,
+          coldShelf: costs.coldShelf ?? legacyDefaultPlannerCostModel.coldShelf,
+          hotShelf: costs.hotShelf ?? legacyDefaultPlannerCostModel.hotShelf,
+          installPerShelf: costs.installPerShelf ?? legacyDefaultPlannerCostModel.installPerShelf,
+          integrationFixed: legacyDefaultPlannerCostModel.integrationFixed,
+          setupPercent: legacyDefaultPlannerCostModel.setupPercent,
+          contingencyPercent: legacyDefaultPlannerCostModel.contingencyPercent
+        };
+      }
+
+      const legacyDefaultPlannerCostModel = {
+        ambientShelf: 1500,
+        coldShelf: 4200,
+        hotShelf: 3600,
+        installPerShelf: 280,
+        integrationFixed: 12000,
+        setupPercent: 15,
+        contingencyPercent: 10
+      };
+
+      let defaultPlannerCostModel = legacyDefaultPlannerCostModel;
+
+      async function loadStoreProfilesFromApi() {
+        try {
+          const response = await fetch("/api/store-profiles");
+          if (!response.ok) throw new Error("profile fetch failed");
+          storeProfileConfig = await response.json();
+          STORE_PRESETS = buildStorePresetsFromConfig(storeProfileConfig);
+          defaultPlannerCostModel = getDefaultPlannerCostModel();
+          applyPlannerCostModel(defaultPlannerCostModel);
+          return true;
+        } catch (_error) {
+          plannerStatus.textContent = "Could not load store profiles from API. Start server.js and configure in Backoffice.";
+          plannerStatus.style.color = "var(--warn)";
+          return false;
+        }
+      }
 
       function serializeAppState() {
         return {
@@ -1467,6 +1883,8 @@
             ? {
                 widthMeters: plannerState.widthMeters,
                 heightMeters: plannerState.heightMeters,
+                activePresetId: plannerState.activePresetId,
+                costModel: getPlannerCostModel(),
                 canvasJson: plannerState.canvas.toDatalessJSON(["plannerKind"])
               }
             : null
@@ -1501,11 +1919,20 @@
         if (state.planner) {
           if (state.planner.widthMeters) plannerWidthInput.value = state.planner.widthMeters;
           if (state.planner.heightMeters) plannerHeightInput.value = state.planner.heightMeters;
+          plannerState.activePresetId = state.planner.activePresetId || null;
+          applyPlannerCostModel(state.planner.costModel || defaultPlannerCostModel);
           applyStoreDimensions();
+          highlightActivePresetButton();
+          if (plannerState.activePresetId && STORE_PRESETS[plannerState.activePresetId]) {
+            const p = STORE_PRESETS[plannerState.activePresetId];
+            const area = plannerState.widthMeters * plannerState.heightMeters;
+            plannerPresetSummary.textContent = `${p.label}: ${plannerState.widthMeters}×${plannerState.heightMeters} m (${number.format(area)} m²)`;
+          }
           if (state.planner.canvasJson && plannerState.canvas) {
             plannerState.canvas.loadFromJSON(state.planner.canvasJson, () => {
               plannerState.canvas.renderAll();
               syncPlannerMetaFromCanvas();
+              updatePlannerEstimate();
             });
           }
         }
@@ -1539,6 +1966,468 @@
         return meters * plannerState.scale;
       }
 
+      function canvasPointFromMeters(xMeters, yMeters) {
+        return {
+          left: PLANNER_MARGIN + metersToPx(xMeters),
+          top: PLANNER_MARGIN + metersToPx(yMeters)
+        };
+      }
+
+      function scaleFixturesToStore(fixtures, storeW, storeH, refW, refH) {
+        return fixtures.map((fixture) => ({
+          kind: fixture.kind,
+          x: (fixture.x / refW) * storeW,
+          y: (fixture.y / refH) * storeH,
+          angle: fixture.angle || 0
+        }));
+      }
+
+      function shelvesForBespokeArea(widthMeters, heightMeters) {
+        const area = widthMeters * heightMeters;
+        const b = storeProfileConfig?.bespoke || {
+          areaDivisors: { ambient: 13, cold: 32, hot: 45 },
+          mins: { ambient: 12, cold: 4, hot: 2 },
+          maxs: { ambient: 80, cold: 28, hot: 16 }
+        };
+        return {
+          ambient: clamp(Math.round(area / b.areaDivisors.ambient), b.mins.ambient, b.maxs.ambient),
+          cold: clamp(Math.round(area / b.areaDivisors.cold), b.mins.cold, b.maxs.cold),
+          hot: clamp(Math.round(area / b.areaDivisors.hot), b.mins.hot, b.maxs.hot)
+        };
+      }
+
+      function resolvePresetLayout(presetId) {
+        const preset = STORE_PRESETS[presetId];
+        if (!preset) return null;
+
+        let widthMeters = preset.widthMeters;
+        let heightMeters = preset.heightMeters;
+        if (preset.dynamicSize) {
+          widthMeters = clamp(Number(plannerWidthInput.value) || 18, 5, 200);
+          heightMeters = clamp(Number(plannerHeightInput.value) || 14, 5, 200);
+        }
+
+        let shelves = preset.shelves;
+        if (preset.dynamicSize) {
+          shelves = shelvesForBespokeArea(widthMeters, heightMeters);
+        }
+
+        let fixtures = preset.fixtures || [];
+        if (preset.refW && preset.refH) {
+          fixtures = scaleFixturesToStore(fixtures, widthMeters, heightMeters, preset.refW, preset.refH);
+        }
+        if (preset.extras) {
+          const scaledExtras = preset.extras.map((fixture) => {
+            if (fixture.x <= 1 && fixture.y <= 1 && presetId !== "bespoke") {
+              return {
+                kind: fixture.kind,
+                x: fixture.x * widthMeters,
+                y: fixture.y * heightMeters,
+                angle: fixture.angle || 0
+              };
+            }
+            return fixture;
+          });
+          fixtures = fixtures.concat(scaledExtras);
+        }
+        if (preset.dynamicSize) {
+          fixtures = scaleFixturesToStore(preset.fixtures, widthMeters, heightMeters, preset.refW, preset.refH);
+        }
+
+        return { preset, widthMeters, heightMeters, shelves, fixtures };
+      }
+
+      function layoutPresetShelves(counts) {
+        const w = plannerState.widthMeters;
+        const h = plannerState.heightMeters;
+        const stepX = 1.3;
+        const stepY = 0.95;
+        const inset = 0.7;
+
+        let x = inset;
+        for (let i = 0; i < counts.cold; i += 1) {
+          if (x > w - inset - 1.1) break;
+          const point = canvasPointFromMeters(x, inset);
+          addPlannerObject("shelf-cold", { left: point.left, top: point.top, angle: 0, silent: true });
+          x += stepX;
+        }
+
+        let y = inset + 1.1;
+        for (let i = 0; i < counts.hot; i += 1) {
+          if (y > h - inset - 1) break;
+          const point = canvasPointFromMeters(w - inset - 1.1, y);
+          addPlannerObject("shelf-hot", { left: point.left, top: point.top, angle: 90, silent: true });
+          y += stepX;
+        }
+
+        const cols = Math.max(2, Math.floor((w - inset * 2 - 1.6) / stepX));
+        const startX = inset + 0.4;
+        const startY = inset + 2.1;
+        for (let i = 0; i < counts.ambient; i += 1) {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const px = startX + col * stepX;
+          const py = startY + row * stepY;
+          if (py > h - inset - 0.8) break;
+          const point = canvasPointFromMeters(px, py);
+          addPlannerObject("shelf-ambient", {
+            left: point.left,
+            top: point.top,
+            angle: col % 2 === 1 ? 90 : 0,
+            silent: true
+          });
+        }
+      }
+
+      function clearPlannerBlueprint() {
+        if (!plannerState.canvas || !plannerState.blueprintObject) return;
+        plannerState.canvas.remove(plannerState.blueprintObject);
+        plannerState.blueprintObject = null;
+      }
+
+      function highlightActivePresetButton() {
+        plannerPresetButtons.forEach((button) => {
+          button.classList.toggle("active", button.dataset.preset === plannerState.activePresetId);
+        });
+      }
+
+      function applyStorePreset(presetId) {
+        if (!STORE_PRESETS[presetId]) {
+          plannerStatus.textContent = "Store profiles not loaded. Open via server and configure in Backoffice.";
+          plannerStatus.style.color = "var(--warn)";
+          return;
+        }
+        const layout = resolvePresetLayout(presetId);
+        if (!layout) return;
+        if (!initPlanner()) return;
+
+        const { preset, widthMeters, heightMeters, shelves, fixtures } = layout;
+        clearPlannerBlueprint();
+        clearPlannerObjects();
+
+        plannerWidthInput.value = String(widthMeters);
+        plannerHeightInput.value = String(heightMeters);
+        applyStoreDimensions();
+
+        applyPlannerCostModel({
+          ...defaultPlannerCostModel,
+          integrationFixed: preset.integrationFixed,
+          setupPercent: preset.setupPercent ?? defaultPlannerCostModel.setupPercent,
+          contingencyPercent: preset.contingencyPercent ?? defaultPlannerCostModel.contingencyPercent
+        });
+
+        fixtures.forEach((fixture) => {
+          const point = canvasPointFromMeters(fixture.x, fixture.y);
+          addPlannerObject(fixture.kind, {
+            left: point.left,
+            top: point.top,
+            angle: fixture.angle || 0,
+            silent: true
+          });
+        });
+
+        layoutPresetShelves(shelves);
+
+        plannerState.activePresetId = presetId;
+        highlightActivePresetButton();
+
+        const area = widthMeters * heightMeters;
+        const shelfTotal = shelves.ambient + shelves.cold + shelves.hot;
+        plannerPresetSummary.textContent = `${preset.label}: ${widthMeters}×${heightMeters} m (${number.format(area)} m²) · ${shelfTotal} shelves (${shelves.ambient} amb / ${shelves.cold} cold / ${shelves.hot} hot)`;
+        plannerStatus.textContent = `${preset.label} baseline loaded — ${preset.blurb}. Adjust layout and costs as needed.`;
+        plannerStatus.style.color = "var(--ok)";
+
+        plannerState.canvas.discardActiveObject();
+        plannerState.canvas.requestRenderAll();
+        fitPlannerViewport();
+        updatePlannerEstimate();
+        persistState();
+      }
+
+      function plannerStroke(mult = 1) {
+        return Math.max(0.8, plannerState.scale * 0.045 * mult);
+      }
+
+      function plannerFontSize(mult = 1) {
+        return Math.max(8, Math.min(12, plannerState.scale * 0.42 * mult));
+      }
+
+      function syncPlannerMeterScale() {
+        if (!plannerCanvasWrap) return;
+        const canvasW = plannerState.canvas ? plannerState.canvas.getWidth() : Math.max(640, plannerCanvasWrap.clientWidth - 2);
+        const canvasH = plannerState.canvas ? plannerState.canvas.getHeight() : Math.max(460, plannerCanvasWrap.clientHeight - 2);
+        const innerW = Math.max(320, canvasW - PLANNER_MARGIN * 2 - 8);
+        const innerH = Math.max(280, canvasH - PLANNER_MARGIN * 2 - 8);
+        const fitScale = Math.min(innerW / plannerState.widthMeters, innerH / plannerState.heightMeters);
+        plannerState.scale = clamp(fitScale * 0.9, PLANNER_MIN_PX_PER_M, PLANNER_MAX_PX_PER_M);
+      }
+
+      function updatePlannerGridScaleLabel(zoom = 1) {
+        if (!plannerGridScaleLabel) return;
+        const onScreen = plannerState.scale * zoom;
+        plannerGridScaleLabel.textContent = `1 m ≈ ${onScreen.toFixed(0)} px on screen`;
+      }
+
+      function buildPlannerArtifactShapes(kind, width, height, spec) {
+        const shapes = [];
+        const strokeW = plannerStroke();
+        const type = spec.type;
+
+        if (type === "gondola") {
+          const { fill, stroke } = spec.palette;
+          shapes.push(
+            new fabric.Rect({
+              width,
+              height,
+              fill,
+              stroke,
+              strokeWidth: strokeW,
+              originX: "center",
+              originY: "center"
+            })
+          );
+          for (let i = 1; i <= 3; i += 1) {
+            const y = -height / 2 + (height * i) / 4;
+            shapes.push(
+              new fabric.Line([-width / 2 + 4, y, width / 2 - 4, y], {
+                stroke,
+                strokeWidth: Math.max(0.6, strokeW * 0.7),
+                originX: "center",
+                originY: "center"
+              })
+            );
+          }
+        } else if (type === "aisle") {
+          shapes.push(
+            new fabric.Rect({
+              width,
+              height,
+              fill: "#f7f7f4",
+              stroke: "#4b5563",
+              strokeWidth: strokeW,
+              strokeDashArray: [6, 4],
+              originX: "center",
+              originY: "center"
+            })
+          );
+          const lane = width * 0.35;
+          shapes.push(
+            new fabric.Rect({
+              width: lane,
+              height: height - 8,
+              fill: "transparent",
+              stroke: "#9ca3af",
+              strokeWidth: Math.max(0.6, strokeW * 0.6),
+              originX: "center",
+              originY: "center"
+            })
+          );
+        } else if (type === "rack") {
+          shapes.push(
+            new fabric.Rect({
+              width,
+              height,
+              fill: "#e8eef8",
+              stroke: "#1e3a8a",
+              strokeWidth: strokeW,
+              originX: "center",
+              originY: "center"
+            }),
+            new fabric.Rect({
+              width: width * 0.7,
+              height: height * 0.55,
+              fill: "#cbd5e1",
+              stroke: "#1e3a8a",
+              strokeWidth: Math.max(0.6, strokeW * 0.7),
+              originX: "center",
+              originY: "center"
+            })
+          );
+        } else if (type === "entry-open") {
+          shapes.push(
+            new fabric.Rect({
+              width,
+              height: Math.max(4, height),
+              fill: "#ede9fe",
+              stroke: "#5b21b6",
+              strokeWidth: strokeW,
+              originX: "center",
+              originY: "center"
+            }),
+            new fabric.Triangle({
+              width: Math.max(8, width * 0.12),
+              height: Math.max(8, width * 0.1),
+              fill: "#5b21b6",
+              angle: 90,
+              originX: "center",
+              originY: "center"
+            })
+          );
+        } else if (type === "entry-gated") {
+          shapes.push(
+            new fabric.Rect({
+              width,
+              height: Math.max(5, height),
+              fill: "#fce7f3",
+              stroke: "#9d174d",
+              strokeWidth: strokeW,
+              originX: "center",
+              originY: "center"
+            })
+          );
+          [-0.28, 0, 0.28].forEach((offset) => {
+            shapes.push(
+              new fabric.Rect({
+                width: Math.max(2, width * 0.04),
+                height: Math.max(8, height * 2.2),
+                left: width * offset,
+                fill: "#9d174d",
+                originX: "center",
+                originY: "center"
+              })
+            );
+          });
+        } else if (type === "checkout") {
+          shapes.push(
+            new fabric.Rect({
+              width,
+              height,
+              fill: "#fef3c7",
+              stroke: "#92400e",
+              strokeWidth: strokeW,
+              rx: 4,
+              ry: 4,
+              originX: "center",
+              originY: "center"
+            }),
+            new fabric.Rect({
+              width: width * 0.22,
+              height: height * 0.42,
+              left: width * 0.22,
+              fill: "#78350f",
+              originX: "center",
+              originY: "center"
+            })
+          );
+        } else if (type === "zone") {
+          const { fill, stroke } = spec.palette;
+          shapes.push(
+            new fabric.Rect({
+              width,
+              height,
+              fill,
+              stroke,
+              strokeWidth: strokeW,
+              originX: "center",
+              originY: "center"
+            }),
+            new fabric.Line([-width / 2 + 6, -height / 2 + 6, width / 2 - 6, height / 2 - 6], {
+              stroke,
+              strokeWidth: Math.max(0.6, strokeW * 0.6),
+              opacity: 0.5
+            }),
+            new fabric.Line([-width / 2 + 6, height / 2 - 6, width / 2 - 6, -height / 2 + 6], {
+              stroke,
+              strokeWidth: Math.max(0.6, strokeW * 0.6),
+              opacity: 0.5
+            })
+          );
+        } else if (type === "wall") {
+          shapes.push(
+            new fabric.Rect({
+              width,
+              height: Math.max(3, height),
+              fill: "#4b5563",
+              stroke: "#111827",
+              strokeWidth: strokeW,
+              originX: "center",
+              originY: "center"
+            })
+          );
+        } else if (type === "cage") {
+          shapes.push(
+            new fabric.Rect({
+              width,
+              height,
+              fill: "#ffffff",
+              stroke: "#991b1b",
+              strokeWidth: strokeW,
+              originX: "center",
+              originY: "center"
+            })
+          );
+          const stripes = 6;
+          for (let i = 0; i < stripes; i += 1) {
+            const x = -width / 2 + ((i + 0.5) * width) / stripes;
+            shapes.push(
+              new fabric.Rect({
+                width: Math.max(3, width / (stripes * 2)),
+                height,
+                left: x,
+                angle: 24,
+                fill: "#ef4444",
+                opacity: 0.75,
+                originX: "center",
+                originY: "center"
+              })
+            );
+          }
+          shapes.push(
+            new fabric.Rect({
+              width,
+              height,
+              fill: "transparent",
+              stroke: "#7f1d1d",
+              strokeWidth: strokeW,
+              originX: "center",
+              originY: "center"
+            })
+          );
+        } else if (type === "entry-zone") {
+          shapes.push(
+            new fabric.Rect({
+              width,
+              height,
+              fill: "#fffbeb",
+              stroke: "#a16207",
+              strokeWidth: strokeW,
+              originX: "center",
+              originY: "center"
+            })
+          );
+          const stripes = 7;
+          for (let i = 0; i < stripes; i += 1) {
+            const x = -width / 2 + ((i + 0.5) * width) / stripes;
+            shapes.push(
+              new fabric.Rect({
+                width: Math.max(3, width / (stripes * 2.2)),
+                height,
+                left: x,
+                angle: 24,
+                fill: "#facc15",
+                opacity: 0.8,
+                originX: "center",
+                originY: "center"
+              })
+            );
+          }
+        }
+
+        shapes.push(
+          new fabric.Text(spec.label, {
+            fontSize: plannerFontSize(),
+            fontFamily: "Inter, Arial, sans-serif",
+            fill: "#111111",
+            left: 0,
+            top: height / 2 + plannerFontSize(0.35),
+            originX: "center",
+            originY: "center"
+          })
+        );
+
+        return shapes;
+      }
+
       function syncPlannerMetaFromCanvas() {
         if (!plannerState.canvas) return;
         plannerState.canvas.getObjects().forEach((obj) => {
@@ -1550,8 +2439,289 @@
 
       function clearPlannerObjects() {
         if (!plannerState.canvas) return;
-        const toRemove = plannerState.canvas.getObjects().filter((obj) => obj !== plannerState.boundary && !plannerState.gridObjects.includes(obj));
+        const toRemove = plannerState.canvas
+          .getObjects()
+          .filter((obj) => obj !== plannerState.boundary && obj !== plannerState.blueprintObject && !plannerState.gridObjects.includes(obj));
         toRemove.forEach((obj) => plannerState.canvas.remove(obj));
+        updatePlannerEstimate();
+      }
+
+      function getPlannerCostModel() {
+        return {
+          ambientShelf: clamp(Number(costAmbientShelfInput.value) || 0, 0, 200000),
+          coldShelf: clamp(Number(costColdShelfInput.value) || 0, 0, 200000),
+          hotShelf: clamp(Number(costHotShelfInput.value) || 0, 0, 200000),
+          installPerShelf: clamp(Number(costInstallPerShelfInput.value) || 0, 0, 200000),
+          integrationFixed: clamp(Number(costIntegrationFixedInput.value) || 0, 0, 2000000),
+          setupPercent: clamp(Number(costSetupPercentInput.value) || 0, 0, 100),
+          contingencyPercent: clamp(Number(costContingencyPercentInput.value) || 0, 0, 100)
+        };
+      }
+
+      function applyPlannerCostModel(model) {
+        const safeModel = { ...defaultPlannerCostModel, ...(model || {}) };
+        costAmbientShelfInput.value = String(clamp(Number(safeModel.ambientShelf) || 0, 0, 200000));
+        costColdShelfInput.value = String(clamp(Number(safeModel.coldShelf) || 0, 0, 200000));
+        costHotShelfInput.value = String(clamp(Number(safeModel.hotShelf) || 0, 0, 200000));
+        costInstallPerShelfInput.value = String(clamp(Number(safeModel.installPerShelf) || 0, 0, 200000));
+        costIntegrationFixedInput.value = String(clamp(Number(safeModel.integrationFixed) || 0, 0, 2000000));
+        costSetupPercentInput.value = String(clamp(Number(safeModel.setupPercent) || 0, 0, 100));
+        costContingencyPercentInput.value = String(clamp(Number(safeModel.contingencyPercent) || 0, 0, 100));
+      }
+
+      function updatePlannerEstimate() {
+        const counts = { ambient: 0, cold: 0, hot: 0 };
+        if (plannerState.canvas) {
+          plannerState.canvas.getObjects().forEach((obj) => {
+            if (obj.plannerKind === "shelf-ambient") counts.ambient += 1;
+            if (obj.plannerKind === "shelf-cold") counts.cold += 1;
+            if (obj.plannerKind === "shelf-hot") counts.hot += 1;
+          });
+        }
+
+        const costModel = getPlannerCostModel();
+        const shelfCount = counts.ambient + counts.cold + counts.hot;
+        const shelfAndInstallSubtotal =
+          counts.ambient * costModel.ambientShelf +
+          counts.cold * costModel.coldShelf +
+          counts.hot * costModel.hotShelf +
+          shelfCount * costModel.installPerShelf;
+        const baseSubtotal = shelfAndInstallSubtotal + costModel.integrationFixed;
+        const setupAddon = baseSubtotal * (costModel.setupPercent / 100);
+        const contingencyAddon = (baseSubtotal + setupAddon) * (costModel.contingencyPercent / 100);
+        const capex = baseSubtotal + setupAddon + contingencyAddon;
+        const areaSqm = Math.max(1, plannerState.widthMeters * plannerState.heightMeters);
+        const capexPerSqm = capex / areaSqm;
+        const monthlyService = capex * 0.12 / 12;
+
+        countAmbientShelfLabel.textContent = String(counts.ambient);
+        countColdShelfLabel.textContent = String(counts.cold);
+        countHotShelfLabel.textContent = String(counts.hot);
+        plannerEstimatedSubtotalLabel.textContent = currency.format(baseSubtotal);
+        plannerEstimatedSetupLabel.textContent = currency.format(setupAddon);
+        plannerEstimatedContingencyLabel.textContent = currency.format(contingencyAddon);
+        plannerEstimatedCapexLabel.textContent = currency.format(capex);
+        plannerEstimatedCostPerSqmLabel.textContent = `${currency.format(capexPerSqm)}/m²`;
+        plannerEstimatedMonthlyLabel.textContent = currency.format(monthlyService);
+      }
+
+      function resizePlannerCanvasToContainer() {
+        if (!plannerState.canvas || !plannerCanvasWrap) return;
+        const width = Math.max(640, Math.floor(plannerCanvasWrap.clientWidth) - 2);
+        const height = Math.max(460, Math.floor(plannerCanvasWrap.clientHeight) - 2);
+        plannerState.canvas.setWidth(width);
+        plannerState.canvas.setHeight(height);
+        syncPlannerMeterScale();
+        drawPlannerBoundary();
+        fitPlannerViewport();
+      }
+
+      function fitPlannerViewport() {
+        if (!plannerState.canvas) return;
+        const canvasWidth = plannerState.canvas.getWidth();
+        const canvasHeight = plannerState.canvas.getHeight();
+        const contentWidth = metersToPx(plannerState.widthMeters) + PLANNER_MARGIN * 2;
+        const contentHeight = metersToPx(plannerState.heightMeters) + PLANNER_MARGIN * 2;
+        const padding = 20;
+        const fitZoom = Math.min(
+          (canvasWidth - padding * 2) / contentWidth,
+          (canvasHeight - padding * 2) / contentHeight
+        );
+        const minZoomForMeter = PLANNER_MIN_PX_PER_M / plannerState.scale;
+        let zoom = fitZoom;
+        if (fitZoom >= minZoomForMeter) {
+          zoom = Math.min(fitZoom, 1.08);
+        }
+        zoom = clamp(zoom, 0.28, 1.08);
+
+        const offsetX = (canvasWidth - contentWidth * zoom) / 2;
+        const offsetY = (canvasHeight - contentHeight * zoom) / 2;
+        plannerState.canvas.setViewportTransform([zoom, 0, 0, zoom, offsetX, offsetY]);
+        updatePlannerGridScaleLabel(zoom);
+        plannerState.canvas.requestRenderAll();
+      }
+
+      function estimateShelfCountFromBlueprint(renderCanvas) {
+        const targetWidth = Math.min(960, renderCanvas.width);
+        const scale = targetWidth / renderCanvas.width;
+        const targetHeight = Math.max(60, Math.floor(renderCanvas.height * scale));
+        const probeCanvas = document.createElement("canvas");
+        probeCanvas.width = targetWidth;
+        probeCanvas.height = targetHeight;
+        const probeCtx = probeCanvas.getContext("2d");
+        probeCtx.drawImage(renderCanvas, 0, 0, targetWidth, targetHeight);
+        const { data, width, height } = probeCtx.getImageData(0, 0, targetWidth, targetHeight);
+        const visited = new Uint8Array(width * height);
+
+        const brightnessAt = (idx) => data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114;
+        const isDark = (x, y) => {
+          const px = (y * width + x) * 4;
+          return brightnessAt(px) < 110;
+        };
+
+        const components = [];
+        const qx = [];
+        const qy = [];
+        for (let y = 1; y < height - 1; y += 1) {
+          for (let x = 1; x < width - 1; x += 1) {
+            const key = y * width + x;
+            if (visited[key] || !isDark(x, y)) continue;
+            let minX = x;
+            let maxX = x;
+            let minY = y;
+            let maxY = y;
+            let area = 0;
+            qx.length = 0;
+            qy.length = 0;
+            qx.push(x);
+            qy.push(y);
+            visited[key] = 1;
+
+            while (qx.length) {
+              const cx = qx.pop();
+              const cy = qy.pop();
+              area += 1;
+              if (cx < minX) minX = cx;
+              if (cx > maxX) maxX = cx;
+              if (cy < minY) minY = cy;
+              if (cy > maxY) maxY = cy;
+
+              for (let oy = -1; oy <= 1; oy += 1) {
+                for (let ox = -1; ox <= 1; ox += 1) {
+                  if (ox === 0 && oy === 0) continue;
+                  const nx = cx + ox;
+                  const ny = cy + oy;
+                  if (nx < 1 || ny < 1 || nx >= width - 1 || ny >= height - 1) continue;
+                  const nKey = ny * width + nx;
+                  if (visited[nKey] || !isDark(nx, ny)) continue;
+                  visited[nKey] = 1;
+                  qx.push(nx);
+                  qy.push(ny);
+                }
+              }
+            }
+
+            const compW = maxX - minX + 1;
+            const compH = maxY - minY + 1;
+            const aspect = compW / Math.max(1, compH);
+            const fillRatio = area / Math.max(1, compW * compH);
+            if (area >= 110 && area <= 18000 && compW >= 26 && compH >= 8 && aspect >= 1.8 && aspect <= 9 && fillRatio <= 0.72) {
+              components.push({ area, compW, compH, aspect, fillRatio, minX, minY });
+            }
+          }
+        }
+
+        const estimatedCount = clamp(components.length, 0, 40);
+        if (estimatedCount > 0) return estimatedCount;
+        const fallbackFromArea = Math.round((plannerState.widthMeters * plannerState.heightMeters) / 24);
+        return clamp(fallbackFromArea, 4, 30);
+      }
+
+      function clearAutoShelfObjects() {
+        if (!plannerState.canvas) return;
+        const kinds = new Set(["shelf-ambient", "shelf-cold", "shelf-hot"]);
+        const toRemove = plannerState.canvas.getObjects().filter((obj) => kinds.has(obj.plannerKind));
+        toRemove.forEach((obj) => plannerState.canvas.remove(obj));
+      }
+
+      function preloadShelvesFromBlueprint(estimatedCount) {
+        if (!plannerState.canvas) return;
+        clearAutoShelfObjects();
+        const total = clamp(Math.round(estimatedCount), 1, 60);
+        const cold = Math.max(1, Math.round(total * 0.25));
+        const hot = Math.max(1, Math.round(total * 0.15));
+        const ambient = Math.max(1, total - cold - hot);
+
+        const placements = [];
+        for (let i = 0; i < ambient; i += 1) placements.push("shelf-ambient");
+        for (let i = 0; i < cold; i += 1) placements.push("shelf-cold");
+        for (let i = 0; i < hot; i += 1) placements.push("shelf-hot");
+
+        const boundaryLeft = PLANNER_MARGIN;
+        const boundaryTop = PLANNER_MARGIN;
+        const widthPx = metersToPx(plannerState.widthMeters);
+        const heightPx = metersToPx(plannerState.heightMeters);
+        const cols = Math.max(3, Math.ceil(Math.sqrt(placements.length)));
+        const rows = Math.max(1, Math.ceil(placements.length / cols));
+        const cellW = widthPx / cols;
+        const cellH = heightPx / rows;
+        const yStart = boundaryTop + Math.max(18, heightPx * 0.42);
+
+        placements.forEach((kind, idx) => {
+          const col = idx % cols;
+          const row = Math.floor(idx / cols);
+          const left = boundaryLeft + cellW * col + cellW * 0.5;
+          const top = Math.min(boundaryTop + heightPx - 18, yStart + row * cellH + cellH * 0.45);
+          const angle = row % 2 === 0 ? 0 : 90;
+          addPlannerObject(kind, { left, top, angle });
+        });
+      }
+
+      async function loadPlannerBlueprintPdf(file) {
+        if (!plannerState.canvas) return;
+        if (!file) return;
+        if (!window.pdfjsLib) {
+          plannerStatus.textContent = "PDF support unavailable. Check network and refresh the page.";
+          plannerStatus.style.color = "var(--warn)";
+          return;
+        }
+
+        try {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+          const bytes = new Uint8Array(await file.arrayBuffer());
+          const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+          const page = await pdf.getPage(1);
+          const baseViewport = page.getViewport({ scale: 1 });
+          const ratio = baseViewport.width / Math.max(1, baseViewport.height);
+          const area = plannerState.widthMeters * plannerState.heightMeters;
+          const nextWidth = clamp(Math.sqrt(area * ratio), 5, 200);
+          const nextHeight = clamp(area / Math.max(1, nextWidth), 5, 200);
+          plannerState.widthMeters = Number(nextWidth.toFixed(1));
+          plannerState.heightMeters = Number(nextHeight.toFixed(1));
+          plannerWidthInput.value = String(plannerState.widthMeters);
+          plannerHeightInput.value = String(plannerState.heightMeters);
+          drawPlannerBoundary();
+          resizePlannerCanvasToContainer();
+          const maxWidth = Math.max(120, metersToPx(plannerState.widthMeters) - 8);
+          const maxHeight = Math.max(120, metersToPx(plannerState.heightMeters) - 8);
+          const scale = Math.min(maxWidth / baseViewport.width, maxHeight / baseViewport.height);
+          const viewport = page.getViewport({ scale: Math.max(0.1, scale) });
+          const renderCanvas = document.createElement("canvas");
+          const context = renderCanvas.getContext("2d");
+          renderCanvas.width = Math.ceil(viewport.width);
+          renderCanvas.height = Math.ceil(viewport.height);
+
+          await page.render({ canvasContext: context, viewport }).promise;
+
+          if (plannerState.blueprintObject) plannerState.canvas.remove(plannerState.blueprintObject);
+
+          const image = new fabric.Image(renderCanvas, {
+            left: PLANNER_MARGIN + 4,
+            top: PLANNER_MARGIN + 4,
+            selectable: false,
+            evented: false,
+            opacity: 0.46,
+            excludeFromExport: true
+          });
+          image.plannerKind = "blueprint";
+          plannerState.blueprintObject = image;
+          plannerState.canvas.add(image);
+          image.sendToBack();
+          plannerState.gridObjects.forEach((obj) => obj.bringToFront());
+          if (plannerState.boundary) plannerState.boundary.bringToFront();
+          fitPlannerViewport();
+          plannerState.canvas.requestRenderAll();
+
+          const estimatedShelves = estimateShelfCountFromBlueprint(renderCanvas);
+          preloadShelvesFromBlueprint(estimatedShelves);
+          updatePlannerEstimate();
+
+          plannerStatus.textContent = `Blueprint loaded (${file.name}) - page 1. Preloaded ${estimatedShelves} shelf units for adjustment.`;
+          plannerStatus.style.color = "var(--ok)";
+        } catch (_error) {
+          plannerStatus.textContent = "Could not read PDF blueprint. Please upload a valid PDF.";
+          plannerStatus.style.color = "var(--bad)";
+        }
       }
 
       function drawPlannerGrid() {
@@ -1559,30 +2729,46 @@
         plannerState.gridObjects.forEach((obj) => plannerState.canvas.remove(obj));
         plannerState.gridObjects = [];
 
-        const startX = 20;
-        const startY = 20;
+        const startX = PLANNER_MARGIN;
+        const startY = PLANNER_MARGIN;
         const widthPx = metersToPx(plannerState.widthMeters);
         const heightPx = metersToPx(plannerState.heightMeters);
         const oneMeterPx = metersToPx(1);
 
         for (let x = 0; x <= widthPx; x += oneMeterPx) {
-          const isMajor = (x / oneMeterPx) % 5 === 0;
+          const meter = Math.round(x / oneMeterPx);
+          const isMajor = meter % 5 === 0;
           const line = new fabric.Line([startX + x, startY, startX + x, startY + heightPx], {
-            stroke: isMajor ? "#5b7bd5" : "#8aa0d6",
-            strokeWidth: isMajor ? 1.5 : 0.95,
+            stroke: isMajor ? "#6b7280" : "#c5c9c0",
+            strokeWidth: isMajor ? 1.2 : 0.7,
             selectable: false,
             evented: false,
             excludeFromExport: true
           });
           plannerState.canvas.add(line);
           plannerState.gridObjects.push(line);
+          if (isMajor && meter > 0) {
+            const label = new fabric.Text(`${meter}m`, {
+              left: startX + x + 2,
+              top: startY + 2,
+              fontSize: plannerFontSize(0.85),
+              fill: "#374151",
+              fontFamily: "ui-monospace, monospace",
+              selectable: false,
+              evented: false,
+              excludeFromExport: true
+            });
+            plannerState.canvas.add(label);
+            plannerState.gridObjects.push(label);
+          }
         }
 
         for (let y = 0; y <= heightPx; y += oneMeterPx) {
-          const isMajor = (y / oneMeterPx) % 5 === 0;
+          const meter = Math.round(y / oneMeterPx);
+          const isMajor = meter % 5 === 0;
           const line = new fabric.Line([startX, startY + y, startX + widthPx, startY + y], {
-            stroke: isMajor ? "#5b7bd5" : "#8aa0d6",
-            strokeWidth: isMajor ? 1.5 : 0.95,
+            stroke: isMajor ? "#6b7280" : "#c5c9c0",
+            strokeWidth: isMajor ? 1.2 : 0.7,
             selectable: false,
             evented: false,
             excludeFromExport: true
@@ -1616,13 +2802,13 @@
         if (plannerState.boundary) plannerState.canvas.remove(plannerState.boundary);
         drawPlannerGrid();
         const boundary = new fabric.Rect({
-          left: 20,
-          top: 20,
+          left: PLANNER_MARGIN,
+          top: PLANNER_MARGIN,
           width: metersToPx(plannerState.widthMeters),
           height: metersToPx(plannerState.heightMeters),
           fill: "transparent",
-          stroke: "#2b4da7",
-          strokeWidth: 2,
+          stroke: "#111111",
+          strokeWidth: 1.6,
           rx: 2,
           ry: 2,
           selectable: false,
@@ -1633,6 +2819,7 @@
         plannerState.canvas.add(boundary);
         boundary.bringToFront();
         updatePlannerArea();
+        fitPlannerViewport();
         plannerState.canvas.renderAll();
       }
 
@@ -1643,347 +2830,54 @@
         plannerState.heightMeters = heightMeters;
         plannerWidthInput.value = String(widthMeters);
         plannerHeightInput.value = String(heightMeters);
+        syncPlannerMeterScale();
         drawPlannerBoundary();
+        fitPlannerViewport();
         persistState();
       }
 
-      function addPlannerObject(kind) {
-        if (!plannerState.canvas) return;
-        const spec = {
-          server: { label: "Server", w: 1.2, h: 0.8, fill: "#93c5fd" },
-          aisle: { label: "Aisle", w: 7, h: 1.3, fill: "#86efac" },
-          "entry-open": { label: "Entry Open", w: 3, h: 0.9, fill: "#c4b5fd" },
-          "entry-gated": { label: "Entry Gated", w: 3, h: 0.9, fill: "#f9a8d4" },
-          checkout: { label: "Checkout", w: 2.5, h: 1.2, fill: "#fcd34d" },
-          warehouse: { label: "Warehouse", w: 4.5, h: 4.5, fill: "#a16207" },
-          technical: { label: "Technical", w: 3.6, h: 3.6, fill: "#16a34a" },
-          "separator-wall": { label: "Wall", w: 6, h: 0.25, fill: "#64748b" },
-          "security-cage": { label: "Security Cage", w: 3.8, h: 3.8, fill: "#ef4444" },
-          "entry-zone": { label: "Entry Zone", w: 3.6, h: 3.6, fill: "#facc15" }
-        }[kind];
+      function defaultPlannerPlacement() {
+        const w = metersToPx(plannerState.widthMeters);
+        const h = metersToPx(plannerState.heightMeters);
+        return {
+          left: PLANNER_MARGIN + w * 0.35 + Math.random() * w * 0.3,
+          top: PLANNER_MARGIN + h * 0.35 + Math.random() * h * 0.25
+        };
+      }
 
+      function addPlannerObject(kind, options = {}) {
+        if (!plannerState.canvas) return;
+        const spec = PLANNER_ARTIFACTS[kind];
         if (!spec) return;
         const width = metersToPx(spec.w);
         const height = metersToPx(spec.h);
-        const shapes = [];
-
-        if (kind === "server") {
-          const topCap = new fabric.Ellipse({
-            rx: width / 2,
-            ry: Math.max(6, height * 0.22),
-            left: 0,
-            top: -height * 0.35,
-            fill: "#bfdbfe",
-            stroke: "#1e3a8a",
-            strokeWidth: 1.5,
-            originX: "center",
-            originY: "center"
-          });
-          const body = new fabric.Rect({
-            width,
-            height: height * 0.7,
-            left: 0,
-            top: 0,
-            fill: "#93c5fd",
-            stroke: "#1e3a8a",
-            strokeWidth: 1.5,
-            originX: "center",
-            originY: "center"
-          });
-          const bottomCap = new fabric.Ellipse({
-            rx: width / 2,
-            ry: Math.max(6, height * 0.22),
-            left: 0,
-            top: height * 0.35,
-            fill: "#7dd3fc",
-            stroke: "#1e3a8a",
-            strokeWidth: 1.5,
-            originX: "center",
-            originY: "center"
-          });
-          shapes.push(topCap, body, bottomCap);
-        } else if (kind === "aisle") {
-          const base = new fabric.Rect({
-            width,
-            height,
-            fill: "#86efac",
-            stroke: "#166534",
-            strokeWidth: 1.5,
-            rx: 8,
-            ry: 8,
-            originX: "center",
-            originY: "center"
-          });
-          const divider1 = new fabric.Rect({
-            width: 2,
-            height: height - 6,
-            left: -width * 0.2,
-            top: 0,
-            fill: "#166534",
-            originX: "center",
-            originY: "center"
-          });
-          const divider2 = new fabric.Rect({
-            width: 2,
-            height: height - 6,
-            left: width * 0.2,
-            top: 0,
-            fill: "#166534",
-            originX: "center",
-            originY: "center"
-          });
-          shapes.push(base, divider1, divider2);
-        } else if (kind === "entry-open") {
-          const gate = new fabric.Rect({
-            width,
-            height,
-            fill: "#ddd6fe",
-            stroke: "#5b21b6",
-            strokeWidth: 1.5,
-            rx: 6,
-            ry: 6,
-            originX: "center",
-            originY: "center"
-          });
-          const openArrow = new fabric.Triangle({
-            width: 14,
-            height: 12,
-            left: 0,
-            top: 0,
-            angle: 90,
-            fill: "#5b21b6",
-            originX: "center",
-            originY: "center"
-          });
-          shapes.push(gate, openArrow);
-        } else if (kind === "entry-gated") {
-          const gate = new fabric.Rect({
-            width,
-            height,
-            fill: "#fbcfe8",
-            stroke: "#9d174d",
-            strokeWidth: 1.5,
-            rx: 6,
-            ry: 6,
-            originX: "center",
-            originY: "center"
-          });
-          const bar1 = new fabric.Rect({
-            width: 3,
-            height: height - 6,
-            left: -width * 0.22,
-            top: 0,
-            fill: "#9d174d",
-            originX: "center",
-            originY: "center"
-          });
-          const bar2 = new fabric.Rect({
-            width: 3,
-            height: height - 6,
-            left: 0,
-            top: 0,
-            fill: "#9d174d",
-            originX: "center",
-            originY: "center"
-          });
-          const bar3 = new fabric.Rect({
-            width: 3,
-            height: height - 6,
-            left: width * 0.22,
-            top: 0,
-            fill: "#9d174d",
-            originX: "center",
-            originY: "center"
-          });
-          shapes.push(gate, bar1, bar2, bar3);
-        } else if (kind === "warehouse") {
-          const zone = new fabric.Rect({
-            width,
-            height,
-            fill: "#a16207",
-            stroke: "#713f12",
-            strokeWidth: 2,
-            rx: 3,
-            ry: 3,
-            originX: "center",
-            originY: "center"
-          });
-          const hatch1 = new fabric.Line([-width / 2 + 8, -height / 2 + 8, width / 2 - 8, height / 2 - 8], {
-            stroke: "#fef3c7",
-            strokeWidth: 1
-          });
-          const hatch2 = new fabric.Line([-width / 2 + 8, height / 2 - 8, width / 2 - 8, -height / 2 + 8], {
-            stroke: "#fef3c7",
-            strokeWidth: 1
-          });
-          shapes.push(zone, hatch1, hatch2);
-        } else if (kind === "technical") {
-          const zone = new fabric.Rect({
-            width,
-            height,
-            fill: "#16a34a",
-            stroke: "#14532d",
-            strokeWidth: 2,
-            rx: 3,
-            ry: 3,
-            originX: "center",
-            originY: "center"
-          });
-          const gearCore = new fabric.Circle({
-            radius: Math.min(width, height) * 0.16,
-            fill: "#dcfce7",
-            stroke: "#14532d",
-            strokeWidth: 1.2,
-            originX: "center",
-            originY: "center"
-          });
-          shapes.push(zone, gearCore);
-        } else if (kind === "separator-wall") {
-          const wall = new fabric.Rect({
-            width,
-            height,
-            fill: "#64748b",
-            stroke: "#334155",
-            strokeWidth: 1.5,
-            rx: 2,
-            ry: 2,
-            originX: "center",
-            originY: "center"
-          });
-          shapes.push(wall);
-        } else if (kind === "security-cage") {
-          const cageBase = new fabric.Rect({
-            width,
-            height,
-            fill: "#ffffff",
-            stroke: "#991b1b",
-            strokeWidth: 2,
-            rx: 2,
-            ry: 2,
-            originX: "center",
-            originY: "center"
-          });
-          shapes.push(cageBase);
-
-          const stripeCount = 7;
-          for (let i = 0; i < stripeCount; i += 1) {
-            const x = -width / 2 + ((i + 0.5) * width) / stripeCount;
-            const stripe = new fabric.Rect({
-              width: Math.max(5, width / (stripeCount * 1.8)),
-              height,
-              left: x,
-              top: 0,
-              angle: 28,
-              fill: "#ef4444",
-              opacity: 0.88,
-              originX: "center",
-              originY: "center"
-            });
-            shapes.push(stripe);
-          }
-
-          const frame = new fabric.Rect({
-            width,
-            height,
-            fill: "transparent",
-            stroke: "#7f1d1d",
-            strokeWidth: 2.2,
-            rx: 2,
-            ry: 2,
-            originX: "center",
-            originY: "center"
-          });
-          shapes.push(frame);
-        } else if (kind === "entry-zone") {
-          const zoneBase = new fabric.Rect({
-            width,
-            height,
-            fill: "#ffffff",
-            stroke: "#ca8a04",
-            strokeWidth: 2,
-            rx: 2,
-            ry: 2,
-            originX: "center",
-            originY: "center"
-          });
-          shapes.push(zoneBase);
-
-          const stripeCount = 8;
-          for (let i = 0; i < stripeCount; i += 1) {
-            const x = -width / 2 + ((i + 0.5) * width) / stripeCount;
-            const stripe = new fabric.Rect({
-              width: Math.max(5, width / (stripeCount * 1.9)),
-              height,
-              left: x,
-              top: 0,
-              angle: 28,
-              fill: "#facc15",
-              opacity: 0.9,
-              originX: "center",
-              originY: "center"
-            });
-            shapes.push(stripe);
-          }
-
-          const frame = new fabric.Rect({
-            width,
-            height,
-            fill: "transparent",
-            stroke: "#a16207",
-            strokeWidth: 2.2,
-            rx: 2,
-            ry: 2,
-            originX: "center",
-            originY: "center"
-          });
-          shapes.push(frame);
-        } else {
-          const checkout = new fabric.Rect({
-            width,
-            height,
-            fill: "#fcd34d",
-            stroke: "#92400e",
-            strokeWidth: 1.5,
-            rx: 8,
-            ry: 8,
-            originX: "center",
-            originY: "center"
-          });
-          const posScreen = new fabric.Rect({
-            width: Math.max(12, width * 0.2),
-            height: Math.max(8, height * 0.45),
-            left: width * 0.25,
-            top: -height * 0.1,
-            fill: "#78350f",
-            originX: "center",
-            originY: "center"
-          });
-          shapes.push(checkout, posScreen);
-        }
-
-        const text = new fabric.Text(spec.label, {
-          fontSize: 12,
-          fill: "#0f172a",
-          left: 0,
-          top: height * 0.9,
-          originX: "center",
-          originY: "center"
-        });
-        shapes.push(text);
+        const placement = defaultPlannerPlacement();
+        const shapes = buildPlannerArtifactShapes(kind, width, height, spec);
 
         const group = new fabric.Group(shapes, {
-          left: 80 + Math.random() * 320,
-          top: 80 + Math.random() * 220,
+          left: options.left ?? placement.left,
+          top: options.top ?? placement.top,
+          angle: options.angle ?? 0,
           hasRotatingPoint: true,
-          cornerStyle: "circle",
-          transparentCorners: false
+          cornerStyle: "rect",
+          cornerColor: "#111111",
+          cornerStrokeColor: "#d9f04f",
+          transparentCorners: false,
+          borderColor: "#111111"
         });
         group.plannerKind = kind;
+        group.plannerMeters = { w: spec.w, h: spec.h };
         plannerState.canvas.add(group);
-        plannerState.canvas.setActiveObject(group);
+        if (!options.silent) {
+          plannerState.canvas.setActiveObject(group);
+        }
         plannerState.canvas.renderAll();
-        persistState();
+        if (!options.silent) {
+          updatePlannerEstimate();
+          persistState();
+        }
       }
+
 
       function initPlanner() {
         if (plannerState.canvas) return true;
@@ -1997,10 +2891,18 @@
           selection: true
         });
 
-        drawPlannerBoundary();
+        applyPlannerCostModel(defaultPlannerCostModel);
+        resizePlannerCanvasToContainer();
+        updatePlannerEstimate();
         plannerState.canvas.on("object:modified", persistState);
-        plannerState.canvas.on("object:added", persistState);
-        plannerState.canvas.on("object:removed", persistState);
+        plannerState.canvas.on("object:added", () => {
+          updatePlannerEstimate();
+          persistState();
+        });
+        plannerState.canvas.on("object:removed", () => {
+          updatePlannerEstimate();
+          persistState();
+        });
         plannerStatus.textContent = "Planner ready. Add objects and drag them on the canvas.";
         plannerStatus.style.color = "var(--ok)";
         return true;
@@ -2047,7 +2949,10 @@
           tabButtons.forEach((btn) => btn.classList.toggle("active", btn === button));
           if (tab === "planner") {
             initPlanner();
-            if (plannerState.canvas) plannerState.canvas.requestRenderAll();
+            if (plannerState.canvas) {
+              resizePlannerCanvasToContainer();
+              plannerState.canvas.requestRenderAll();
+            }
           }
         });
       });
@@ -2117,8 +3022,14 @@
         plannerHeightInput.value = "20";
         plannerState.widthMeters = 20;
         plannerState.heightMeters = 20;
+        plannerState.activePresetId = null;
+        applyPlannerCostModel(defaultPlannerCostModel);
         applyStoreDimensions();
         clearPlannerObjects();
+        clearPlannerBlueprint();
+        highlightActivePresetButton();
+        plannerPresetSummary.textContent = "No baseline loaded.";
+        updatePlannerEstimate();
         updateUI();
         updateReadinessAndFilters();
         persistState();
@@ -2127,6 +3038,12 @@
       applyStoreSizeBtn.addEventListener("click", () => {
         if (!plannerState.canvas) initPlanner();
         applyStoreDimensions();
+      });
+
+      plannerPresetButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          applyStorePreset(button.dataset.preset);
+        });
       });
       plannerAddButtons.forEach((button) =>
         button.addEventListener("click", () => {
@@ -2138,6 +3055,7 @@
         if (!plannerState.canvas) initPlanner();
         clearPlannerObjects();
         if (plannerState.canvas) plannerState.canvas.renderAll();
+        updatePlannerEstimate();
         persistState();
       });
       plannerDeleteSelectedBtn.addEventListener("click", () => {
@@ -2175,6 +3093,8 @@
           exportedAt: new Date().toISOString(),
           widthMeters: plannerState.widthMeters,
           heightMeters: plannerState.heightMeters,
+          activePresetId: plannerState.activePresetId,
+          costModel: getPlannerCostModel(),
           canvasJson: plannerState.canvas.toDatalessJSON(["plannerKind"])
         };
         const blob = new Blob([JSON.stringify(plannerPayload, null, 2)], { type: "application/json" });
@@ -2196,11 +3116,13 @@
           const parsed = JSON.parse(text);
           if (parsed.widthMeters) plannerWidthInput.value = parsed.widthMeters;
           if (parsed.heightMeters) plannerHeightInput.value = parsed.heightMeters;
+          applyPlannerCostModel(parsed.costModel || defaultPlannerCostModel);
           applyStoreDimensions();
           if (parsed.canvasJson) {
             plannerState.canvas.loadFromJSON(parsed.canvasJson, () => {
               plannerState.canvas.renderAll();
               syncPlannerMetaFromCanvas();
+              updatePlannerEstimate();
               persistState();
             });
           }
@@ -2223,10 +3145,51 @@
         deleteSelectedPlannerObjects();
       });
 
-      initPlanner();
-      loadPersistedState();
-      updateUI();
-      updateReadinessAndFilters();
+      [costAmbientShelfInput, costColdShelfInput, costHotShelfInput, costInstallPerShelfInput, costIntegrationFixedInput].forEach((input) =>
+        input.addEventListener("input", () => {
+          updatePlannerEstimate();
+          persistState();
+        })
+      );
+
+      [costSetupPercentInput, costContingencyPercentInput].forEach((input) =>
+        input.addEventListener("input", () => {
+          updatePlannerEstimate();
+          persistState();
+        })
+      );
+
+      plannerLoadBlueprintBtn.addEventListener("click", () => plannerBlueprintInput.click());
+      plannerBlueprintInput.addEventListener("change", async (event) => {
+        if (!plannerState.canvas) initPlanner();
+        const file = event.target.files && event.target.files[0];
+        await loadPlannerBlueprintPdf(file);
+        event.target.value = "";
+      });
+
+      plannerClearBlueprintBtn.addEventListener("click", () => {
+        if (!plannerState.canvas) initPlanner();
+        if (!plannerState.canvas || !plannerState.blueprintObject) return;
+        plannerState.canvas.remove(plannerState.blueprintObject);
+        plannerState.blueprintObject = null;
+        plannerState.canvas.requestRenderAll();
+        plannerStatus.textContent = "Blueprint removed.";
+        plannerStatus.style.color = "var(--ok)";
+      });
+
+      window.addEventListener("resize", () => {
+        if (!plannerState.canvas) return;
+        resizePlannerCanvasToContainer();
+      });
+
+      (async () => {
+        await loadStoreProfilesFromApi();
+        initPlanner();
+        loadPersistedState();
+        updateUI();
+        updateReadinessAndFilters();
+        updatePlannerEstimate();
+      })();
     </script>
   </body>
 </html>

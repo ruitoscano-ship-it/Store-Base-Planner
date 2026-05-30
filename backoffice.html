@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Store Profile Backoffice</title>
+    <style>
+      :root {
+        --bg: #e9eae6;
+        --card: #eeefeb;
+        --text: #111111;
+        --muted: #3d3d3d;
+        --border: #1a1a1a;
+        --accent: #d9f04f;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Inter, Avenir, Segoe UI, Roboto, Arial, sans-serif;
+        color: var(--text);
+        background: var(--bg);
+      }
+
+      .container {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 20px 22px 40px;
+      }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        border: 1px solid var(--border);
+        padding: 12px 14px;
+        margin-bottom: 14px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 1.5rem;
+      }
+
+      .subtitle {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .btn {
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        padding: 8px 12px;
+        font-weight: 700;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+      }
+
+      .btn:hover {
+        background: var(--accent);
+      }
+
+      .btn-primary {
+        background: var(--accent);
+      }
+
+      .panel {
+        border: 1px solid var(--border);
+        background: var(--card);
+        padding: 14px;
+        margin-bottom: 14px;
+      }
+
+      .panel h2 {
+        margin: 0 0 10px;
+        font-size: 1rem;
+      }
+
+      .grid-4 {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(140px, 1fr));
+        gap: 10px;
+      }
+
+      .grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(140px, 1fr));
+        gap: 10px;
+      }
+
+      label {
+        display: block;
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+
+      input {
+        width: 100%;
+        border: 1px solid var(--border);
+        background: #f3f4f0;
+        color: var(--text);
+        padding: 7px 8px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid #bbb;
+        padding: 8px 6px;
+        text-align: left;
+        font-size: 0.86rem;
+        vertical-align: top;
+      }
+
+      th {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+      }
+
+      td input {
+        min-width: 72px;
+      }
+
+      .status {
+        margin: 0;
+        font-size: 0.85rem;
+      }
+
+      .status.ok {
+        color: #1f7a3f;
+      }
+
+      .status.warn {
+        color: #9a6a00;
+      }
+
+      .status.bad {
+        color: #7d1820;
+      }
+
+      .api-block {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.82rem;
+        background: #f3f4f0;
+        border: 1px solid var(--border);
+        padding: 10px;
+        margin: 8px 0;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+
+      @media (max-width: 900px) {
+        .grid-4,
+        .grid-3 {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header class="topbar">
+        <div>
+          <h1>Store Profile Backoffice</h1>
+          <p class="subtitle">Configure shelf counts and unit costs per store size. Changes apply to planner baselines and the sourcing API.</p>
+        </div>
+        <div class="actions">
+          <a class="btn" href="/index.html">Open Planner</a>
+          <button class="btn btn-primary" id="saveBtn" type="button">Save configuration</button>
+        </div>
+      </header>
+
+      <p class="status" id="statusMsg">Loading configuration…</p>
+
+      <section class="panel">
+        <h2>Global unit costs (EUR)</h2>
+        <div class="grid-4">
+          <div>
+            <label for="costAmbientShelf">Ambient shelf</label>
+            <input id="costAmbientShelf" type="number" min="0" step="50" />
+          </div>
+          <div>
+            <label for="costColdShelf">Cold shelf</label>
+            <input id="costColdShelf" type="number" min="0" step="50" />
+          </div>
+          <div>
+            <label for="costHotShelf">Hot shelf</label>
+            <input id="costHotShelf" type="number" min="0" step="50" />
+          </div>
+          <div>
+            <label for="costInstallPerShelf">Install per shelf</label>
+            <input id="costInstallPerShelf" type="number" min="0" step="10" />
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Store size profiles</h2>
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Profile</th>
+                <th>Width (m)</th>
+                <th>Depth (m)</th>
+                <th>Ambient</th>
+                <th>Cold</th>
+                <th>Hot</th>
+                <th>Integration (EUR)</th>
+                <th>Setup %</th>
+                <th>Contingency %</th>
+              </tr>
+            </thead>
+            <tbody id="profilesTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Bespoke sizing rules</h2>
+        <p class="subtitle" style="margin-bottom: 10px;">Used when the sourcing tool or planner requests the bespoke profile with custom width/depth.</p>
+        <div class="grid-4">
+          <div>
+            <label for="bespokeAmbientDiv">m² per ambient shelf</label>
+            <input id="bespokeAmbientDiv" type="number" min="1" step="1" />
+          </div>
+          <div>
+            <label for="bespokeColdDiv">m² per cold shelf</label>
+            <input id="bespokeColdDiv" type="number" min="1" step="1" />
+          </div>
+          <div>
+            <label for="bespokeHotDiv">m² per hot shelf</label>
+            <input id="bespokeHotDiv" type="number" min="1" step="1" />
+          </div>
+          <div>
+            <label for="bespokeIntegration">Integration (EUR)</label>
+            <input id="bespokeIntegration" type="number" min="0" step="100" />
+          </div>
+        </div>
+        <div class="grid-3" style="margin-top: 10px;">
+          <div>
+            <label for="bespokeSetup">Setup %</label>
+            <input id="bespokeSetup" type="number" min="0" max="100" step="0.5" />
+          </div>
+          <div>
+            <label for="bespokeContingency">Contingency %</label>
+            <input id="bespokeContingency" type="number" min="0" max="100" step="0.5" />
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Sourcing API</h2>
+        <p class="subtitle">Use these endpoints from your sourcing tool to retrieve the bill of materials for a store profile.</p>
+
+        <h3 style="margin: 14px 0 6px; font-size: 0.92rem;">List / update configuration</h3>
+        <div class="api-block" id="apiProfilesGet"></div>
+        <div class="api-block" id="apiProfilesPut"></div>
+
+        <h3 style="margin: 14px 0 6px; font-size: 0.92rem;">Sourcing bill of materials</h3>
+        <div class="api-block" id="apiSourcingMedium"></div>
+        <div class="api-block" id="apiSourcingBespoke"></div>
+
+        <div class="actions">
+          <button class="btn" id="testMediumBtn" type="button">Test medium sourcing</button>
+          <button class="btn" id="testBespokeBtn" type="button">Test bespoke sourcing</button>
+        </div>
+        <pre class="api-block" id="apiTestOutput" style="max-height: 280px; overflow: auto;">Run a test to preview JSON response.</pre>
+      </section>
+    </div>
+
+    <script>
+      const PROFILE_ORDER = ["small", "medium", "large", "xlarge", "bespoke"];
+      let config = null;
+
+      const statusMsg = document.getElementById("statusMsg");
+      const profilesTableBody = document.getElementById("profilesTableBody");
+      const apiTestOutput = document.getElementById("apiTestOutput");
+
+      function setStatus(text, tone = "ok") {
+        statusMsg.textContent = text;
+        statusMsg.className = `status ${tone}`;
+      }
+
+      function renderApiDocs() {
+        const origin = window.location.origin;
+        document.getElementById("apiProfilesGet").textContent = `GET ${origin}/api/store-profiles`;
+        document.getElementById("apiProfilesPut").textContent = `PUT ${origin}/api/store-profiles\nContent-Type: application/json\n\n{ ...full configuration object... }`;
+        document.getElementById("apiSourcingMedium").textContent = `GET ${origin}/api/store-profiles/medium/sourcing`;
+        document.getElementById("apiSourcingBespoke").textContent = `GET ${origin}/api/store-profiles/bespoke/sourcing?widthMeters=20&heightMeters=15`;
+      }
+
+      function renderForm(data) {
+        config = data;
+        document.getElementById("costAmbientShelf").value = data.costs.ambientShelf;
+        document.getElementById("costColdShelf").value = data.costs.coldShelf;
+        document.getElementById("costHotShelf").value = data.costs.hotShelf;
+        document.getElementById("costInstallPerShelf").value = data.costs.installPerShelf;
+
+        document.getElementById("bespokeAmbientDiv").value = data.bespoke.areaDivisors.ambient;
+        document.getElementById("bespokeColdDiv").value = data.bespoke.areaDivisors.cold;
+        document.getElementById("bespokeHotDiv").value = data.bespoke.areaDivisors.hot;
+        document.getElementById("bespokeIntegration").value = data.bespoke.integrationFixed;
+        document.getElementById("bespokeSetup").value = data.bespoke.setupPercent;
+        document.getElementById("bespokeContingency").value = data.bespoke.contingencyPercent;
+
+        profilesTableBody.innerHTML = "";
+        PROFILE_ORDER.forEach((id) => {
+          const profile = data.profiles[id];
+          const tr = document.createElement("tr");
+          const isBespoke = !!profile.dynamicSize;
+          tr.innerHTML = `
+            <td><strong>${profile.label}</strong><br><span style="color: var(--muted); font-size: 0.78rem;">${profile.blurb || ""}</span></td>
+            <td>${isBespoke ? "—" : `<input data-field="widthMeters" data-id="${id}" type="number" min="5" max="200" value="${profile.widthMeters}" />`}</td>
+            <td>${isBespoke ? "—" : `<input data-field="heightMeters" data-id="${id}" type="number" min="5" max="200" value="${profile.heightMeters}" />`}</td>
+            <td>${isBespoke ? "auto" : `<input data-field="ambient" data-id="${id}" type="number" min="0" value="${profile.shelves.ambient}" />`}</td>
+            <td>${isBespoke ? "auto" : `<input data-field="cold" data-id="${id}" type="number" min="0" value="${profile.shelves.cold}" />`}</td>
+            <td>${isBespoke ? "auto" : `<input data-field="hot" data-id="${id}" type="number" min="0" value="${profile.shelves.hot}" />`}</td>
+            <td><input data-field="integrationFixed" data-id="${id}" type="number" min="0" step="100" value="${profile.integrationFixed}" /></td>
+            <td><input data-field="setupPercent" data-id="${id}" type="number" min="0" max="100" step="0.5" value="${profile.setupPercent}" /></td>
+            <td><input data-field="contingencyPercent" data-id="${id}" type="number" min="0" max="100" step="0.5" value="${profile.contingencyPercent}" /></td>
+          `;
+          profilesTableBody.appendChild(tr);
+        });
+      }
+
+      function collectFormData() {
+        const next = structuredClone(config);
+        next.costs = {
+          ambientShelf: Number(document.getElementById("costAmbientShelf").value),
+          coldShelf: Number(document.getElementById("costColdShelf").value),
+          hotShelf: Number(document.getElementById("costHotShelf").value),
+          installPerShelf: Number(document.getElementById("costInstallPerShelf").value)
+        };
+        next.bespoke = {
+          ...next.bespoke,
+          areaDivisors: {
+            ambient: Number(document.getElementById("bespokeAmbientDiv").value),
+            cold: Number(document.getElementById("bespokeColdDiv").value),
+            hot: Number(document.getElementById("bespokeHotDiv").value)
+          },
+          integrationFixed: Number(document.getElementById("bespokeIntegration").value),
+          setupPercent: Number(document.getElementById("bespokeSetup").value),
+          contingencyPercent: Number(document.getElementById("bespokeContingency").value)
+        };
+
+        profilesTableBody.querySelectorAll("input[data-id]").forEach((input) => {
+          const id = input.dataset.id;
+          const field = input.dataset.field;
+          const profile = next.profiles[id];
+          if (field === "ambient" || field === "cold" || field === "hot") {
+            profile.shelves[field] = Number(input.value);
+          } else if (field === "widthMeters" || field === "heightMeters") {
+            profile[field] = Number(input.value);
+          } else {
+            profile[field] = Number(input.value);
+          }
+        });
+
+        next.profiles.bespoke.integrationFixed = next.bespoke.integrationFixed;
+        next.profiles.bespoke.setupPercent = next.bespoke.setupPercent;
+        next.profiles.bespoke.contingencyPercent = next.bespoke.contingencyPercent;
+
+        return next;
+      }
+
+      async function loadConfig() {
+        const response = await fetch("/api/store-profiles");
+        if (!response.ok) throw new Error("Could not load store profiles.");
+        const data = await response.json();
+        renderForm(data);
+        setStatus(`Configuration loaded · updated ${new Date(data.updatedAt).toLocaleString()}`);
+      }
+
+      async function saveConfig() {
+        setStatus("Saving…", "warn");
+        const payload = collectFormData();
+        const response = await fetch("/api/store-profiles", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.error || "Save failed.");
+        }
+        const saved = await response.json();
+        renderForm(saved);
+        setStatus(`Saved · ${new Date(saved.updatedAt).toLocaleString()}`);
+      }
+
+      async function testSourcing(url) {
+        apiTestOutput.textContent = "Loading…";
+        const response = await fetch(url);
+        const data = await response.json();
+        apiTestOutput.textContent = JSON.stringify(data, null, 2);
+      }
+
+      document.getElementById("saveBtn").addEventListener("click", () => {
+        saveConfig().catch((error) => setStatus(error.message, "bad"));
+      });
+
+      document.getElementById("testMediumBtn").addEventListener("click", () => {
+        testSourcing("/api/store-profiles/medium/sourcing").catch((error) => {
+          apiTestOutput.textContent = error.message;
+        });
+      });
+
+      document.getElementById("testBespokeBtn").addEventListener("click", () => {
+        testSourcing("/api/store-profiles/bespoke/sourcing?widthMeters=20&heightMeters=15").catch((error) => {
+          apiTestOutput.textContent = error.message;
+        });
+      });
+
+      renderApiDocs();
+      loadConfig().catch((error) => setStatus(error.message, "bad"));
+    </script>
+  </body>
+</html>

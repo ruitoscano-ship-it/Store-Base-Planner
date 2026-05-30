@@ -1,6 +1,11 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const {
+  loadStoreProfiles,
+  saveStoreProfiles,
+  buildSourcingPayload
+} = require("./store-profiles");
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || "127.0.0.1";
@@ -68,6 +73,9 @@ function computeForecast(input) {
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
   res.setHeader("Content-Type", "application/json; charset=UTF-8");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, PUT, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.end(JSON.stringify(payload));
 }
 
@@ -104,13 +112,57 @@ const mimeTypes = {
   ".ico": "image/x-icon"
 };
 
+function matchStoreProfileSourcing(pathname) {
+  const match = pathname.match(/^\/api\/store-profiles\/([a-z]+)\/sourcing$/);
+  return match ? match[1] : null;
+}
+
 const server = http.createServer(async (req, res) => {
-  if (req.method === "GET" && req.url === "/api/health") {
+  const url = new URL(req.url, `http://${HOST}:${PORT}`);
+  const pathname = url.pathname;
+
+  if (req.method === "OPTIONS" && pathname.startsWith("/api/")) {
+    sendJson(res, 204, {});
+    return;
+  }
+
+  if (req.method === "GET" && pathname === "/api/health") {
     sendJson(res, 200, { ok: true, service: "smart-store-simulator-api" });
     return;
   }
 
-  if (req.method === "POST" && req.url === "/api/forecast") {
+  if (req.method === "GET" && pathname === "/api/store-profiles") {
+    sendJson(res, 200, loadStoreProfiles());
+    return;
+  }
+
+  if (req.method === "PUT" && pathname === "/api/store-profiles") {
+    try {
+      const body = await parseJsonBody(req);
+      const saved = saveStoreProfiles(body);
+      sendJson(res, 200, saved);
+    } catch (error) {
+      sendJson(res, 400, { error: error.message });
+    }
+    return;
+  }
+
+  const sourcingProfileId = matchStoreProfileSourcing(pathname);
+  if (req.method === "GET" && sourcingProfileId) {
+    const config = loadStoreProfiles();
+    const payload = buildSourcingPayload(config, sourcingProfileId, {
+      widthMeters: url.searchParams.get("widthMeters"),
+      heightMeters: url.searchParams.get("heightMeters")
+    });
+    if (!payload) {
+      sendJson(res, 404, { error: `Unknown profile: ${sourcingProfileId}` });
+      return;
+    }
+    sendJson(res, 200, payload);
+    return;
+  }
+
+  if (req.method === "POST" && pathname === "/api/forecast") {
     try {
       const body = await parseJsonBody(req);
       const forecast = computeForecast(body.input || body);
@@ -121,7 +173,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  const requestPath = req.url === "/" ? "/index.html" : req.url;
+  const requestPath = pathname === "/" ? "/index.html" : pathname;
   const safePath = path.normalize(requestPath).replace(/^(\.\.[/\\])+/, "");
   const filePath = path.join(root, safePath);
 
@@ -143,4 +195,5 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`Smart Store simulator running at http://${HOST}:${PORT}`);
+  console.log(`Backoffice available at http://${HOST}:${PORT}/backoffice.html`);
 });
