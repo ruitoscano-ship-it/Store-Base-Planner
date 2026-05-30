@@ -1,6 +1,6 @@
 # Store-Base-Planner
 
-Interactive dashboard to simulate monthly value realization for a smart autonomous store.
+Interactive dashboard to simulate monthly value realization for a smart tech AI in retail stores.
 
 ## What it models
 
@@ -19,7 +19,7 @@ The simulator projects monthly outcomes (30-day period) from daily operational i
 
 ## Run
 
-Open `index.html` in a browser.
+Open `index.html` in a browser. (Make sure the libs are in the same root folder as index.html for the store planner to work)
 
 ## Calibration
 
