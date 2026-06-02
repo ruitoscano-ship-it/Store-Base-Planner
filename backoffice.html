@@ -134,6 +134,22 @@
         min-width: 72px;
       }
 
+      td input[type="number"] {
+        max-width: 96px;
+      }
+
+      .prop-id {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.76rem;
+        color: var(--muted);
+      }
+
+      .hint {
+        color: var(--muted);
+        font-size: 0.82rem;
+        margin: 0 0 10px;
+      }
+
       .status {
         margin: 0;
         font-size: 0.85rem;
@@ -182,7 +198,7 @@
       <header class="topbar">
         <div>
           <h1>Store Profile Backoffice</h1>
-          <p class="subtitle">Configure shelf counts and unit costs per store size. Changes apply to planner baselines and the sourcing API.</p>
+          <p class="subtitle">Configure store sizes, prop dimensions, and unit costs. Changes apply to the planner (2D/3D) and sourcing API.</p>
         </div>
         <div class="actions">
           <a class="btn" href="/index.html">Open Planner</a>
@@ -211,6 +227,49 @@
             <label for="costInstallPerShelf">Install per shelf</label>
             <input id="costInstallPerShelf" type="number" min="0" step="10" />
           </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Planner scale &amp; walls</h2>
+        <p class="hint">Global settings shared by the 2D floor plan and 3D viewer. Wall height also drives separator walls in 3D.</p>
+        <div class="grid-4">
+          <div>
+            <label for="plannerWallHeight">Wall height (m)</label>
+            <input id="plannerWallHeight" type="number" min="2" max="6" step="0.05" />
+          </div>
+          <div>
+            <label for="plannerWallThickness">Wall thickness (m)</label>
+            <input id="plannerWallThickness" type="number" min="0.05" max="0.5" step="0.01" />
+          </div>
+          <div>
+            <label for="plannerLayoutGap">Auto-layout gap (m)</label>
+            <input id="plannerLayoutGap" type="number" min="0" max="2" step="0.05" />
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Store props (fixtures)</h2>
+        <p class="hint">
+          Width and depth are the floor footprint in meters on the store plan. Height is the vertical size in 3D.
+          Shelf levels controls gondola boards in the 3D view. All measures use the same meter scale as store width/depth.
+        </p>
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Prop</th>
+                <th>Label</th>
+                <th>Width (m)</th>
+                <th>Depth (m)</th>
+                <th>Height (m)</th>
+                <th>Shelf levels</th>
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody id="artifactsTableBody"></tbody>
+          </table>
         </div>
       </section>
 
@@ -291,10 +350,26 @@
 
     <script>
       const PROFILE_ORDER = ["small", "medium", "large", "xlarge", "bespoke"];
+      const ARTIFACT_ORDER = [
+        "shelf-ambient",
+        "shelf-cold",
+        "shelf-hot",
+        "aisle",
+        "checkout",
+        "server",
+        "entry-open",
+        "entry-gated",
+        "entry-zone",
+        "warehouse",
+        "technical",
+        "separator-wall",
+        "security-cage"
+      ];
       let config = null;
 
       const statusMsg = document.getElementById("statusMsg");
       const profilesTableBody = document.getElementById("profilesTableBody");
+      const artifactsTableBody = document.getElementById("artifactsTableBody");
       const apiTestOutput = document.getElementById("apiTestOutput");
 
       function setStatus(text, tone = "ok") {
@@ -323,6 +398,28 @@
         document.getElementById("bespokeIntegration").value = data.bespoke.integrationFixed;
         document.getElementById("bespokeSetup").value = data.bespoke.setupPercent;
         document.getElementById("bespokeContingency").value = data.bespoke.contingencyPercent;
+
+        document.getElementById("plannerWallHeight").value = data.planner?.wallHeightMeters ?? 2.8;
+        document.getElementById("plannerWallThickness").value = data.planner?.wallThicknessMeters ?? 0.12;
+        document.getElementById("plannerLayoutGap").value = data.planner?.layoutGapMeters ?? 0.15;
+
+        artifactsTableBody.innerHTML = "";
+        ARTIFACT_ORDER.forEach((kind) => {
+          const artifact = data.artifacts?.[kind];
+          if (!artifact) return;
+          const isGondola = artifact.type === "gondola";
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td><span class="prop-id">${kind}</span></td>
+            <td><input data-artifact="label" data-kind="${kind}" type="text" value="${artifact.label || ""}" /></td>
+            <td><input data-artifact="widthMeters" data-kind="${kind}" type="number" min="0.05" max="50" step="0.01" value="${artifact.widthMeters}" /></td>
+            <td><input data-artifact="depthMeters" data-kind="${kind}" type="number" min="0.05" max="50" step="0.01" value="${artifact.depthMeters}" /></td>
+            <td><input data-artifact="heightMeters" data-kind="${kind}" type="number" min="0.02" max="8" step="0.01" value="${artifact.heightMeters}" /></td>
+            <td>${isGondola ? `<input data-artifact="shelfLevels" data-kind="${kind}" type="number" min="0" max="12" step="1" value="${artifact.shelfLevels ?? 0}" />` : "—"}</td>
+            <td>${artifact.type || "—"}</td>
+          `;
+          artifactsTableBody.appendChild(tr);
+        });
 
         profilesTableBody.innerHTML = "";
         PROFILE_ORDER.forEach((id) => {
@@ -363,6 +460,24 @@
           setupPercent: Number(document.getElementById("bespokeSetup").value),
           contingencyPercent: Number(document.getElementById("bespokeContingency").value)
         };
+
+        next.planner = {
+          ...(next.planner || {}),
+          wallHeightMeters: Number(document.getElementById("plannerWallHeight").value),
+          wallThicknessMeters: Number(document.getElementById("plannerWallThickness").value),
+          layoutGapMeters: Number(document.getElementById("plannerLayoutGap").value)
+        };
+
+        artifactsTableBody.querySelectorAll("input[data-kind]").forEach((input) => {
+          const kind = input.dataset.kind;
+          const field = input.dataset.artifact;
+          if (!next.artifacts[kind]) return;
+          if (field === "label") {
+            next.artifacts[kind].label = input.value.trim() || next.artifacts[kind].label;
+          } else {
+            next.artifacts[kind][field] = Number(input.value);
+          }
+        });
 
         profilesTableBody.querySelectorAll("input[data-id]").forEach((input) => {
           const id = input.dataset.id;

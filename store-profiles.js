@@ -3,9 +3,147 @@ const path = require("path");
 
 const DATA_PATH = path.join(__dirname, "data", "store-profiles.json");
 
+const DEFAULT_PLANNER = {
+  wallHeightMeters: 2.8,
+  wallThicknessMeters: 0.12,
+  layoutGapMeters: 0.15
+};
+
+const DEFAULT_ARTIFACTS = {
+  server: {
+    label: "Server",
+    type: "rack",
+    widthMeters: 0.6,
+    depthMeters: 0.6,
+    heightMeters: 1.2,
+    shelfLevels: 0,
+    color3d: "#64748b"
+  },
+  aisle: {
+    label: "Aisle",
+    type: "aisle",
+    widthMeters: 1.4,
+    depthMeters: 4,
+    heightMeters: 0.02,
+    shelfLevels: 0,
+    color3d: "#f3f4f6",
+    opacity3d: 0.35
+  },
+  "shelf-ambient": {
+    label: "Ambient",
+    type: "gondola",
+    widthMeters: 1.2,
+    depthMeters: 0.45,
+    heightMeters: 1.85,
+    shelfLevels: 4,
+    palette: { fill: "#f4eed8", stroke: "#5c4a1f" },
+    color3d: "#e8dcc0"
+  },
+  "shelf-cold": {
+    label: "Cold",
+    type: "gondola",
+    widthMeters: 1.2,
+    depthMeters: 0.55,
+    heightMeters: 1.85,
+    shelfLevels: 4,
+    palette: { fill: "#dbeafe", stroke: "#1e40af" },
+    color3d: "#5b9bd5"
+  },
+  "shelf-hot": {
+    label: "Hot",
+    type: "gondola",
+    widthMeters: 1,
+    depthMeters: 0.6,
+    heightMeters: 1.85,
+    shelfLevels: 4,
+    palette: { fill: "#ffedd5", stroke: "#9a3412" },
+    color3d: "#e8935a"
+  },
+  "entry-open": {
+    label: "Entry",
+    type: "entry-open",
+    widthMeters: 1.8,
+    depthMeters: 0.12,
+    heightMeters: 2.4,
+    shelfLevels: 0,
+    color3d: "#a78bfa"
+  },
+  "entry-gated": {
+    label: "Gated",
+    type: "entry-gated",
+    widthMeters: 1.8,
+    depthMeters: 0.18,
+    heightMeters: 2.4,
+    shelfLevels: 0,
+    color3d: "#f472b6"
+  },
+  checkout: {
+    label: "POS",
+    type: "checkout",
+    widthMeters: 1.6,
+    depthMeters: 0.9,
+    heightMeters: 1.05,
+    shelfLevels: 0,
+    color3d: "#fbbf24"
+  },
+  warehouse: {
+    label: "Warehouse",
+    type: "zone",
+    widthMeters: 4,
+    depthMeters: 3,
+    heightMeters: 0.08,
+    shelfLevels: 0,
+    palette: { fill: "#e8dfd0", stroke: "#713f12" },
+    color3d: "#a16207",
+    opacity3d: 0.55
+  },
+  technical: {
+    label: "Tech",
+    type: "zone",
+    widthMeters: 3,
+    depthMeters: 2.5,
+    heightMeters: 0.08,
+    shelfLevels: 0,
+    palette: { fill: "#dcefe3", stroke: "#14532d" },
+    color3d: "#22c55e",
+    opacity3d: 0.55
+  },
+  "separator-wall": {
+    label: "Wall",
+    type: "wall",
+    widthMeters: 4,
+    depthMeters: 0.12,
+    heightMeters: 2.8,
+    shelfLevels: 0,
+    color3d: "#374151"
+  },
+  "security-cage": {
+    label: "Secure",
+    type: "cage",
+    widthMeters: 3,
+    depthMeters: 3,
+    heightMeters: 2.2,
+    shelfLevels: 0,
+    color3d: "#ef4444",
+    opacity3d: 0.45
+  },
+  "entry-zone": {
+    label: "Entry zone",
+    type: "entry-zone",
+    widthMeters: 3,
+    depthMeters: 2.5,
+    heightMeters: 0.08,
+    shelfLevels: 0,
+    color3d: "#facc15",
+    opacity3d: 0.5
+  }
+};
+
 const DEFAULT_STORE_PROFILES = {
   version: 1,
   updatedAt: new Date().toISOString(),
+  planner: structuredClone(DEFAULT_PLANNER),
+  artifacts: structuredClone(DEFAULT_ARTIFACTS),
   costs: {
     ambientShelf: 1500,
     coldShelf: 4200,
@@ -109,12 +247,43 @@ function saveStoreProfiles(config) {
   return normalized;
 }
 
+function normalizeArtifact(kind, input, fallback) {
+  const base = structuredClone(fallback);
+  if (!input || typeof input !== "object") return base;
+  return {
+    ...base,
+    ...input,
+    label: input.label ?? base.label,
+    type: input.type ?? base.type,
+    widthMeters: clamp(Number(input.widthMeters ?? base.widthMeters), 0.05, 50),
+    depthMeters: clamp(Number(input.depthMeters ?? base.depthMeters), 0.05, 50),
+    heightMeters: clamp(Number(input.heightMeters ?? base.heightMeters), 0.02, 8),
+    shelfLevels: clamp(Math.round(Number(input.shelfLevels ?? base.shelfLevels ?? 0)), 0, 12),
+    palette: input.palette ? { ...base.palette, ...input.palette } : base.palette,
+    color3d: input.color3d ?? base.color3d,
+    opacity3d: input.opacity3d != null ? clamp(Number(input.opacity3d), 0.05, 1) : base.opacity3d
+  };
+}
+
 function normalizeStoreProfiles(input) {
   const base = structuredClone(DEFAULT_STORE_PROFILES);
   if (!input || typeof input !== "object") return base;
 
   base.version = input.version || 1;
   base.updatedAt = input.updatedAt || new Date().toISOString();
+  base.planner = {
+    ...base.planner,
+    ...(input.planner || {}),
+    wallHeightMeters: clamp(Number(input.planner?.wallHeightMeters ?? base.planner.wallHeightMeters), 2, 6),
+    wallThicknessMeters: clamp(Number(input.planner?.wallThicknessMeters ?? base.planner.wallThicknessMeters), 0.05, 0.5),
+    layoutGapMeters: clamp(Number(input.planner?.layoutGapMeters ?? base.planner.layoutGapMeters), 0, 2)
+  };
+
+  base.artifacts = {};
+  Object.keys(DEFAULT_ARTIFACTS).forEach((kind) => {
+    base.artifacts[kind] = normalizeArtifact(kind, input.artifacts?.[kind], DEFAULT_ARTIFACTS[kind]);
+  });
+
   base.costs = { ...base.costs, ...(input.costs || {}) };
   base.bespoke = {
     ...base.bespoke,
@@ -267,6 +436,8 @@ function buildSourcingPayload(config, profileId, options = {}) {
 module.exports = {
   DATA_PATH,
   DEFAULT_STORE_PROFILES,
+  DEFAULT_PLANNER,
+  DEFAULT_ARTIFACTS,
   loadStoreProfiles,
   saveStoreProfiles,
   normalizeStoreProfiles,

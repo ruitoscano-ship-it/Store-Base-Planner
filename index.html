@@ -524,6 +524,15 @@
         display: grid;
         grid-template-columns: 300px 1fr;
         gap: 12px;
+        align-items: stretch;
+        min-height: min(78vh, 820px);
+      }
+
+      .planner-layout > div:last-child {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        min-width: 0;
       }
 
       .planner-tools {
@@ -582,23 +591,138 @@
         border-color: #111111;
       }
 
+      .planner-canvas-wrap.hidden {
+        display: none;
+      }
+
+      .planner-view-toolbar {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+
+      .planner-view-toolbar .action-btn.active {
+        background: #d9f04f;
+        border-color: #111111;
+      }
+
+      .planner-view-stage {
+        position: relative;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 520px;
+        min-width: 0;
+      }
+
+      .planner-canvas-wrap,
+      .planner-3d-wrap {
+        flex: 1;
+        width: 100%;
+        min-height: 520px;
+        height: auto;
+      }
+
+      .planner-3d-wrap {
+        border: 1px solid var(--border);
+        background: #e9eae6;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .planner-3d-wrap.hidden {
+        display: none;
+      }
+
+      #planner3dContainer {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      .planner-3d-toolbar {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 3;
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .planner-3d-toolbar .action-btn {
+        font-size: 0.76rem;
+        padding: 6px 10px;
+      }
+
+      .planner-3d-toolbar .action-btn.active {
+        background: #d9f04f;
+        border-color: #111111;
+      }
+
+      .planner-3d-toolbar .action-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      .planner-3d-hint {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 3;
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid #111;
+        padding: 6px 8px;
+        font-size: 0.74rem;
+        max-width: 240px;
+        pointer-events: none;
+      }
+
+      .planner-3d-legend {
+        position: absolute;
+        left: 10px;
+        bottom: 10px;
+        background: rgba(255, 255, 255, 0.88);
+        border: 1px solid #111;
+        padding: 8px 10px;
+        font-size: 0.78rem;
+        pointer-events: none;
+      }
+
+      .planner-3d-legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-right: 10px;
+      }
+
+      .planner-3d-legend i {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border: 1px solid #111;
+      }
+
+      @media (min-width: 1024px) and (max-width: 1440px) {
+        .planner-3d-wrap,
+        .planner-canvas-wrap,
+        .planner-view-stage {
+          min-height: 480px;
+        }
+      }
+
       .planner-canvas-wrap {
         border: 1px solid var(--border);
         border-radius: 12px;
         overflow: hidden;
         background: #f3f4f0;
-        width: 100%;
-        height: min(72vh, 720px);
-        min-height: 500px;
       }
 
       @media (min-width: 1024px) and (max-width: 1440px) {
         .planner-layout {
           grid-template-columns: 272px 1fr;
-        }
-        .planner-canvas-wrap {
-          height: min(68vh, 640px);
-          min-height: 480px;
         }
       }
 
@@ -615,9 +739,12 @@
         .planner-layout {
           grid-template-columns: 1fr;
         }
-        .planner-canvas-wrap {
-          height: 70vh;
-          min-height: 480px;
+        .planner-view-stage {
+          min-height: 70vh;
+        }
+        .planner-canvas-wrap,
+        .planner-3d-wrap {
+          min-height: 70vh;
         }
       }
 
@@ -1437,8 +1564,33 @@
                 <p class="offline-note">Estimated monthly service (12%/year): <strong id="plannerEstimatedMonthly">€0</strong></p>
               </aside>
 
-              <div class="planner-canvas-wrap" id="plannerCanvasWrap">
-                <canvas id="plannerCanvas" width="960" height="620"></canvas>
+              <div>
+                <div class="planner-view-toolbar">
+                  <button type="button" class="action-btn active" id="plannerView2dBtn">2D Plan</button>
+                  <button type="button" class="action-btn" id="plannerView3dBtn">3D View</button>
+                </div>
+                <div class="planner-view-stage">
+                  <div class="planner-canvas-wrap" id="plannerCanvasWrap">
+                    <canvas id="plannerCanvas" width="960" height="620"></canvas>
+                  </div>
+                  <div class="planner-3d-wrap hidden" id="planner3dWrap">
+                    <div id="planner3dContainer"></div>
+                    <div class="planner-3d-hint" id="planner3dHint">Click a fixture to select · Move or rotate · Syncs to 2D plan</div>
+                    <div class="planner-3d-toolbar">
+                      <button type="button" class="action-btn active" id="planner3dMoveBtn">Move</button>
+                      <button type="button" class="action-btn" id="planner3dRotateBtn">Rotate</button>
+                      <button type="button" class="action-btn" id="planner3dHumanBtn">Drop human</button>
+                      <button type="button" class="action-btn" id="planner3dWalkBtn">Walk</button>
+                      <button type="button" class="action-btn" id="planner3dFitBtn">Fit view</button>
+                    </div>
+                    <div class="planner-3d-legend">
+                      <span><i style="background:#e8dcc0;"></i>Ambient</span>
+                      <span><i style="background:#5b9bd5;"></i>Cold</span>
+                      <span><i style="background:#e8935a;"></i>Hot</span>
+                      <span style="color: var(--muted);">Walk: WASD · mouse look · Esc to exit</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1446,6 +1598,14 @@
       </section>
     </div>
 
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
     <script src="libs/fabric.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
@@ -1691,6 +1851,16 @@
       const plannerPresetSummary = document.getElementById("plannerPresetSummary");
       const plannerPresetButtons = Array.from(document.querySelectorAll(".planner-preset-btn"));
       const plannerCanvasWrap = document.getElementById("plannerCanvasWrap");
+      const planner3dWrap = document.getElementById("planner3dWrap");
+      const planner3dContainer = document.getElementById("planner3dContainer");
+      const planner3dMoveBtn = document.getElementById("planner3dMoveBtn");
+      const planner3dRotateBtn = document.getElementById("planner3dRotateBtn");
+      const planner3dHumanBtn = document.getElementById("planner3dHumanBtn");
+      const planner3dWalkBtn = document.getElementById("planner3dWalkBtn");
+      const planner3dFitBtn = document.getElementById("planner3dFitBtn");
+      const planner3dHint = document.getElementById("planner3dHint");
+      const plannerView2dBtn = document.getElementById("plannerView2dBtn");
+      const plannerView3dBtn = document.getElementById("plannerView3dBtn");
       const applyStoreSizeBtn = document.getElementById("applyStoreSizeBtn");
       const plannerAddButtons = Array.from(document.querySelectorAll(".planner-add-btn"));
       const plannerExportPngBtn = document.getElementById("plannerExportPngBtn");
@@ -1725,21 +1895,47 @@
       const PLANNER_MIN_PX_PER_M = 18;
       const PLANNER_MAX_PX_PER_M = 30;
 
-      const PLANNER_ARTIFACTS = {
-        server: { label: "Server", w: 0.6, h: 0.6, type: "rack" },
-        aisle: { label: "Aisle", w: 1.4, h: 4, type: "aisle" },
-        "shelf-ambient": { label: "Ambient", w: 1.2, h: 0.45, type: "gondola", palette: { fill: "#f4eed8", stroke: "#5c4a1f" } },
-        "shelf-cold": { label: "Cold", w: 1.2, h: 0.55, type: "gondola", palette: { fill: "#dbeafe", stroke: "#1e40af" } },
-        "shelf-hot": { label: "Hot", w: 1.0, h: 0.6, type: "gondola", palette: { fill: "#ffedd5", stroke: "#9a3412" } },
-        "entry-open": { label: "Entry", w: 1.8, h: 0.12, type: "entry-open" },
-        "entry-gated": { label: "Gated", w: 1.8, h: 0.18, type: "entry-gated" },
-        checkout: { label: "POS", w: 1.6, h: 0.9, type: "checkout" },
-        warehouse: { label: "Warehouse", w: 4, h: 3, type: "zone", palette: { fill: "#e8dfd0", stroke: "#713f12" } },
-        technical: { label: "Tech", w: 3, h: 2.5, type: "zone", palette: { fill: "#dcefe3", stroke: "#14532d" } },
-        "separator-wall": { label: "Wall", w: 4, h: 0.12, type: "wall" },
-        "security-cage": { label: "Secure", w: 3, h: 3, type: "cage" },
-        "entry-zone": { label: "Entry zone", w: 3, h: 2.5, type: "entry-zone" }
+      let PLANNER_ARTIFACTS = {};
+      let plannerSettings = {
+        wallHeightMeters: 2.8,
+        wallThicknessMeters: 0.12,
+        layoutGapMeters: 0.15
       };
+      let layoutStepForArtifact = null;
+
+      function getArtifactSpec(kind) {
+        return PLANNER_ARTIFACTS[kind] || { label: kind, w: 1, h: 1, widthMeters: 1, depthMeters: 1 };
+      }
+
+      function applyArtifactConfigFromProfiles(config) {
+        if (!config?.artifacts) return;
+        plannerSettings = {
+          wallHeightMeters: config.planner?.wallHeightMeters ?? 2.8,
+          wallThicknessMeters: config.planner?.wallThicknessMeters ?? 0.12,
+          layoutGapMeters: config.planner?.layoutGapMeters ?? 0.15
+        };
+        PLANNER_ARTIFACTS = {};
+        Object.entries(config.artifacts).forEach(([kind, spec]) => {
+          PLANNER_ARTIFACTS[kind] = {
+            label: spec.label,
+            w: spec.widthMeters,
+            h: spec.depthMeters,
+            type: spec.type,
+            heightMeters: spec.heightMeters,
+            shelfLevels: spec.shelfLevels,
+            palette: spec.palette,
+            color3d: spec.color3d,
+            opacity3d: spec.opacity3d
+          };
+        });
+      }
+
+      function artifactLayoutStep(kind) {
+        const spec = getArtifactSpec(kind);
+        const gap = plannerSettings.layoutGapMeters ?? 0.15;
+        if (layoutStepForArtifact) return layoutStepForArtifact(spec, gap);
+        return Math.max(spec.w || 1, spec.h || 1) + gap;
+      }
 
       const plannerState = {
         canvas: null,
@@ -1751,6 +1947,201 @@
         blueprintObject: null,
         activePresetId: null
       };
+
+      let plannerViewMode = "2d";
+      let planner3dView = null;
+      let planner3dSyncLock = false;
+
+      function ensurePlannerObjectId(obj) {
+        if (!obj.plannerObjectId) {
+          obj.plannerObjectId = `fixture-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        }
+        return obj.plannerObjectId;
+      }
+
+      function findFabricObjectByPlannerId(objectId) {
+        if (!plannerState.canvas || !objectId) return null;
+        return plannerState.canvas.getObjects().find((obj) => obj.plannerObjectId === objectId) || null;
+      }
+
+      function getPlannerLayoutSnapshot() {
+        if (!plannerState.canvas) return null;
+        const skip = new Set([plannerState.boundary, plannerState.blueprintObject, ...plannerState.gridObjects]);
+        const objects = plannerState.canvas
+          .getObjects()
+          .filter((obj) => obj.plannerKind && !skip.has(obj))
+          .map((obj) => {
+            const kind = obj.plannerKind;
+            const spec = PLANNER_ARTIFACTS[kind] || { w: 1, h: 1 };
+            const center = obj.getCenterPoint();
+            const footprintW = (obj.plannerMeters?.w ?? spec.w) * Math.abs(obj.scaleX ?? 1);
+            const footprintD = (obj.plannerMeters?.h ?? spec.h) * Math.abs(obj.scaleY ?? 1);
+            return {
+              id: ensurePlannerObjectId(obj),
+              kind,
+              angle: obj.angle || 0,
+              meters: {
+                x: (center.x - PLANNER_MARGIN) / plannerState.scale,
+                z: (center.y - PLANNER_MARGIN) / plannerState.scale,
+                w: footprintW,
+                h: footprintD
+              }
+            };
+          });
+
+        return {
+          widthMeters: plannerState.widthMeters,
+          heightMeters: plannerState.heightMeters,
+          objects
+        };
+      }
+
+      function applyPlannerTransformFrom3D(change) {
+        if (!plannerState.canvas || !change?.id) return;
+        const fabricObj = findFabricObjectByPlannerId(change.id);
+        if (!fabricObj) return;
+
+        planner3dSyncLock = true;
+        fabricObj.set({
+          angle: change.angle
+        });
+        fabricObj.setPositionByOrigin(
+          new fabric.Point(
+            PLANNER_MARGIN + change.x * plannerState.scale,
+            PLANNER_MARGIN + change.z * plannerState.scale
+          ),
+          "center",
+          "center"
+        );
+        fabricObj.setCoords();
+        plannerState.canvas.requestRenderAll();
+        updatePlannerEstimate();
+        persistState();
+        planner3dSyncLock = false;
+
+        if (planner3dHint) {
+          planner3dHint.textContent = `Updated ${change.kind || "fixture"} · synced to 2D plan`;
+        }
+      }
+
+      let planner3dHumanPlaced = false;
+
+      function updatePlanner3dHint(mode) {
+        if (!planner3dHint) return;
+        if (mode === "placeHuman") {
+          planner3dHint.textContent = "Click the floor to drop a 1.75 m stick figure for scale";
+          return;
+        }
+        if (mode === "walk") {
+          planner3dHint.textContent = "First-person walk · WASD or arrows · mouse to look · Esc exits walk mode";
+          return;
+        }
+        planner3dHint.textContent = planner3dHumanPlaced
+          ? "Stick figure placed · Drop human to reposition · Walk for first-person tour"
+          : "Click a fixture to select · Drop human for scale · Walk to explore the store";
+      }
+
+      function syncPlanner3dToolbar(mode) {
+        const isPlace = mode === "placeHuman";
+        const isWalk = mode === "walk";
+        planner3dHumanBtn.classList.toggle("active", isPlace);
+        planner3dWalkBtn.classList.toggle("active", isWalk);
+        planner3dMoveBtn.disabled = isWalk || isPlace;
+        planner3dRotateBtn.disabled = isWalk || isPlace;
+        planner3dHumanBtn.disabled = isWalk;
+        planner3dWalkBtn.textContent = isWalk ? "Exit walk" : "Walk";
+        if (isWalk || isPlace) {
+          planner3dMoveBtn.classList.remove("active");
+          planner3dRotateBtn.classList.remove("active");
+        } else {
+          planner3dMoveBtn.classList.add("active");
+        }
+      }
+
+      async function ensurePlanner3D() {
+        if (planner3dView) return planner3dView;
+        const { createPlanner3D } = await import("./planner-3d.js");
+        planner3dView = createPlanner3D(planner3dContainer, {
+          artifacts: storeProfileConfig?.artifacts,
+          planner: storeProfileConfig?.planner,
+          onObjectTransform: applyPlannerTransformFrom3D,
+          onInteractionModeChange: (mode, meta) => {
+            planner3dHumanPlaced = !!meta.humanPlaced;
+            syncPlanner3dToolbar(mode);
+            updatePlanner3dHint(mode);
+          },
+          onSelectionChange: (objectId) => {
+            if (!planner3dHint || planner3dView?.getInteractionMode?.() !== "edit") return;
+            if (!objectId) {
+              updatePlanner3dHint("edit");
+              return;
+            }
+            const fabricObj = findFabricObjectByPlannerId(objectId);
+            planner3dHint.textContent = fabricObj
+              ? `Selected: ${fabricObj.plannerKind} · drag gizmo to rearrange`
+              : "Fixture selected";
+          }
+        });
+        planner3dView.setTransformMode("translate");
+        syncPlanner3dToolbar("edit");
+        updatePlanner3dHint("edit");
+        return planner3dView;
+      }
+
+      function resizePlanner3DView() {
+        if (!planner3dView || !planner3dWrap) return;
+        planner3dView.resize(planner3dWrap.clientWidth, planner3dWrap.clientHeight);
+      }
+
+      function syncPlanner3DView(options = {}) {
+        if (planner3dSyncLock || plannerViewMode !== "3d" || !planner3dView) return;
+        const layout = getPlannerLayoutSnapshot();
+        if (layout) {
+          planner3dView.sync(layout, {
+            ...options,
+            artifacts: storeProfileConfig?.artifacts,
+            planner: storeProfileConfig?.planner
+          });
+        }
+      }
+
+      function setPlanner3dTool(mode) {
+        if (!planner3dView) return;
+        if (planner3dView.getInteractionMode() === "walk") {
+          planner3dView.setInteractionMode("edit");
+        }
+        if (planner3dView.getInteractionMode() === "placeHuman") {
+          planner3dView.setInteractionMode("edit");
+        }
+        planner3dView.setTransformMode(mode);
+        planner3dMoveBtn.classList.toggle("active", mode === "translate");
+        planner3dRotateBtn.classList.toggle("active", mode === "rotate");
+      }
+
+      async function setPlannerViewMode(mode) {
+        plannerViewMode = mode;
+        const is3d = mode === "3d";
+        plannerView2dBtn.classList.toggle("active", !is3d);
+        plannerView3dBtn.classList.toggle("active", is3d);
+        plannerCanvasWrap.classList.toggle("hidden", is3d);
+        planner3dWrap.classList.toggle("hidden", !is3d);
+
+        if (is3d) {
+          if (!plannerState.canvas) initPlanner();
+          const view = await ensurePlanner3D();
+          view.setActive(true);
+          setPlanner3dTool("translate");
+          resizePlanner3DView();
+          syncPlanner3DView({ refitCamera: true });
+        } else if (planner3dView) {
+          planner3dView.setActive(false);
+          if (plannerState.canvas) resizePlannerCanvasToContainer();
+        }
+      }
+
+      function requestPlanner3DSync() {
+        syncPlanner3DView();
+      }
 
       const FIXTURE_TEMPLATE_18x14 = [
         { kind: "entry-gated", x: 7.2, y: 0.25 },
@@ -1855,11 +2246,30 @@
           const response = await fetch("/api/store-profiles");
           if (!response.ok) throw new Error("profile fetch failed");
           storeProfileConfig = await response.json();
+          if (!layoutStepForArtifact) {
+            ({ layoutStepForArtifact } = await import("./planner-artifacts.js"));
+          }
+          applyArtifactConfigFromProfiles(storeProfileConfig);
+          if (planner3dView) {
+            planner3dView.setConfig({
+              artifacts: storeProfileConfig.artifacts,
+              planner: storeProfileConfig.planner
+            });
+          }
           STORE_PRESETS = buildStorePresetsFromConfig(storeProfileConfig);
           defaultPlannerCostModel = getDefaultPlannerCostModel();
           applyPlannerCostModel(defaultPlannerCostModel);
           return true;
         } catch (_error) {
+          try {
+            if (!layoutStepForArtifact) {
+              const mod = await import("./planner-artifacts.js");
+              layoutStepForArtifact = mod.layoutStepForArtifact;
+              applyArtifactConfigFromProfiles({ planner: mod.DEFAULT_PLANNER, artifacts: mod.DEFAULT_ARTIFACTS });
+            }
+          } catch (_importError) {
+            // Keep empty artifacts if module fails.
+          }
           plannerStatus.textContent = "Could not load store profiles from API. Start server.js and configure in Backoffice.";
           plannerStatus.style.color = "var(--warn)";
           return false;
@@ -1885,7 +2295,7 @@
                 heightMeters: plannerState.heightMeters,
                 activePresetId: plannerState.activePresetId,
                 costModel: getPlannerCostModel(),
-                canvasJson: plannerState.canvas.toDatalessJSON(["plannerKind"])
+                canvasJson: plannerState.canvas.toDatalessJSON(["plannerKind", "plannerObjectId", "plannerMeters"])
               }
             : null
         };
@@ -2040,35 +2450,41 @@
       function layoutPresetShelves(counts) {
         const w = plannerState.widthMeters;
         const h = plannerState.heightMeters;
-        const stepX = 1.3;
-        const stepY = 0.95;
+        const gap = plannerSettings.layoutGapMeters ?? 0.15;
+        const coldSpec = getArtifactSpec("shelf-cold");
+        const hotSpec = getArtifactSpec("shelf-hot");
+        const ambientSpec = getArtifactSpec("shelf-ambient");
+        const stepCold = artifactLayoutStep("shelf-cold");
+        const stepHot = artifactLayoutStep("shelf-hot");
+        const stepAmbientX = (ambientSpec.w || 1.2) + gap;
+        const stepAmbientY = (ambientSpec.h || 0.45) + gap + 0.5;
         const inset = 0.7;
 
         let x = inset;
         for (let i = 0; i < counts.cold; i += 1) {
-          if (x > w - inset - 1.1) break;
+          if (x > w - inset - (coldSpec.w || 1.2)) break;
           const point = canvasPointFromMeters(x, inset);
           addPlannerObject("shelf-cold", { left: point.left, top: point.top, angle: 0, silent: true });
-          x += stepX;
+          x += stepCold;
         }
 
-        let y = inset + 1.1;
+        let y = inset + (hotSpec.h || 0.6) + gap;
         for (let i = 0; i < counts.hot; i += 1) {
-          if (y > h - inset - 1) break;
-          const point = canvasPointFromMeters(w - inset - 1.1, y);
+          if (y > h - inset - (hotSpec.w || 1)) break;
+          const point = canvasPointFromMeters(w - inset - (hotSpec.w || 1), y);
           addPlannerObject("shelf-hot", { left: point.left, top: point.top, angle: 90, silent: true });
-          y += stepX;
+          y += stepHot;
         }
 
-        const cols = Math.max(2, Math.floor((w - inset * 2 - 1.6) / stepX));
+        const cols = Math.max(2, Math.floor((w - inset * 2 - stepAmbientX) / stepAmbientX));
         const startX = inset + 0.4;
-        const startY = inset + 2.1;
+        const startY = inset + (coldSpec.h || 0.55) + stepAmbientY;
         for (let i = 0; i < counts.ambient; i += 1) {
           const col = i % cols;
           const row = Math.floor(i / cols);
-          const px = startX + col * stepX;
-          const py = startY + row * stepY;
-          if (py > h - inset - 0.8) break;
+          const px = startX + col * stepAmbientX;
+          const py = startY + row * stepAmbientY;
+          if (py > h - inset - (ambientSpec.h || 0.45)) break;
           const point = canvasPointFromMeters(px, py);
           addPlannerObject("shelf-ambient", {
             left: point.left,
@@ -2142,6 +2558,7 @@
         fitPlannerViewport();
         updatePlannerEstimate();
         persistState();
+        requestPlanner3DSync();
       }
 
       function plannerStroke(mult = 1) {
@@ -2434,6 +2851,7 @@
           if (!obj.plannerKind && obj.type === "group" && obj._objects && obj._objects[1] && obj._objects[1].text) {
             obj.plannerKind = obj._objects[1].text;
           }
+          if (obj.plannerKind) ensurePlannerObjectId(obj);
         });
       }
 
@@ -2833,6 +3251,7 @@
         syncPlannerMeterScale();
         drawPlannerBoundary();
         fitPlannerViewport();
+        requestPlanner3DSync();
         persistState();
       }
 
@@ -2867,6 +3286,7 @@
         });
         group.plannerKind = kind;
         group.plannerMeters = { w: spec.w, h: spec.h };
+        ensurePlannerObjectId(group);
         plannerState.canvas.add(group);
         if (!options.silent) {
           plannerState.canvas.setActiveObject(group);
@@ -2894,14 +3314,20 @@
         applyPlannerCostModel(defaultPlannerCostModel);
         resizePlannerCanvasToContainer();
         updatePlannerEstimate();
-        plannerState.canvas.on("object:modified", persistState);
+        const sync3d = () => requestPlanner3DSync();
+        plannerState.canvas.on("object:modified", () => {
+          persistState();
+          sync3d();
+        });
         plannerState.canvas.on("object:added", () => {
           updatePlannerEstimate();
           persistState();
+          sync3d();
         });
         plannerState.canvas.on("object:removed", () => {
           updatePlannerEstimate();
           persistState();
+          sync3d();
         });
         plannerStatus.textContent = "Planner ready. Add objects and drag them on the canvas.";
         plannerStatus.style.color = "var(--ok)";
@@ -2949,7 +3375,12 @@
           tabButtons.forEach((btn) => btn.classList.toggle("active", btn === button));
           if (tab === "planner") {
             initPlanner();
-            if (plannerState.canvas) {
+            if (plannerViewMode === "3d") {
+              ensurePlanner3D().then(() => {
+                resizePlanner3DView();
+                syncPlanner3DView();
+              });
+            } else if (plannerState.canvas) {
               resizePlannerCanvasToContainer();
               plannerState.canvas.requestRenderAll();
             }
@@ -3035,6 +3466,30 @@
         persistState();
       });
 
+      plannerView2dBtn.addEventListener("click", () => {
+        setPlannerViewMode("2d");
+      });
+
+      plannerView3dBtn.addEventListener("click", async () => {
+        await setPlannerViewMode("3d");
+      });
+
+      planner3dMoveBtn.addEventListener("click", () => setPlanner3dTool("translate"));
+      planner3dRotateBtn.addEventListener("click", () => setPlanner3dTool("rotate"));
+      planner3dHumanBtn.addEventListener("click", () => {
+        if (!planner3dView) return;
+        const mode = planner3dView.getInteractionMode();
+        planner3dView.setInteractionMode(mode === "placeHuman" ? "edit" : "placeHuman");
+      });
+      planner3dWalkBtn.addEventListener("click", () => {
+        if (!planner3dView) return;
+        const mode = planner3dView.getInteractionMode();
+        planner3dView.setInteractionMode(mode === "walk" ? "edit" : "walk");
+      });
+      planner3dFitBtn.addEventListener("click", () => {
+        if (planner3dView) planner3dView.fitCamera();
+      });
+
       applyStoreSizeBtn.addEventListener("click", () => {
         if (!plannerState.canvas) initPlanner();
         applyStoreDimensions();
@@ -3095,7 +3550,7 @@
           heightMeters: plannerState.heightMeters,
           activePresetId: plannerState.activePresetId,
           costModel: getPlannerCostModel(),
-          canvasJson: plannerState.canvas.toDatalessJSON(["plannerKind"])
+          canvasJson: plannerState.canvas.toDatalessJSON(["plannerKind", "plannerObjectId", "plannerMeters"])
         };
         const blob = new Blob([JSON.stringify(plannerPayload, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
@@ -3179,7 +3634,8 @@
 
       window.addEventListener("resize", () => {
         if (!plannerState.canvas) return;
-        resizePlannerCanvasToContainer();
+        if (plannerViewMode === "3d") resizePlanner3DView();
+        else resizePlannerCanvasToContainer();
       });
 
       (async () => {
