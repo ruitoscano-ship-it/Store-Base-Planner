@@ -1584,10 +1584,10 @@
                       <button type="button" class="action-btn" id="planner3dFitBtn">Fit view</button>
                     </div>
                     <div class="planner-3d-legend">
-                      <span><i style="background:#e8dcc0;"></i>Ambient</span>
-                      <span><i style="background:#5b9bd5;"></i>Cold</span>
-                      <span><i style="background:#e8935a;"></i>Hot</span>
-                      <span style="color: var(--muted);">Walk: WASD · mouse look · Esc to exit</span>
+                      <span><i style="background:#d9f04f;"></i>Ambient</span>
+                      <span><i style="background:#3b82f6;"></i>Cold</span>
+                      <span><i style="background:#f97316;"></i>Hot</span>
+                      <span style="color: var(--muted);">Shelves: Kenney CC0 models · Walk: WASD · Esc exits</span>
                     </div>
                   </div>
                 </div>
@@ -1925,6 +1925,9 @@
             shelfLevels: spec.shelfLevels,
             palette: spec.palette,
             color3d: spec.color3d,
+            badge3d: spec.badge3d,
+            emissive3d: spec.emissive3d,
+            tag2d: spec.tag2d,
             opacity3d: spec.opacity3d
           };
         });
@@ -1974,8 +1977,15 @@
             const kind = obj.plannerKind;
             const spec = PLANNER_ARTIFACTS[kind] || { w: 1, h: 1 };
             const center = obj.getCenterPoint();
-            const footprintW = (obj.plannerMeters?.w ?? spec.w) * Math.abs(obj.scaleX ?? 1);
-            const footprintD = (obj.plannerMeters?.h ?? spec.h) * Math.abs(obj.scaleY ?? 1);
+            let footprintW = (obj.plannerMeters?.w ?? spec.w) * Math.abs(obj.scaleX ?? 1);
+            let footprintD = (obj.plannerMeters?.h ?? spec.h) * Math.abs(obj.scaleY ?? 1);
+            const angle = obj.angle || 0;
+            const swapFootprint = Math.abs(angle % 180) > 45 && Math.abs(angle % 180) < 135;
+            if (swapFootprint) {
+              const tmp = footprintW;
+              footprintW = footprintD;
+              footprintD = tmp;
+            }
             return {
               id: ensurePlannerObjectId(obj),
               kind,
@@ -2592,6 +2602,8 @@
 
         if (type === "gondola") {
           const { fill, stroke } = spec.palette;
+          const bandColor = kind === "shelf-cold" ? "#3b82f6" : kind === "shelf-hot" ? "#f97316" : "#d9f04f";
+          const tag = spec.tag2d || (kind === "shelf-cold" ? "COLD" : kind === "shelf-hot" ? "HOT" : "AMB");
           shapes.push(
             new fabric.Rect({
               width,
@@ -2599,6 +2611,27 @@
               fill,
               stroke,
               strokeWidth: strokeW,
+              originX: "center",
+              originY: "center"
+            }),
+            new fabric.Rect({
+              width: width * 0.92,
+              height: Math.max(8, height * 0.24),
+              fill: bandColor,
+              stroke: "#111111",
+              strokeWidth: Math.max(0.8, strokeW * 0.5),
+              left: 0,
+              top: -height / 2 + Math.max(8, height * 0.24) / 2 + 2,
+              originX: "center",
+              originY: "center"
+            }),
+            new fabric.Text(tag, {
+              fontSize: Math.max(8, plannerFontSize(0.55)),
+              fontFamily: "Inter, Arial, sans-serif",
+              fontWeight: "700",
+              fill: kind === "shelf-ambient" ? "#111111" : "#ffffff",
+              left: 0,
+              top: -height / 2 + Math.max(8, height * 0.24) / 2 + 2,
               originX: "center",
               originY: "center"
             })

@@ -36,8 +36,11 @@ const DEFAULT_ARTIFACTS = {
     depthMeters: 0.45,
     heightMeters: 1.85,
     shelfLevels: 4,
-    palette: { fill: "#f4eed8", stroke: "#5c4a1f" },
-    color3d: "#e8dcc0"
+    palette: { fill: "#f5f0d8", stroke: "#78716c" },
+    color3d: "#d9e57a",
+    badge3d: "#bef264",
+    emissive3d: "#84cc16",
+    tag2d: "AMB"
   },
   "shelf-cold": {
     label: "Cold",
@@ -46,8 +49,11 @@ const DEFAULT_ARTIFACTS = {
     depthMeters: 0.55,
     heightMeters: 1.85,
     shelfLevels: 4,
-    palette: { fill: "#dbeafe", stroke: "#1e40af" },
-    color3d: "#5b9bd5"
+    palette: { fill: "#dbeafe", stroke: "#1d4ed8" },
+    color3d: "#38bdf8",
+    badge3d: "#3b82f6",
+    emissive3d: "#0284c7",
+    tag2d: "COLD"
   },
   "shelf-hot": {
     label: "Hot",
@@ -56,8 +62,11 @@ const DEFAULT_ARTIFACTS = {
     depthMeters: 0.6,
     heightMeters: 1.85,
     shelfLevels: 4,
-    palette: { fill: "#ffedd5", stroke: "#9a3412" },
-    color3d: "#e8935a"
+    palette: { fill: "#ffedd5", stroke: "#c2410c" },
+    color3d: "#fb923c",
+    badge3d: "#f97316",
+    emissive3d: "#ea580c",
+    tag2d: "HOT"
   },
   "entry-open": {
     label: "Entry",
@@ -261,6 +270,9 @@ function normalizeArtifact(kind, input, fallback) {
     shelfLevels: clamp(Math.round(Number(input.shelfLevels ?? base.shelfLevels ?? 0)), 0, 12),
     palette: input.palette ? { ...base.palette, ...input.palette } : base.palette,
     color3d: input.color3d ?? base.color3d,
+    badge3d: input.badge3d ?? base.badge3d,
+    emissive3d: input.emissive3d ?? base.emissive3d,
+    tag2d: input.tag2d ?? base.tag2d,
     opacity3d: input.opacity3d != null ? clamp(Number(input.opacity3d), 0.05, 1) : base.opacity3d
   };
 }

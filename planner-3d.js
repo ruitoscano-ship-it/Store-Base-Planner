@@ -3,6 +3,8 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { TransformControls } from "three/addons/controls/TransformControls.js";
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
 import { DEFAULT_ARTIFACTS, DEFAULT_PLANNER } from "./planner-artifacts.js";
+import { PlannerModelLibrary } from "./planner-model-loader.js";
+import { buildProceduralFixture } from "./planner-shelf-models.js";
 
 const EYE_HEIGHT = 1.62;
 const WALK_SPEED = 3.8;
@@ -91,6 +93,9 @@ export function createPlanner3D(containerEl, options = {}) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.08;
   renderer.domElement.style.display = "block";
   renderer.domElement.style.width = "100%";
   renderer.domElement.style.height = "100%";
@@ -107,13 +112,25 @@ export function createPlanner3D(containerEl, options = {}) {
   transformControls.setSpace("world");
   scene.add(transformControls);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.74));
-  const sun = new THREE.DirectionalLight(0xffffff, 0.88);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.42));
+  scene.add(new THREE.HemisphereLight(0xf8fafc, 0xe2e8f0, 0.55));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.05);
   sun.position.set(14, 24, 12);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.near = 0.5;
+  sun.shadow.camera.far = 120;
+  sun.shadow.camera.left = -40;
+  sun.shadow.camera.right = 40;
+  sun.shadow.camera.top = 40;
+  sun.shadow.camera.bottom = -40;
+  sun.shadow.bias = -0.00015;
   scene.add(sun);
-  scene.add(new THREE.DirectionalLight(0xd9e57a, 0.22).translateX(-10).translateY(8).translateZ(-8));
+  scene.add(new THREE.DirectionalLight(0xd9e57a, 0.28).translateX(-10).translateY(8).translateZ(-8));
+  scene.add(new THREE.PointLight(0xffffff, 0.18, 30).translateY(4).translateX(0).translateZ(0));
+
+  const modelLibrary = new PlannerModelLibrary();
+  let modelsLoaded = false;
 
   const clock = new THREE.Clock();
   let animationId = null;
@@ -412,7 +429,7 @@ export function createPlanner3D(containerEl, options = {}) {
 
     floorMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(w, d),
-      new THREE.MeshStandardMaterial({ color: 0xf3f4f0, roughness: 0.95 })
+      new THREE.MeshStandardMaterial({ color: 0xf3f4f0, roughness: 0.88, metalness: 0.02 })
     );
     floorMesh.rotation.x = -Math.PI / 2;
     floorMesh.position.set(w / 2, 0, d / 2);
@@ -443,6 +460,29 @@ export function createPlanner3D(containerEl, options = {}) {
     }
   }
 
+  function addFixtureMesh(group, obj, spec, footprintW, footprintD, height) {
+    const useGlb = modelLibrary.hasModel(obj.kind) && modelLibrary.isModelReady(obj.kind);
+    if (useGlb) {
+      const model = modelLibrary.createFixtureModelSync(obj.kind, {
+        width: footprintW,
+        depth: footprintD,
+        height,
+        spec
+      });
+      if (model) {
+        group.add(model);
+        return;
+      }
+    }
+
+    if (obj.kind.startsWith("shelf-") || obj.kind === "checkout" || obj.kind === "entry-open" || obj.kind === "entry-gated") {
+      buildProceduralFixture(group, obj.kind, spec, footprintW, footprintD, height);
+      return;
+    }
+
+    addBox(group, footprintW, height, footprintD, spec, obj.kind);
+  }
+
   function buildFixtureGroup(obj) {
     const spec = getArtifactSpec(obj.kind);
     const footprintW = obj.meters.w;
@@ -463,21 +503,7 @@ export function createPlanner3D(containerEl, options = {}) {
       return group;
     }
 
-    if (obj.kind.startsWith("shelf-")) {
-      addBox(group, footprintW, height, footprintD, spec, obj.kind);
-      const levels = clamp(Math.round(spec.shelfLevels || 0), 0, 12);
-      for (let i = 1; i <= levels; i += 1) {
-        const shelf = new THREE.Mesh(
-          new THREE.BoxGeometry(footprintW * 0.96, 0.04, footprintD * 0.96),
-          new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 })
-        );
-        shelf.position.y = (height * i) / (levels + 1);
-        group.add(shelf);
-      }
-      return group;
-    }
-
-    addBox(group, footprintW, height, footprintD, spec, obj.kind);
+    addFixtureMesh(group, obj, spec, footprintW, footprintD, height);
     return group;
   }
 
@@ -522,6 +548,24 @@ export function createPlanner3D(containerEl, options = {}) {
       orbit.update();
       fitCamera._initialized = true;
     }
+  }
+
+  function refreshFixturesIfReady() {
+    if (!active || !lastLayout || !modelsLoaded) return;
+    rebuildFixtures(lastLayout, selectedGroup?.userData?.objectId || null);
+  }
+
+  function preloadFixtureModels() {
+    return modelLibrary
+      .preloadAll()
+      .then(() => {
+        modelsLoaded = true;
+        refreshFixturesIfReady();
+      })
+      .catch(() => {
+        modelsLoaded = true;
+        refreshFixturesIfReady();
+      });
   }
 
   function rebuildStore(layout, { refitCamera = false, preserveSelectionId = null } = {}) {
@@ -673,6 +717,7 @@ export function createPlanner3D(containerEl, options = {}) {
       active = isActive;
       if (active) {
         resizeToContainer();
+        preloadFixtureModels();
         if (lastLayout) rebuildStore(lastLayout, { refitCamera: true });
         animate();
       } else {
