@@ -198,7 +198,7 @@
       <header class="topbar">
         <div>
           <h1>Store Profile Backoffice</h1>
-          <p class="subtitle">Configure store sizes, prop dimensions, and unit costs. Changes apply to the planner (2D/3D) and sourcing API.</p>
+          <p class="subtitle">Configure store sizes, prop dimensions, unit costs, and review simulator verticals. Changes apply to the planner (2D/3D), sourcing API, and forecast model.</p>
         </div>
         <div class="actions">
           <a class="btn" href="/index.html">Open Planner</a>
@@ -329,6 +329,27 @@
       </section>
 
       <section class="panel">
+        <h2>Simulator verticals</h2>
+        <p class="hint">
+          Four industry formats drive the value realization simulator: retail stores (40–2500+ sq ft), autonomous pharmacies,
+          cinema F&amp;B, and smart bakeries. Each vertical exposes footprint bounds, cost drivers, lever labels, and forecast defaults.
+        </p>
+        <div id="verticalsOverview" style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px;"></div>
+
+        <h3 style="margin: 16px 0 6px; font-size: 0.92rem;">Verticals API</h3>
+        <div class="api-block" id="apiVerticalsGet"></div>
+        <div class="api-block" id="apiVerticalById"></div>
+        <div class="api-block" id="apiForecastPost"></div>
+
+        <div class="actions">
+          <button class="btn" id="testVerticalsBtn" type="button">Test list verticals</button>
+          <button class="btn" id="testForecastRetailBtn" type="button">Test retail forecast</button>
+          <button class="btn" id="testForecastPharmacyBtn" type="button">Test pharmacy forecast</button>
+        </div>
+        <pre class="api-block" id="verticalsApiOutput" style="max-height: 280px; overflow: auto;">Run a test to preview JSON response.</pre>
+      </section>
+
+      <section class="panel">
         <h2>Sourcing API</h2>
         <p class="subtitle">Use these endpoints from your sourcing tool to retrieve the bill of materials for a store profile.</p>
 
@@ -371,6 +392,8 @@
       const profilesTableBody = document.getElementById("profilesTableBody");
       const artifactsTableBody = document.getElementById("artifactsTableBody");
       const apiTestOutput = document.getElementById("apiTestOutput");
+      const verticalsOverview = document.getElementById("verticalsOverview");
+      const verticalsApiOutput = document.getElementById("verticalsApiOutput");
 
       function setStatus(text, tone = "ok") {
         statusMsg.textContent = text;
@@ -383,6 +406,57 @@
         document.getElementById("apiProfilesPut").textContent = `PUT ${origin}/api/store-profiles\nContent-Type: application/json\n\n{ ...full configuration object... }`;
         document.getElementById("apiSourcingMedium").textContent = `GET ${origin}/api/store-profiles/medium/sourcing`;
         document.getElementById("apiSourcingBespoke").textContent = `GET ${origin}/api/store-profiles/bespoke/sourcing?widthMeters=20&heightMeters=15`;
+        document.getElementById("apiVerticalsGet").textContent = `GET ${origin}/api/verticals`;
+        document.getElementById("apiVerticalById").textContent = `GET ${origin}/api/verticals/retail\nGET ${origin}/api/verticals/pharmacy\nGET ${origin}/api/verticals/cinema_fb\nGET ${origin}/api/verticals/bakery`;
+        document.getElementById("apiForecastPost").textContent = `POST ${origin}/api/forecast\nContent-Type: application/json\n\n{\n  "verticalId": "retail",\n  "input": {\n    "footprintSqft": 1200,\n    "baseVisitors": 2400,\n    "peakLift": 28,\n    "queueTime": 38,\n    "restockTime": 20,\n    "exceptionRate": 4,\n    "staffCount": 8,\n    "energyComms": 1800,\n    "smartTechCost": 4200,\n    "downtimeHours": 0\n  }\n}`;
+      }
+
+      function renderVerticalsOverview(verticals) {
+        if (!verticalsOverview) return;
+        verticalsOverview.innerHTML = "";
+        verticals.forEach((vertical) => {
+          const card = document.createElement("div");
+          card.style.border = "1px solid var(--border)";
+          card.style.padding = "10px 12px";
+          card.innerHTML = `
+            <strong>${vertical.label}</strong>
+            <p class="hint" style="margin: 4px 0 8px;">${vertical.tagline} · ${vertical.footprint.min}–${vertical.footprint.max} sq ft · planner hint: ${vertical.plannerProfileHint || "—"}</p>
+            <table>
+              <thead>
+                <tr><th>Activity</th><th>Benefit</th><th>How to impact</th><th>Rationale</th><th>Lever</th></tr>
+              </thead>
+              <tbody>
+                ${(vertical.costDrivers || [])
+                  .map(
+                    (driver) => `
+                  <tr>
+                    <td>${driver.activity}<br><span style="color: var(--muted); font-size: 0.76rem;">${driver.impact || ""}</span></td>
+                    <td>${driver.benefit || "—"}</td>
+                    <td>${driver.impactMechanism || "—"}</td>
+                    <td>${driver.rationale || "—"}</td>
+                    <td><code>${driver.lever}</code></td>
+                  </tr>`
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+          `;
+          verticalsOverview.appendChild(card);
+        });
+      }
+
+      async function loadVerticalsOverview() {
+        const response = await fetch("/api/verticals");
+        if (!response.ok) throw new Error("Could not load verticals.");
+        const data = await response.json();
+        renderVerticalsOverview(data.verticals || []);
+      }
+
+      async function testVerticalsApi(url, options) {
+        verticalsApiOutput.textContent = "Loading…";
+        const response = await fetch(url, options);
+        const data = await response.json();
+        verticalsApiOutput.textContent = JSON.stringify(data, null, 2);
       }
 
       function renderForm(data) {
@@ -547,7 +621,34 @@
         });
       });
 
+      document.getElementById("testVerticalsBtn").addEventListener("click", () => {
+        testVerticalsApi("/api/verticals").catch((error) => {
+          verticalsApiOutput.textContent = error.message;
+        });
+      });
+
+      document.getElementById("testForecastRetailBtn").addEventListener("click", () => {
+        testVerticalsApi("/api/forecast", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ verticalId: "retail", input: { footprintSqft: 1200, baseVisitors: 2400, peakLift: 28, queueTime: 38, restockTime: 20, exceptionRate: 4, staffCount: 8, energyComms: 1800, smartTechCost: 4200, downtimeHours: 0 } })
+        }).catch((error) => {
+          verticalsApiOutput.textContent = error.message;
+        });
+      });
+
+      document.getElementById("testForecastPharmacyBtn").addEventListener("click", () => {
+        testVerticalsApi("/api/forecast", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ verticalId: "pharmacy", input: { footprintSqft: 650, baseVisitors: 680, peakLift: 22, queueTime: 52, restockTime: 35, exceptionRate: 2.8, staffCount: 4, energyComms: 2400, smartTechCost: 8500, downtimeHours: 0 } })
+        }).catch((error) => {
+          verticalsApiOutput.textContent = error.message;
+        });
+      });
+
       renderApiDocs();
+      loadVerticalsOverview().catch((error) => setStatus(error.message, "bad"));
       loadConfig().catch((error) => setStatus(error.message, "bad"));
     </script>
   </body>

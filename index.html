@@ -35,9 +35,9 @@
       }
 
       .container {
-        max-width: 1480px;
+        max-width: min(1680px, 100%);
         margin: 0 auto;
-        padding: 10px 18px 28px;
+        padding: 10px 14px 18px;
       }
 
       .topbar {
@@ -111,8 +111,384 @@
       .layout {
         margin-top: 0;
         display: grid;
-        grid-template-columns: 300px 1fr;
+        grid-template-columns: minmax(248px, 280px) minmax(0, 1fr);
+        gap: 10px;
+        align-items: start;
+      }
+
+      #simulatorTab {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+
+      .vertical-tabs {
+        display: flex;
+        border: 1px solid var(--border);
+        background: var(--card);
+      }
+
+      .vertical-tab {
+        flex: 1;
+        min-width: 0;
+        border: none;
+        border-right: 1px solid var(--border);
+        background: var(--card-2);
+        padding: 10px 12px;
+        text-align: left;
+        cursor: pointer;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 6px 10px;
+        font-family: inherit;
+        color: var(--text);
+      }
+
+      .vertical-tab:last-child {
+        border-right: none;
+      }
+
+      .vertical-tab strong {
+        font-size: 0.9rem;
+      }
+
+      .vertical-tab span:not(.vertical-range) {
+        display: none;
+      }
+
+      .vertical-tab .vertical-range {
+        margin-top: 0;
+        font-size: 0.66rem;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: var(--muted);
+      }
+
+      .vertical-tab.active {
+        background: #d9f04f;
+        box-shadow: inset 0 -3px 0 #111111;
+      }
+
+      .vertical-tab:hover:not(.active) {
+        background: #eceee8;
+      }
+
+      .vertical-body {
+        border: 1px solid var(--border);
+        border-top: none;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .vertical-body-head {
+        display: block;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .vertical-kicker {
+        margin: 0;
+        font-size: 0.68rem;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .vertical-body-title {
+        margin: 4px 0 0;
+        font-size: 1.02rem;
+        font-family: Inter, Avenir, Segoe UI, Roboto, Arial, sans-serif;
+        font-weight: 800;
+        line-height: 1.15;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+      }
+
+      .vertical-meta {
+        margin: 4px 0 0;
+        font-size: 0.74rem;
+        color: var(--muted);
+      }
+
+      .vertical-body-desc {
+        margin: 6px 0 0;
+        font-size: 0.8rem;
+        color: var(--muted);
+        line-height: 1.4;
+        max-width: none;
+      }
+
+      .vertical-body-range {
+        display: none;
+      }
+
+      .vertical-workspace {
+        padding: 8px;
+      }
+
+      .vertical-workspace .layout {
+        gap: 8px;
+      }
+
+      .vertical-workspace .controls,
+      .vertical-workspace .dashboard-core {
+        border: 1px solid var(--border);
+        background: var(--card-2);
+      }
+
+      .zone-title {
+        margin: 0 0 8px;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.65px;
+        color: var(--muted);
+        font-weight: 700;
+      }
+
+      .dashboard-core {
+        padding: 10px 12px;
+      }
+
+      .vertical-context {
+        display: flex;
+        flex-direction: column;
+        border-top: 1px solid var(--border);
+      }
+
+      .context-tabs {
+        display: flex;
+        background: var(--card);
+      }
+
+      .context-tab {
+        flex: 1;
+        min-width: 0;
+        padding: 9px 12px;
+        border: none;
+        border-right: 1px solid var(--border);
+        background: var(--card-2);
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: var(--text);
+        text-align: left;
+      }
+
+      .context-tab:last-child {
+        border-right: none;
+      }
+
+      .context-tab.active {
+        background: #d9f04f;
+        box-shadow: inset 0 -2px 0 #111111;
+      }
+
+      .context-tab:hover:not(.active) {
+        background: #eceee8;
+      }
+
+      .context-panels {
+        background: var(--card-2);
+      }
+
+      .context-panel {
+        padding: 10px 12px 12px;
+        max-height: min(42vh, 460px);
+        overflow-y: auto;
+      }
+
+      .context-panel.hidden {
+        display: none;
+      }
+
+      .kpi-net-highlight {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         gap: 12px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+        background: #d9f04f;
+        border: 1px solid var(--border);
+      }
+
+      .kpi-net-highlight .kpi-value {
+        margin: 4px 0 0;
+        font-size: clamp(1.35rem, 2.2vw, 1.85rem);
+      }
+
+      .kpi-net-highlight .kpi-hint {
+        margin: 0;
+        text-align: right;
+        font-weight: 600;
+      }
+
+      .kpi-metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
+      }
+
+      .kpi-metrics .kpi {
+        padding: 8px;
+      }
+
+      .kpi-metrics .kpi-value {
+        margin: 4px 0 2px;
+        font-size: clamp(0.95rem, 1.4vw, 1.15rem);
+      }
+
+      .kpi-metrics .kpi-hint {
+        font-size: 0.68rem;
+        line-height: 1.3;
+      }
+
+      .grid-2 {
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .grid-2 .card {
+        padding: 10px;
+      }
+
+      .grid-2 .card h3 {
+        margin: 0 0 8px;
+        font-size: 0.82rem;
+      }
+
+      .model-notes-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .model-notes-stack p {
+        margin: 0;
+        font-size: 0.78rem;
+        color: var(--muted);
+        line-height: 1.45;
+      }
+
+      .cost-driver-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .cost-driver-list li {
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 8px;
+      }
+
+      .cost-driver-list li:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+      }
+
+      .driver-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        align-items: baseline;
+        font-size: 0.86rem;
+        font-weight: 700;
+      }
+
+      .driver-impact {
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 2px 6px;
+        border: 1px solid var(--border);
+      }
+
+      .driver-impact.high {
+        background: #f5d0d0;
+      }
+
+      .driver-impact.medium {
+        background: #f5ebc8;
+      }
+
+      .driver-impact.low {
+        background: #e8ece8;
+      }
+
+      .driver-body {
+        margin: 4px 0 0;
+        font-size: 0.78rem;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+
+      .driver-benefit {
+        margin: 6px 0 0;
+        font-size: 0.76rem;
+        font-weight: 700;
+        color: var(--text);
+      }
+
+      .driver-mechanism,
+      .driver-rationale {
+        margin: 4px 0 0;
+        font-size: 0.74rem;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+
+      .driver-mechanism strong,
+      .driver-rationale strong,
+      .driver-lever strong {
+        color: var(--text);
+        font-weight: 700;
+      }
+
+      .driver-lever {
+        margin-top: 6px;
+        font-size: 0.72rem;
+        color: var(--text);
+      }
+
+      @media (max-width: 1080px) {
+        .vertical-tabs {
+          flex-wrap: wrap;
+        }
+
+        .vertical-tab {
+          flex: 1 1 calc(50% - 1px);
+          border-bottom: 1px solid var(--border);
+        }
+
+        .kpi-metrics {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .context-tabs {
+          flex-wrap: wrap;
+        }
+
+        .context-tab {
+          flex: 1 1 50%;
+          border-bottom: 1px solid var(--border);
+        }
+
+        .controls {
+          max-height: none;
+          position: static;
+        }
+      }
+
+      @media (max-width: 620px) {
+        .vertical-tab {
+          flex: 1 1 100%;
+        }
       }
 
       .tabs {
@@ -190,20 +566,17 @@
       }
 
       .controls {
-        padding: 14px;
+        padding: 10px;
         position: sticky;
-        top: 16px;
+        top: 8px;
+        max-height: calc(100vh - 200px);
+        overflow-y: auto;
         height: fit-content;
       }
 
-      .section-title {
-        margin: 0 0 12px;
-        font-size: 1rem;
-      }
-
       .control-group {
-        margin-bottom: 10px;
-        padding: 10px;
+        margin-bottom: 6px;
+        padding: 8px;
         border: 1px solid var(--border);
         border-radius: 12px;
         background: var(--card-2);
@@ -213,12 +586,20 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        gap: 12px;
-        margin-bottom: 8px;
+        gap: 8px;
+        margin-bottom: 6px;
       }
 
       .control-row label {
-        font-size: 0.92rem;
+        font-size: 0.78rem;
+        line-height: 1.25;
+      }
+
+      .control-hint {
+        margin: 6px 0 0;
+        font-size: 0.68rem;
+        color: var(--muted);
+        line-height: 1.35;
       }
 
       .pill {
@@ -237,13 +618,11 @@
       }
 
       .dashboard {
-        padding: 16px;
+        padding: 12px;
       }
 
       .kpis {
-        display: grid;
-        grid-template-columns: repeat(5, minmax(120px, 1fr));
-        gap: 8px;
+        display: block;
       }
 
       .kpi {
@@ -764,8 +1143,15 @@
       }
 
       @media (max-width: 820px) {
-        .kpis {
-          grid-template-columns: repeat(2, minmax(130px, 1fr));
+        .kpi-metrics {
+          grid-template-columns: 1fr 1fr;
+        }
+        .kpi-net-highlight {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .kpi-net-highlight .kpi-hint {
+          text-align: left;
         }
         .grid-2 {
           grid-template-columns: 1fr;
@@ -793,8 +1179,8 @@
       }
 
       .container {
-        max-width: 1540px;
-        padding: 16px 22px 28px;
+        max-width: min(1680px, 100%);
+        padding: 10px 14px 18px;
       }
 
       .topbar,
@@ -826,11 +1212,31 @@
         border-radius: 0;
       }
 
+      .topbar {
+        padding: 8px 12px;
+        margin-bottom: 8px;
+      }
+
+      .tab-panel {
+        margin-top: 8px;
+      }
+
+      .tab-btn,
+      .action-btn {
+        padding: 7px 11px;
+        font-size: 0.8rem;
+      }
+
       .brand-title {
         font-size: 1.05rem;
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.4px;
+      }
+
+      .section-title {
+        margin: 0 0 10px;
+        font-size: 0.95rem;
       }
 
       .brand-sub,
@@ -967,24 +1373,48 @@
         </div>
       </section>
 
-      <section class="hero">
+      <section class="hero hidden" id="globalHero">
         <div>
           <p class="offline-note" style="letter-spacing: 1.4px; text-transform: uppercase; margin-bottom: 8px;">Value Realization Console</p>
           <h1>Every lever, down to the last euro.</h1>
           <p class="subtitle">
-            Simulate monthly revenue outcomes for walk-in / walk-out operations. The model traces peak traffic, checkout tempo,
-            stock repositioning, exception handling, staffing, and utility tradeoffs into one net value target.
+            Discovery, disaster recovery, and store planning tools for autonomous retail operations.
           </p>
         </div>
         <div class="formula-chip">
-          Net Value = Potential Revenue - (Operating Costs + Exception Penalties + Downtime)
-          <div class="offline-note" style="margin-top: 8px;">Period: Monthly  |  Currency: EUR  |  Fiscal model: v4.2</div>
+          Net Value = Potential Revenue − (Operating Costs + Exception Penalties + Downtime)
+          <div class="offline-note" style="margin-top: 8px;">Period: Monthly · Currency: EUR</div>
         </div>
       </section>
 
-      <section class="layout tab-panel" id="simulatorTab">
-        <aside class="panel controls">
-          <h2 class="section-title">Simulation Levers</h2>
+      <section class="tab-panel" id="simulatorTab">
+        <nav class="vertical-tabs" id="verticalTabs" aria-label="Industry vertical"></nav>
+
+        <article class="vertical-body panel" id="verticalBody">
+          <header class="vertical-body-head">
+            <div class="vertical-body-intro">
+              <p class="vertical-kicker" id="verticalKicker">Retail stores</p>
+              <h2 class="vertical-body-title" id="verticalBodyTitle">Autonomous convenience to hypermarket formats</h2>
+              <p class="vertical-meta"><span id="verticalBodyRange">40–2,500+ sq ft</span> · <span id="verticalFormulaMeta">Monthly · EUR</span></p>
+              <p class="vertical-body-desc" id="verticalBodyDesc">
+                Simulate monthly revenue outcomes for walk-in / walk-out operations.
+              </p>
+            </div>
+          </header>
+
+          <div class="vertical-workspace">
+            <section class="layout">
+              <aside class="panel controls">
+                <h2 class="zone-title">Scenario levers</h2>
+
+          <div class="control-group">
+            <div class="control-row">
+              <label for="footprintSqft">Selling area (sq ft)</label>
+              <span class="pill" id="footprintSqftVal"></span>
+            </div>
+            <input id="footprintSqft" type="range" min="40" max="2500" value="1200" step="10" />
+            <p id="footprintSqftHint" class="control-hint"></p>
+          </div>
 
           <div class="control-group">
             <div class="control-row">
@@ -1032,7 +1462,7 @@
               <span class="pill" id="staffCountVal"></span>
             </div>
             <input id="staffCount" type="range" min="2" max="20" value="8" step="1" />
-            <p style="margin: 8px 0 0; font-size: 0.78rem; color: var(--muted);">
+            <p id="staffFootprintHint" class="control-hint">
               Assuming an average of 1 FTE per 35 sqm.
             </p>
           </div>
@@ -1062,33 +1492,38 @@
           </div>
         </aside>
 
-        <main class="panel dashboard">
+        <main class="panel dashboard dashboard-core">
+          <h2 class="zone-title">Monthly outcomes</h2>
           <div class="kpis">
+            <article class="kpi kpi-net-highlight">
+              <div>
+                <p class="kpi-label">Net Value Realization</p>
+                <p id="kpiNet" class="kpi-value"></p>
+              </div>
+              <p id="kpiMargin" class="kpi-hint"></p>
+            </article>
+            <div class="kpi-metrics">
             <article class="kpi">
               <p class="kpi-label">Potential Revenue</p>
               <p id="kpiRevenue" class="kpi-value"></p>
-              <p class="kpi-hint">Monthly top-line from products sold</p>
+              <p class="kpi-hint">Monthly top-line</p>
             </article>
             <article class="kpi">
               <p class="kpi-label">Operating Costs</p>
               <p id="kpiOperating" class="kpi-value"></p>
-              <p class="kpi-hint">Monthly fixed + staffing + utilities + tech</p>
+              <p class="kpi-hint">Fixed + staff + utilities</p>
             </article>
             <article class="kpi">
               <p class="kpi-label">Exception Penalties</p>
               <p id="kpiPenalty" class="kpi-value"></p>
-              <p class="kpi-hint">Loss due to unresolved exceptions</p>
+              <p class="kpi-hint">Shrink & unresolved</p>
             </article>
             <article class="kpi">
               <p class="kpi-label">Downtime Penalty</p>
               <p id="kpiDowntimePenalty" class="kpi-value"></p>
-              <p class="kpi-hint">Revenue impact from operational downtime</p>
+              <p class="kpi-hint">Revenue at risk</p>
             </article>
-            <article class="kpi">
-              <p class="kpi-label">Net Value Realization</p>
-              <p id="kpiNet" class="kpi-value"></p>
-              <p id="kpiMargin" class="kpi-hint"></p>
-            </article>
+            </div>
           </div>
 
           <div class="grid-2">
@@ -1134,27 +1569,33 @@
               </div>
             </section>
           </div>
-
-          <div class="grid-2">
-            <section class="card">
-              <h3>Top Efficiency Opportunities</h3>
-              <ol class="insight-list" id="efficiencyList"></ol>
-            </section>
-
-            <section class="card">
-              <h3>Operational Notes</h3>
-              <ul class="insight-list">
-                <li>Peak windows modeled for 7:00-10:00 and 17:00-20:30 commuter bursts.</li>
-                <li>Checkout friction directly impacts conversion and basket completion.</li>
-                <li>Staffing lowers exceptions but raises monthly operating costs.<span class="tag">Tradeoff</span></li>
-                <li>Energy and communications costs are modeled as a direct monthly lever.</li>
-                <li>Smart store technology cost is modeled as a monthly operating expense.</li>
-                <li>Downtime penalty scales from 15% at 1h to 100% revenue loss at 12h.</li>
-                <li>Restock responsiveness protects availability for high-demand SKUs.</li>
-              </ul>
+        </main>
             </section>
           </div>
-        </main>
+
+          <section class="vertical-context">
+            <nav class="context-tabs" aria-label="Scenario insights">
+              <button type="button" class="context-tab active" data-context="opportunities">Efficiency opportunities</button>
+              <button type="button" class="context-tab" data-context="drivers">Value drivers</button>
+              <button type="button" class="context-tab" data-context="notes">Model notes</button>
+            </nav>
+            <div class="context-panels">
+              <div class="context-panel" data-context="opportunities">
+                <ol class="insight-list" id="efficiencyList"></ol>
+              </div>
+              <div class="context-panel hidden" data-context="drivers">
+                <ul class="cost-driver-list" id="costDriverList"></ul>
+              </div>
+              <div class="context-panel hidden" data-context="notes">
+                <div class="model-notes-stack">
+                  <ul class="insight-list" id="operationalNotesList"></ul>
+                  <p id="fixedOccupancySummary"></p>
+                  <p id="modelConstantsSummary"></p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </article>
       </section>
 
       <section class="tab-panel hidden" id="discoveryTab">
@@ -1610,6 +2051,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
       const sliders = {
+        footprintSqft: document.getElementById("footprintSqft"),
         baseVisitors: document.getElementById("baseVisitors"),
         peakLift: document.getElementById("peakLift"),
         queueTime: document.getElementById("queueTime"),
@@ -1622,6 +2064,7 @@
       };
 
       const valueLabels = {
+        footprintSqft: document.getElementById("footprintSqftVal"),
         baseVisitors: document.getElementById("baseVisitorsVal"),
         peakLift: document.getElementById("peakLiftVal"),
         queueTime: document.getElementById("queueTimeVal"),
@@ -1632,6 +2075,26 @@
         smartTechCost: document.getElementById("smartTechCostVal"),
         downtimeHours: document.getElementById("downtimeHoursVal")
       };
+
+      const verticalTabs = document.getElementById("verticalTabs");
+      const verticalBody = document.getElementById("verticalBody");
+      const verticalBodyTitle = document.getElementById("verticalBodyTitle");
+      const verticalBodyRange = document.getElementById("verticalBodyRange");
+      const globalHero = document.getElementById("globalHero");
+      const verticalKicker = document.getElementById("verticalKicker");
+      const verticalBodyDesc = document.getElementById("verticalBodyDesc");
+      const verticalFormulaMeta = document.getElementById("verticalFormulaMeta");
+      const costDriverList = document.getElementById("costDriverList");
+      const operationalNotesList = document.getElementById("operationalNotesList");
+      const fixedOccupancySummary = document.getElementById("fixedOccupancySummary");
+      const modelConstantsSummary = document.getElementById("modelConstantsSummary");
+      const staffFootprintHint = document.getElementById("staffFootprintHint");
+      const footprintSqftHint = document.getElementById("footprintSqftHint");
+
+      const SQFT_TO_SQM = 0.092903;
+      let verticalCatalog = [];
+      let activeVerticalId = "retail";
+      let lastForecastPayload = null;
 
       const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
       const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
@@ -1650,19 +2113,36 @@
         netMargin: 0
       };
 
-      const modelConstants = {
-        daysPerMonth: 30,
-        baseConversion: 0.42,
-        averageItemsPerTransaction: 2.6,
-        averageProductPrice: 4.8,
-        baseFixedMonthlyCosts: 54000,
-        laborCostPerPerson: 145,
-        penaltyPerException: 16,
-        downtimePenaltyAt0h: 0,
-        downtimePenaltyAt12h: 1
-      };
+      function getActiveVertical() {
+        return verticalCatalog.find((item) => item.id === activeVerticalId) || verticalCatalog[0] || null;
+      }
 
-      function computeForecast(input) {
+      function resolveModelConstantsClient(vertical, input) {
+        const mc = vertical.modelConstants;
+        const footprintSqft = clamp(
+          Number(input.footprintSqft ?? vertical.defaultInput.footprintSqft ?? vertical.footprint.default),
+          vertical.footprint.min,
+          vertical.footprint.max
+        );
+        return {
+          daysPerMonth: mc.daysPerMonth,
+          baseConversion: mc.baseConversion,
+          averageItemsPerTransaction: mc.averageItemsPerTransaction,
+          averageProductPrice: mc.averageProductPrice,
+          baseFixedMonthlyCosts: Math.max(mc.fixedCostMinimum || 0, footprintSqft * (mc.fixedCostPerSqft || 0)),
+          laborCostPerPerson: mc.laborCostPerPerson,
+          penaltyPerException: mc.penaltyPerException,
+          downtimePenaltyAt0h: mc.downtimePenaltyAt0h,
+          downtimePenaltyAt12h: mc.downtimePenaltyAt12h,
+          footprintSqft
+        };
+      }
+
+      function computeForecastClient(input, verticalId = activeVerticalId) {
+        const vertical = verticalCatalog.find((item) => item.id === verticalId) || verticalCatalog[0];
+        if (!vertical) return defaultForecast;
+
+        const modelConstants = resolveModelConstantsClient(vertical, input);
         const peakTrafficFactor = 1 + input.peakLift / 100;
         const queueEfficiency = clamp(1.34 - input.queueTime / 190, 0.42, 1.22);
         const restockEfficiency = clamp(1.26 - input.restockTime / 120, 0.58, 1.19);
@@ -1684,15 +2164,18 @@
         const exceptionPenalty = dailyExceptionPenalty * modelConstants.daysPerMonth;
 
         const staffingMonthlyCost = input.staffCount * modelConstants.laborCostPerPerson * modelConstants.daysPerMonth;
-        const operatingCosts = modelConstants.baseFixedMonthlyCosts + staffingMonthlyCost + input.energyComms + input.smartTechCost;
+        const operatingCosts =
+          modelConstants.baseFixedMonthlyCosts + staffingMonthlyCost + input.energyComms + input.smartTechCost;
         const downtimePenaltyRate =
           modelConstants.downtimePenaltyAt0h +
           (input.downtimeHours / 12) * (modelConstants.downtimePenaltyAt12h - modelConstants.downtimePenaltyAt0h);
-        const downtimePenalty = revenue * clamp(downtimePenaltyRate, modelConstants.downtimePenaltyAt0h, modelConstants.downtimePenaltyAt12h);
+        const downtimePenalty =
+          revenue * clamp(downtimePenaltyRate, modelConstants.downtimePenaltyAt0h, modelConstants.downtimePenaltyAt12h);
         const netValue = revenue - (operatingCosts + exceptionPenalty + downtimePenalty);
         const netMargin = revenue > 0 ? netValue / revenue : 0;
 
         return {
+          verticalId: vertical.id,
           transactions,
           productsSold,
           revenue,
@@ -1701,21 +2184,45 @@
           downtimePenalty,
           downtimePenaltyRate,
           operatingCosts,
+          staffingMonthlyCost,
+          fixedOccupancyCosts: modelConstants.baseFixedMonthlyCosts,
           netValue,
           netMargin
         };
       }
 
-      async function fetchForecast(input) {
+      async function fetchForecastPayload(input) {
         try {
-          return computeForecast(input);
+          const response = await fetch("/api/forecast", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ verticalId: activeVerticalId, input })
+          });
+          if (!response.ok) throw new Error("Forecast request failed");
+          const payload = await response.json();
+          lastForecastPayload = payload;
+          return payload;
         } catch (_err) {
-          return defaultForecast;
+          const forecast = computeForecastClient(input, activeVerticalId);
+          const vertical = getActiveVertical();
+          lastForecastPayload = {
+            verticalId: activeVerticalId,
+            forecast,
+            modelConstants: vertical ? resolveModelConstantsClient(vertical, input) : null,
+            opportunities: []
+          };
+          return lastForecastPayload;
         }
+      }
+
+      async function fetchForecast(input) {
+        const payload = await fetchForecastPayload(input);
+        return payload.forecast || defaultForecast;
       }
 
       function getInputValues() {
         return {
+          footprintSqft: Number(sliders.footprintSqft.value),
           baseVisitors: Number(sliders.baseVisitors.value),
           peakLift: Number(sliders.peakLift.value),
           queueTime: Number(sliders.queueTime.value),
@@ -1728,51 +2235,148 @@
         };
       }
 
+      function applyVerticalDefaults(vertical) {
+        Object.entries(vertical.defaultInput).forEach(([key, value]) => {
+          if (sliders[key]) sliders[key].value = String(value);
+        });
+      }
+
+      function applyLeverConfig(vertical) {
+        Object.entries(vertical.levers).forEach(([key, lever]) => {
+          const slider = sliders[key];
+          if (!slider || !lever) return;
+          slider.min = lever.min;
+          slider.max = lever.max;
+          slider.step = lever.step;
+          slider.value = String(clamp(Number(slider.value), lever.min, lever.max));
+          const label = document.querySelector(`label[for="${key}"]`);
+          if (label) label.textContent = lever.label;
+        });
+      }
+
+      function renderVerticalTabs() {
+        if (!verticalTabs) return;
+        verticalTabs.innerHTML = "";
+        verticalCatalog.forEach((vertical) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = `vertical-tab${vertical.id === activeVerticalId ? " active" : ""}`;
+          button.setAttribute("role", "tab");
+          button.setAttribute("aria-selected", vertical.id === activeVerticalId ? "true" : "false");
+          button.innerHTML = `
+            <strong>${vertical.label}</strong>
+            <span>${vertical.tagline}</span>
+            <span class="vertical-range">${number.format(vertical.footprint.min)}–${number.format(vertical.footprint.max)}+ sq ft</span>
+          `;
+          button.addEventListener("click", () => setActiveVertical(vertical.id, true));
+          verticalTabs.appendChild(button);
+        });
+      }
+
+      function renderCostDrivers(vertical) {
+        if (!costDriverList) return;
+        costDriverList.innerHTML = "";
+        (vertical.costDrivers || []).forEach((driver) => {
+          const li = document.createElement("li");
+          const leverLabel = vertical.levers?.[driver.lever]?.label || driver.lever;
+          li.innerHTML = `
+            <div class="driver-head">
+              <span>${driver.activity}</span>
+              <span class="driver-impact ${driver.impact}">${driver.impact}</span>
+            </div>
+            ${driver.benefit ? `<p class="driver-benefit">Benefit: ${driver.benefit}</p>` : ""}
+            ${driver.impactMechanism ? `<p class="driver-mechanism"><strong>How to impact:</strong> ${driver.impactMechanism}</p>` : ""}
+            ${driver.rationale ? `<p class="driver-rationale"><strong>Rationale:</strong> ${driver.rationale}</p>` : ""}
+            <p class="driver-body">${driver.optimize}</p>
+            <p class="driver-lever"><strong>Lever:</strong> ${leverLabel}</p>
+          `;
+          costDriverList.appendChild(li);
+        });
+      }
+
+      function renderOperationalNotes(vertical) {
+        if (!operationalNotesList) return;
+        operationalNotesList.innerHTML = "";
+        (vertical.operationalNotes || []).forEach((note) => {
+          const li = document.createElement("li");
+          li.textContent = note;
+          operationalNotesList.appendChild(li);
+        });
+      }
+
+      function updateHeroForVertical(vertical) {
+        if (!vertical) return;
+        verticalKicker.textContent = vertical.label;
+        if (verticalBodyTitle) verticalBodyTitle.textContent = vertical.tagline;
+        verticalBodyDesc.textContent = vertical.description;
+        if (verticalBodyRange) {
+          verticalBodyRange.textContent = `${number.format(vertical.footprint.min)}–${number.format(vertical.footprint.max)}+ sq ft · planner: ${vertical.plannerProfileHint || "—"}`;
+        }
+        if (verticalFormulaMeta) {
+          verticalFormulaMeta.textContent = `Monthly · EUR · ${vertical.label}`;
+        }
+      }
+
+      function updateFootprintHints(vertical, input, modelConstants) {
+        const sqm = input.footprintSqft * SQFT_TO_SQM;
+        const sqmPerStaff = vertical.footprint.sqmPerStaff || 35;
+        const suggestedStaff = Math.max(1, Math.ceil(sqm / sqmPerStaff));
+        if (footprintSqftHint) {
+          footprintSqftHint.textContent = `${number.format(input.footprintSqft)} sq ft ≈ ${sqm.toFixed(0)} m² · range ${number.format(vertical.footprint.min)}–${number.format(vertical.footprint.max)} sq ft`;
+        }
+        if (staffFootprintHint) {
+          staffFootprintHint.textContent = `Benchmark ~1 FTE per ${sqmPerStaff} m² (${Math.round(sqmPerStaff / SQFT_TO_SQM)} sq ft) · suggested ${suggestedStaff} for this footprint.`;
+        }
+        if (fixedOccupancySummary && modelConstants) {
+          fixedOccupancySummary.textContent = `Fixed occupancy modeled at ${currency.format(modelConstants.baseFixedMonthlyCosts)} / month from ${number.format(modelConstants.footprintSqft)} sq ft (min ${currency.format(vertical.modelConstants.fixedCostMinimum || 0)}, ${currency.format(vertical.modelConstants.fixedCostPerSqft || 0)}/sq ft).`;
+        }
+        if (modelConstantsSummary && modelConstants) {
+          modelConstantsSummary.textContent = `Conversion ${(modelConstants.baseConversion * 100).toFixed(0)}% base · basket ${modelConstants.averageItemsPerTransaction} items · avg price ${currency.format(modelConstants.averageProductPrice)} · exception penalty ${currency.format(modelConstants.penaltyPerException)} each.`;
+        }
+      }
+
+      async function setActiveVertical(verticalId, resetSliders = false) {
+        activeVerticalId = verticalId;
+        const vertical = getActiveVertical();
+        if (!vertical) return;
+        if (resetSliders) applyVerticalDefaults(vertical);
+        applyLeverConfig(vertical);
+        renderVerticalTabs();
+        updateHeroForVertical(vertical);
+        renderCostDrivers(vertical);
+        renderOperationalNotes(vertical);
+        if (resetSliders && verticalBody) verticalBody.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        await updateUI();
+        persistState();
+      }
+
+      async function loadVerticalsFromApi() {
+        try {
+          const response = await fetch("/api/verticals");
+          if (!response.ok) throw new Error("Could not load verticals");
+          const data = await response.json();
+          verticalCatalog = data.verticals || [];
+        } catch (_err) {
+          verticalCatalog = [];
+        }
+      }
+
       function setBar(id, percent) {
         document.getElementById(id).style.width = `${clamp(percent, 2, 100)}%`;
       }
 
-      async function computeOpportunities(baseInput, baseNetValue) {
-        const candidates = [
-          {
-            name: "Reduce queue time by 20%",
-            tweak: (x) => ({ ...x, queueTime: Math.max(6, x.queueTime * 0.8) })
-          },
-          {
-            name: "Reduce stock reposition time by 25%",
-            tweak: (x) => ({ ...x, restockTime: Math.max(2, x.restockTime * 0.75) })
-          },
-          {
-            name: "Raise peak traffic capture by +10 pts",
-            tweak: (x) => ({ ...x, peakLift: Math.min(60, x.peakLift + 10) })
-          },
-          {
-            name: "Reduce exceptions by 1.5 pts",
-            tweak: (x) => ({ ...x, exceptionRate: Math.max(0.5, x.exceptionRate - 1.5) })
-          },
-          {
-            name: "Add 2 personnel for floor support",
-            tweak: (x) => ({ ...x, staffCount: Math.min(20, x.staffCount + 2) })
-          },
-          {
-            name: "Reduce energy & communications by 15%",
-            tweak: (x) => ({ ...x, energyComms: Math.max(600, x.energyComms * 0.85) })
-          }
-        ];
-
-        const projected = await Promise.all(candidates.map((item) => fetchForecast(item.tweak(baseInput))));
-        return candidates
-          .map((item, index) => ({
-            label: item.name,
-            uplift: projected[index].netValue - baseNetValue
-          }))
-          .sort((a, b) => b.uplift - a.uplift)
-          .slice(0, 3);
+      async function computeOpportunities(baseInput, baseNetValue, apiOpportunities) {
+        if (Array.isArray(apiOpportunities) && apiOpportunities.length) {
+          return apiOpportunities.slice(0, 3);
+        }
+        return [];
       }
 
       async function updateUI() {
         const input = getInputValues();
+        const vertical = getActiveVertical();
 
+        valueLabels.footprintSqft.textContent = `${number.format(input.footprintSqft)} sq ft`;
         valueLabels.baseVisitors.textContent = number.format(input.baseVisitors);
         valueLabels.peakLift.textContent = `${input.peakLift.toFixed(0)}%`;
         valueLabels.queueTime.textContent = `${input.queueTime.toFixed(0)}s`;
@@ -1784,7 +2388,10 @@
         const downtimeRatePct = (input.downtimeHours / 12) * 100;
         valueLabels.downtimeHours.textContent = `${input.downtimeHours.toFixed(0)}h (${downtimeRatePct.toFixed(0)}%)`;
 
-        const out = await fetchForecast(input);
+        const payload = await fetchForecastPayload(input);
+        const out = payload.forecast || defaultForecast;
+        const modelConstants = payload.modelConstants || (vertical ? resolveModelConstantsClient(vertical, input) : null);
+        if (vertical && modelConstants) updateFootprintHints(vertical, input, modelConstants);
 
         document.getElementById("kpiRevenue").textContent = currency.format(out.revenue);
         document.getElementById("kpiOperating").textContent = currency.format(out.operatingCosts);
@@ -1795,9 +2402,9 @@
         document.getElementById("kpiMargin").textContent = `Net margin: ${(out.netMargin * 100).toFixed(1)}%`;
         document.getElementById("kpiMargin").style.color = out.netMargin > 0.3 ? "var(--ok)" : out.netMargin < 0.12 ? "var(--bad)" : "var(--warn)";
 
-        const maxTx = 4200;
-        const maxProducts = 13000;
-        const maxExceptions = 240;
+        const maxTx = Math.max(out.transactions * 1.15, 4200);
+        const maxProducts = Math.max(out.productsSold * 1.15, 13000);
+        const maxExceptions = Math.max(out.exceptionVolume * 1.15, 240);
 
         setBar("barTransactions", (out.transactions / maxTx) * 100);
         setBar("barProducts", (out.productsSold / maxProducts) * 100);
@@ -1816,7 +2423,7 @@
         document.getElementById("barPenaltyRatioVal").textContent = `${penaltyRatio.toFixed(1)}%`;
         document.getElementById("barNetMarginVal").textContent = `${netMarginPct.toFixed(1)}%`;
 
-        const top = await computeOpportunities(input, out.netValue);
+        const top = await computeOpportunities(input, out.netValue, payload.opportunities);
         const list = document.getElementById("efficiencyList");
         list.innerHTML = "";
         top.forEach((item) => {
@@ -2288,6 +2895,7 @@
 
       function serializeAppState() {
         return {
+          verticalId: activeVerticalId,
           sliders: Object.fromEntries(Object.entries(sliders).map(([key, el]) => [key, Number(el.value)])),
           filters: {
             categoryFilter: categoryFilter.value,
@@ -2313,6 +2921,10 @@
 
       function applyAppState(state) {
         if (!state || typeof state !== "object") return;
+
+        if (state.verticalId && verticalCatalog.some((item) => item.id === state.verticalId)) {
+          activeVerticalId = state.verticalId;
+        }
 
         if (state.sliders) {
           Object.entries(sliders).forEach(([key, el]) => {
@@ -2369,11 +2981,12 @@
       function loadPersistedState() {
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
-          if (!raw) return;
+          if (!raw) return false;
           const parsed = JSON.parse(raw);
           applyAppState(parsed);
+          return true;
         } catch (_err) {
-          // Ignore malformed stored values.
+          return false;
         }
       }
 
@@ -3405,6 +4018,7 @@
           discoveryTab.classList.toggle("hidden", tab !== "discovery");
           disasterTab.classList.toggle("hidden", tab !== "disaster");
           plannerTab.classList.toggle("hidden", tab !== "planner");
+          if (globalHero) globalHero.classList.toggle("hidden", tab === "simulator");
           tabButtons.forEach((btn) => btn.classList.toggle("active", btn === button));
           if (tab === "planner") {
             initPlanner();
@@ -3418,6 +4032,16 @@
               plannerState.canvas.requestRenderAll();
             }
           }
+        });
+      });
+
+      document.querySelectorAll(".context-tab").forEach((button) => {
+        button.addEventListener("click", () => {
+          const target = button.dataset.context;
+          document.querySelectorAll(".context-tab").forEach((tab) => tab.classList.toggle("active", tab === button));
+          document.querySelectorAll(".context-panel").forEach((panel) => {
+            panel.classList.toggle("hidden", panel.dataset.context !== target);
+          });
         });
       });
 
@@ -3672,9 +4296,22 @@
       });
 
       (async () => {
+        await loadVerticalsFromApi();
         await loadStoreProfilesFromApi();
         initPlanner();
-        loadPersistedState();
+        const hadPersistedState = loadPersistedState();
+        if (verticalCatalog.length) {
+          if (!verticalCatalog.some((item) => item.id === activeVerticalId)) activeVerticalId = verticalCatalog[0].id;
+          const vertical = getActiveVertical();
+          if (vertical) {
+            if (!hadPersistedState) applyVerticalDefaults(vertical);
+            applyLeverConfig(vertical);
+            renderVerticalTabs();
+            updateHeroForVertical(vertical);
+            renderCostDrivers(vertical);
+            renderOperationalNotes(vertical);
+          }
+        }
         updateUI();
         updateReadinessAndFilters();
         updatePlannerEstimate();

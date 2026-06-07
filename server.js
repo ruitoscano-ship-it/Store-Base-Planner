@@ -6,75 +6,26 @@ const {
   saveStoreProfiles,
   buildSourcingPayload
 } = require("./store-profiles");
+const {
+  loadVerticals,
+  saveVerticals,
+  getVertical,
+  computeForecast,
+  resolveModelConstants,
+  listVerticalsForClient,
+  evaluateOpportunities
+} = require("./verticals");
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || "127.0.0.1";
 const root = __dirname;
 const MAX_BODY_BYTES = 1_000_000;
 
-const modelConstants = {
-  daysPerMonth: 30,
-  baseConversion: 0.42,
-  averageItemsPerTransaction: 2.6,
-  averageProductPrice: 4.8,
-  baseFixedMonthlyCosts: 54000,
-  laborCostPerPerson: 145,
-  penaltyPerException: 16,
-  downtimePenaltyAt0h: 0,
-  downtimePenaltyAt12h: 1
-};
-
-const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-
-function computeForecast(input) {
-  const peakTrafficFactor = 1 + input.peakLift / 100;
-  const queueEfficiency = clamp(1.34 - input.queueTime / 190, 0.42, 1.22);
-  const restockEfficiency = clamp(1.26 - input.restockTime / 120, 0.58, 1.19);
-  const staffExceptionMitigation = clamp(input.staffCount * 0.042, 0, 0.68);
-
-  const effectiveConversion = modelConstants.baseConversion * queueEfficiency;
-  const dailyTransactions = input.baseVisitors * peakTrafficFactor * effectiveConversion;
-  const dailyProductsSold = dailyTransactions * modelConstants.averageItemsPerTransaction * restockEfficiency;
-  const dailyRevenue = dailyProductsSold * modelConstants.averageProductPrice;
-
-  const effectiveExceptionRate = (input.exceptionRate / 100) * (1 - staffExceptionMitigation);
-  const dailyExceptionVolume = dailyTransactions * effectiveExceptionRate;
-  const dailyExceptionPenalty = dailyExceptionVolume * modelConstants.penaltyPerException;
-
-  const transactions = dailyTransactions * modelConstants.daysPerMonth;
-  const productsSold = dailyProductsSold * modelConstants.daysPerMonth;
-  const revenue = dailyRevenue * modelConstants.daysPerMonth;
-  const exceptionVolume = dailyExceptionVolume * modelConstants.daysPerMonth;
-  const exceptionPenalty = dailyExceptionPenalty * modelConstants.daysPerMonth;
-
-  const staffingMonthlyCost = input.staffCount * modelConstants.laborCostPerPerson * modelConstants.daysPerMonth;
-  const operatingCosts = modelConstants.baseFixedMonthlyCosts + staffingMonthlyCost + input.energyComms + input.smartTechCost;
-  const downtimePenaltyRate =
-    modelConstants.downtimePenaltyAt0h +
-    (input.downtimeHours / 12) * (modelConstants.downtimePenaltyAt12h - modelConstants.downtimePenaltyAt0h);
-  const downtimePenalty = revenue * clamp(downtimePenaltyRate, modelConstants.downtimePenaltyAt0h, modelConstants.downtimePenaltyAt12h);
-  const netValue = revenue - (operatingCosts + exceptionPenalty + downtimePenalty);
-  const netMargin = revenue > 0 ? netValue / revenue : 0;
-
-  return {
-    transactions,
-    productsSold,
-    revenue,
-    exceptionVolume,
-    exceptionPenalty,
-    downtimePenalty,
-    downtimePenaltyRate,
-    operatingCosts,
-    netValue,
-    netMargin
-  };
-}
-
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
   res.setHeader("Content-Type", "application/json; charset=UTF-8");
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, PUT, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, PUT, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.end(JSON.stringify(payload));
 }
@@ -119,6 +70,11 @@ function matchStoreProfileSourcing(pathname) {
   return match ? match[1] : null;
 }
 
+function matchVerticalId(pathname) {
+  const match = pathname.match(/^\/api\/verticals\/([a-z_]+)$/);
+  return match ? match[1] : null;
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${HOST}:${PORT}`);
   const pathname = url.pathname;
@@ -129,7 +85,43 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === "GET" && pathname === "/api/health") {
-    sendJson(res, 200, { ok: true, service: "smart-store-simulator-api" });
+    sendJson(res, 200, { ok: true, service: "smart-store-simulator-api", verticals: true });
+    return;
+  }
+
+  if (req.method === "GET" && pathname === "/api/verticals") {
+    const config = loadVerticals();
+    sendJson(res, 200, {
+      version: config.version,
+      updatedAt: config.updatedAt,
+      verticals: listVerticalsForClient(config)
+    });
+    return;
+  }
+
+  const verticalId = matchVerticalId(pathname);
+  if (req.method === "GET" && verticalId) {
+    const config = loadVerticals();
+    const vertical = getVertical(config, verticalId);
+    if (!vertical) {
+      sendJson(res, 404, { error: `Unknown vertical: ${verticalId}` });
+      return;
+    }
+    sendJson(res, 200, {
+      ...listVerticalsForClient(config).find((v) => v.id === verticalId),
+      modelConstantsResolved: resolveModelConstants(vertical, vertical.defaultInput)
+    });
+    return;
+  }
+
+  if (req.method === "PUT" && pathname === "/api/verticals") {
+    try {
+      const body = await parseJsonBody(req);
+      const saved = saveVerticals(body);
+      sendJson(res, 200, saved);
+    } catch (error) {
+      sendJson(res, 400, { error: error.message });
+    }
     return;
   }
 
@@ -167,8 +159,18 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && pathname === "/api/forecast") {
     try {
       const body = await parseJsonBody(req);
-      const forecast = computeForecast(body.input || body);
-      sendJson(res, 200, { forecast, modelConstants });
+      const verticalKey = body.verticalId || body.vertical || "retail";
+      const input = body.input || body;
+      const config = loadVerticals();
+      const vertical = getVertical(config, verticalKey);
+      if (!vertical) {
+        sendJson(res, 404, { error: `Unknown vertical: ${verticalKey}` });
+        return;
+      }
+      const forecast = computeForecast(input, verticalKey, config);
+      const modelConstants = resolveModelConstants(vertical, input);
+      const opportunities = evaluateOpportunities(input, forecast.netValue, verticalKey, config);
+      sendJson(res, 200, { verticalId: verticalKey, forecast, modelConstants, opportunities });
     } catch (error) {
       sendJson(res, 400, { error: error.message });
     }
