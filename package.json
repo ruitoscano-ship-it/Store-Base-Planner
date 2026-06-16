@@ -1,0 +1,13 @@
+{
+  "name": "store-base-operations",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Smart Store value realization simulator and planner",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

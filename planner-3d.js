@@ -426,18 +426,21 @@ export function createPlanner3D(containerEl, options = {}) {
     storeSize = { w, d };
     const wallH = wallHeight();
     const wallT = wallThickness();
+    const surfaceColor = 0xf3f4f0;
+    const surfaceMat = new THREE.MeshStandardMaterial({
+      color: surfaceColor,
+      roughness: 0.88,
+      metalness: 0.02
+    });
 
-    floorMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(w, d),
-      new THREE.MeshStandardMaterial({ color: 0xf3f4f0, roughness: 0.88, metalness: 0.02 })
-    );
+    floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), surfaceMat);
     floorMesh.rotation.x = -Math.PI / 2;
     floorMesh.position.set(w / 2, 0, d / 2);
     floorMesh.receiveShadow = true;
     floorMesh.userData.isStoreFloor = true;
     storeGroup.add(floorMesh);
 
-    const wallMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
+    const wallMat = surfaceMat.clone();
     [
       [w / 2, wallH / 2, -wallT / 2, w, wallH, wallT],
       [w / 2, wallH / 2, d + wallT / 2, w, wallH, wallT],
