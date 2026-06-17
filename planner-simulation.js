@@ -88,6 +88,198 @@ function heatColor(t) {
   return [r, g, b];
 }
 
+function buildCaptureGrid(w, d, cameras) {
+  const cols = Math.max(1, Math.ceil(w / SIM_CELL_SIZE));
+  const rows = Math.max(1, Math.ceil(d / SIM_CELL_SIZE));
+  const grid = new Float32Array(cols * rows);
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < cols; col += 1) {
+      const x = (col + 0.5) * SIM_CELL_SIZE;
+      const z = (row + 0.5) * SIM_CELL_SIZE;
+      if (x > w || z > d) continue;
+      grid[row * cols + col] = cameraCoverageAt(x, z, cameras);
+    }
+  }
+  return { cols, rows, grid };
+}
+
+function layoutSignature(layout) {
+  const zones = layout?.monitoring?.zones || [];
+  return `${layout?.widthMeters || 0}x${layout?.heightMeters || 0}:${zones.map((z) => `${z.id}:${z.meters?.x},${z.meters?.z}`).join("|")}`;
+}
+
+/** Animated shoppers with decaying floor heatmap for live simulation. */
+export class ShopperSim {
+  constructor(layout, count = 24) {
+    this.applyLayout(layout);
+    this.heat = new Float32Array(this.cols * this.rows);
+    this.pixels = new Uint8ClampedArray(this.cols * this.rows * 4);
+    this.shoppers = [];
+    this.sessionCaptures = 0;
+    this.sessionRaw = 0;
+    this.elapsed = 0;
+    this.setCount(count);
+  }
+
+  applyLayout(layout) {
+    this.layout = layout;
+    this.w = layout?.widthMeters || 20;
+    this.d = layout?.heightMeters || 20;
+    this.margin = 0.55;
+    this.zones = layout?.monitoring?.zones || [];
+    this.cameras = listCeilingCameras(this.w, this.d);
+    this.cols = Math.max(1, Math.ceil(this.w / SIM_CELL_SIZE));
+    this.rows = Math.max(1, Math.ceil(this.d / SIM_CELL_SIZE));
+    const { grid } = buildCaptureGrid(this.w, this.d, this.cameras);
+    this.captureGrid = grid;
+    this.signature = layoutSignature(layout);
+    const cells = this.cols * this.rows;
+    if (!this.heat || this.heat.length !== cells) {
+      this.heat = new Float32Array(cells);
+      this.pixels = new Uint8ClampedArray(cells * 4);
+    }
+  }
+
+  matchesLayout(layout) {
+    return this.signature === layoutSignature(layout);
+  }
+
+  setCount(count) {
+    const target = clamp(Math.round(Number(count) || 0), 0, 120);
+    while (this.shoppers.length < target) this.shoppers.push(this.spawnShopper());
+    while (this.shoppers.length > target) this.shoppers.pop();
+  }
+
+  spawnShopper() {
+    const speed = 0.65 + Math.random() * 0.85;
+    const angle = Math.random() * Math.PI * 2;
+    return {
+      x: this.margin + Math.random() * Math.max(0.5, this.w - this.margin * 2),
+      z: this.margin + Math.random() * Math.max(0.5, this.d - this.margin * 2),
+      vx: Math.cos(angle) * speed,
+      vz: Math.sin(angle) * speed,
+      wander: 1 + Math.random() * 2.5
+    };
+  }
+
+  randomize() {
+    this.heat.fill(0);
+    this.sessionCaptures = 0;
+    this.sessionRaw = 0;
+    this.elapsed = 0;
+    this.shoppers = this.shoppers.map(() => this.spawnShopper());
+  }
+
+  splatHeat(x, z, amount) {
+    const col = Math.floor(x / SIM_CELL_SIZE);
+    const row = Math.floor(z / SIM_CELL_SIZE);
+    for (let dr = -1; dr <= 1; dr += 1) {
+      for (let dc = -1; dc <= 1; dc += 1) {
+        const c = col + dc;
+        const r = row + dr;
+        if (c < 0 || r < 0 || c >= this.cols || r >= this.rows) continue;
+        const weight = dc === 0 && dr === 0 ? 1 : 0.42;
+        const idx = r * this.cols + c;
+        const capture = this.captureGrid[idx] || 0;
+        this.heat[idx] += amount * weight * (0.35 + capture * 0.65);
+      }
+    }
+  }
+
+  step(dt) {
+    const stepDt = clamp(dt, 0.001, 0.05);
+    this.elapsed += stepDt;
+    const decay = Math.pow(0.935, stepDt * 60);
+    for (let i = 0; i < this.heat.length; i += 1) this.heat[i] *= decay;
+
+    this.shoppers.forEach((shopper) => {
+      shopper.wander -= stepDt;
+      if (shopper.wander <= 0) {
+        const speed = Math.hypot(shopper.vx, shopper.vz) || 0.9;
+        const angle = Math.random() * Math.PI * 2;
+        shopper.vx = Math.cos(angle) * speed;
+        shopper.vz = Math.sin(angle) * speed;
+        shopper.wander = 1.2 + Math.random() * 2.8;
+      }
+
+      shopper.x += shopper.vx * stepDt;
+      shopper.z += shopper.vz * stepDt;
+
+      if (shopper.x < this.margin) {
+        shopper.x = this.margin;
+        shopper.vx = Math.abs(shopper.vx);
+      } else if (shopper.x > this.w - this.margin) {
+        shopper.x = this.w - this.margin;
+        shopper.vx = -Math.abs(shopper.vx);
+      }
+      if (shopper.z < this.margin) {
+        shopper.z = this.margin;
+        shopper.vz = Math.abs(shopper.vz);
+      } else if (shopper.z > this.d - this.margin) {
+        shopper.z = this.d - this.margin;
+        shopper.vz = -Math.abs(shopper.vz);
+      }
+
+      const zoneW = zoneWeightAt(shopper.x, shopper.z, this.zones);
+      const capture = cameraCoverageAt(shopper.x, shopper.z, this.cameras);
+      this.splatHeat(shopper.x, shopper.z, stepDt * zoneW * 2.4);
+
+      const inInteraction = this.zones.some(
+        (zone) => zone.capability === "interaction" && pointInRotatedRect(shopper.x, shopper.z, zone)
+      );
+      if (inInteraction) {
+        this.sessionRaw += stepDt * 0.75;
+        this.sessionCaptures += stepDt * 0.75 * capture * clamp(0.35 + zoneW * 0.12, 0.15, 0.95);
+      }
+    });
+  }
+
+  getShopperPositions() {
+    return this.shoppers.map((shopper) => ({
+      x: shopper.x,
+      z: shopper.z,
+      angle: Math.atan2(shopper.vx, shopper.vz)
+    }));
+  }
+
+  getHeatmap() {
+    let max = 0.001;
+    const combined = new Float32Array(this.heat.length);
+    for (let i = 0; i < this.heat.length; i += 1) {
+      combined[i] = this.heat[i] * (0.25 + (this.captureGrid[i] || 0) * 0.75);
+      max = Math.max(max, combined[i]);
+    }
+    for (let i = 0; i < combined.length; i += 1) {
+      const norm = combined[i] / max;
+      const [r, g, b] = heatColor(norm);
+      const o = i * 4;
+      this.pixels[o] = r;
+      this.pixels[o + 1] = g;
+      this.pixels[o + 2] = b;
+      this.pixels[o + 3] = norm > 0.02 ? 210 : 0;
+    }
+    return {
+      cols: this.cols,
+      rows: this.rows,
+      cellSize: SIM_CELL_SIZE,
+      widthMeters: this.w,
+      depthMeters: this.d,
+      pixels: this.pixels
+    };
+  }
+
+  getLiveMetrics() {
+    const hourly = this.elapsed > 0.5 ? 3600 / this.elapsed : 0;
+    return {
+      shopperCount: this.shoppers.length,
+      sessionCaptures: Math.round(this.sessionCaptures),
+      sessionRaw: Math.round(this.sessionRaw),
+      liveCapturedPerHour: Math.round(this.sessionCaptures * hourly),
+      liveRawPerHour: Math.round(this.sessionRaw * hourly)
+    };
+  }
+}
+
 /**
  * @param {object} layout - planner layout snapshot
  * @param {number} concurrentShoppers - people in store at once

@@ -31,6 +31,10 @@
   const plannerSimDashboard = document.getElementById("plannerSimDashboard");
   const simOccupancySlider = document.getElementById("simOccupancySlider");
   const simOccupancyVal = document.getElementById("simOccupancyVal");
+  const simPlayBtn = document.getElementById("simPlayBtn");
+  const simRandomizeBtn = document.getElementById("simRandomizeBtn");
+  const simSessionCaptures = document.getElementById("simSessionCaptures");
+  const simLiveRate = document.getElementById("simLiveRate");
   const simCapturedInteractions = document.getElementById("simCapturedInteractions");
   const simRawInteractions = document.getElementById("simRawInteractions");
   const simCaptureRate = document.getElementById("simCaptureRate");
@@ -138,18 +142,112 @@
   let showMonitoringVizPref = true;
   let simOccupancyPref = 24;
   let computeStoreSimulationFn = null;
+  let ShopperSimClass = null;
+  let shopperSim = null;
+  let simPlaying = true;
+  let simAnimId = null;
+  let lastSimFrame = 0;
+  let lastDashboardUpdate = 0;
 
   async function loadSimulationEngine() {
-    if (computeStoreSimulationFn) return computeStoreSimulationFn;
+    if (computeStoreSimulationFn && ShopperSimClass) {
+      return { computeStoreSimulation: computeStoreSimulationFn, ShopperSim: ShopperSimClass };
+    }
     const mod = await import("./planner-simulation.js");
     computeStoreSimulationFn = mod.computeStoreSimulation;
-    return computeStoreSimulationFn;
+    ShopperSimClass = mod.ShopperSim;
+    return mod;
   }
 
-  function renderSimulationDashboard(result) {
+  async function ensureShopperSim() {
+    const layout = getPlannerLayoutSnapshot();
+    if (!layout) return null;
+    await loadSimulationEngine();
+    const count = Number(simOccupancySlider?.value || simOccupancyPref);
+    if (!shopperSim || !shopperSim.matchesLayout(layout)) {
+      shopperSim = new ShopperSimClass(layout, count);
+    } else {
+      shopperSim.applyLayout(layout);
+      shopperSim.setCount(count);
+    }
+    return shopperSim;
+  }
+
+  function stopLiveSimulation({ clearShoppers = false } = {}) {
+    if (simAnimId) {
+      cancelAnimationFrame(simAnimId);
+      simAnimId = null;
+    }
+    if (clearShoppers && planner3dView) planner3dView.clearShoppers();
+  }
+
+  function renderLiveSimulationDashboard(sim, staticResult) {
+    const live = sim.getLiveMetrics();
+    simSessionCaptures.textContent = number.format(live.sessionCaptures);
+    simLiveRate.textContent = live.elapsed > 0.5 ? `${number.format(live.liveCapturedPerHour)}/hr` : "—";
+    if (staticResult) renderSimulationDashboard(staticResult, live);
+  }
+
+  function startLiveSimulationLoop() {
+    stopLiveSimulation();
+    if (plannerViewMode !== "simulation" || !simPlaying) return;
+
+    lastSimFrame = performance.now();
+    lastDashboardUpdate = 0;
+
+    const tick = (now) => {
+      if (plannerViewMode !== "simulation") return;
+      simAnimId = requestAnimationFrame(tick);
+      if (!simPlaying || !shopperSim || !planner3dView) return;
+
+      const dt = Math.min(0.05, (now - lastSimFrame) / 1000);
+      lastSimFrame = now;
+
+      shopperSim.step(dt);
+      planner3dView.updateShoppers(shopperSim.getShopperPositions());
+      planner3dView.updateHeatmap(shopperSim.getHeatmap());
+
+      if (now - lastDashboardUpdate > 350) {
+        lastDashboardUpdate = now;
+        const layout = getPlannerLayoutSnapshot();
+        const staticResult = layout && computeStoreSimulationFn
+          ? computeStoreSimulationFn(layout, shopperSim.shoppers.length)
+          : null;
+        renderLiveSimulationDashboard(shopperSim, staticResult);
+      }
+    };
+
+    simAnimId = requestAnimationFrame(tick);
+  }
+
+  async function resetLiveSimulation({ randomize = false } = {}) {
+    await ensureShopperSim();
+    if (!shopperSim) return;
+    if (randomize) shopperSim.randomize();
+    if (planner3dView) {
+      planner3dView.updateShoppers(shopperSim.getShopperPositions());
+      planner3dView.updateHeatmap(shopperSim.getHeatmap());
+    }
+    const layout = getPlannerLayoutSnapshot();
+    const staticResult = layout && computeStoreSimulationFn
+      ? computeStoreSimulationFn(layout, shopperSim.shoppers.length)
+      : null;
+    renderLiveSimulationDashboard(shopperSim, staticResult);
+    startLiveSimulationLoop();
+  }
+
+  function syncSimPlayButton() {
+    if (!simPlayBtn) return;
+    simPlayBtn.textContent = simPlaying ? "Pause" : "Play";
+    simPlayBtn.classList.toggle("active", simPlaying);
+  }
+
+  function renderSimulationDashboard(result, live = null) {
     if (!result) return;
     simOccupancyVal.textContent = String(result.occupancy);
-    simCapturedInteractions.textContent = number.format(result.capturedInteractionsPerHour);
+    simCapturedInteractions.textContent = number.format(
+      live?.liveCapturedPerHour > 0 ? live.liveCapturedPerHour : result.capturedInteractionsPerHour
+    );
     simRawInteractions.textContent = number.format(result.rawInteractionsPerHour);
     simCaptureRate.textContent = `${result.captureRatePct}%`;
     simCoveragePct.textContent = `${result.coveragePct}%`;
@@ -170,15 +268,19 @@
         .join("");
     }
 
-    simFootnote.textContent = `${result.cameraCount} ceiling cameras · ${result.zoneCount} monitoring zones · ${number.format(result.storeAreaSqm)} m² selling area. Heatmap blends shopper density with camera capture probability.`;
+    simFootnote.textContent = `${result.cameraCount} ceiling cameras · ${result.zoneCount} monitoring zones · ${number.format(result.storeAreaSqm)} m² selling area. Yellow figures wander the floor; heatmap trails update live.`;
   }
 
   async function runStoreSimulation() {
+    if (plannerViewMode === "simulation" && simPlaying) {
+      await resetLiveSimulation();
+      return shopperSim;
+    }
     const layout = getPlannerLayoutSnapshot();
     if (!layout) return null;
-    const compute = await loadSimulationEngine();
+    const { computeStoreSimulation } = await loadSimulationEngine();
     const occupancy = Number(simOccupancySlider?.value || simOccupancyPref);
-    const result = compute(layout, occupancy);
+    const result = computeStoreSimulation(layout, occupancy);
     simOccupancyPref = result.occupancy;
     renderSimulationDashboard(result);
     if (planner3dView && plannerViewMode === "simulation") {
@@ -198,7 +300,9 @@
     plannerSimDashboard?.classList.toggle("hidden", !isSim);
     if (planner3dHint) {
       planner3dHint.textContent = isSim
-        ? "Simulation heatmap · activity × camera capture · adjust occupancy in dashboard"
+        ? simPlaying
+          ? "Live simulation · shoppers wander · heatmap updates in real time"
+          : "Simulation paused · press Play or Randomize to continue"
         : planner3dHumanPlaced
           ? "Stick figure placed · Drop human to reposition · Walk for first-person tour"
           : "Click a fixture to select · Drop human for scale · Walk to explore the store";
@@ -439,6 +543,8 @@
   }
 
   async function setPlannerViewMode(mode) {
+    if (mode !== "simulation") stopLiveSimulation({ clearShoppers: true });
+
     plannerViewMode = mode;
     syncSimulationUi();
 
@@ -460,7 +566,9 @@
     if (mode === "simulation") {
       view.setSimulationMode(true);
       if (simOccupancySlider) simOccupancySlider.value = String(simOccupancyPref);
-      await runStoreSimulation();
+      simPlaying = true;
+      syncSimPlayButton();
+      await resetLiveSimulation({ randomize: true });
       return;
     }
 
@@ -471,7 +579,7 @@
   function requestPlanner3DSync() {
     syncPlanner3DView();
     if (plannerViewMode === "simulation") {
-      runStoreSimulation();
+      resetLiveSimulation();
     }
   }
 
@@ -1819,10 +1927,42 @@
     await setPlannerViewMode("simulation");
   });
 
-  simOccupancySlider?.addEventListener("input", () => {
+  simOccupancySlider?.addEventListener("input", async () => {
     simOccupancyPref = Number(simOccupancySlider.value);
     if (simOccupancyVal) simOccupancyVal.textContent = String(simOccupancyPref);
-    runStoreSimulation();
+    if (plannerViewMode === "simulation") {
+      await ensureShopperSim();
+      if (shopperSim) {
+        shopperSim.setCount(simOccupancyPref);
+        if (planner3dView) planner3dView.updateShoppers(shopperSim.getShopperPositions());
+      }
+    } else {
+      runStoreSimulation();
+    }
+  });
+
+  simPlayBtn?.addEventListener("click", () => {
+    simPlaying = !simPlaying;
+    syncSimPlayButton();
+    syncSimulationUi();
+    if (simPlaying) startLiveSimulationLoop();
+    else stopLiveSimulation();
+  });
+
+  simRandomizeBtn?.addEventListener("click", async () => {
+    await ensureShopperSim();
+    if (!shopperSim) return;
+    shopperSim.randomize();
+    if (planner3dView) {
+      planner3dView.updateShoppers(shopperSim.getShopperPositions());
+      planner3dView.updateHeatmap(shopperSim.getHeatmap());
+    }
+    if (!simPlaying) {
+      simPlaying = true;
+      syncSimPlayButton();
+      syncSimulationUi();
+    }
+    startLiveSimulationLoop();
   });
 
   planner3dMoveBtn.addEventListener("click", () => setPlanner3dTool("translate"));

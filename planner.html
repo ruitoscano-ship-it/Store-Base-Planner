@@ -448,6 +448,21 @@
         line-height: 1.35;
       }
 
+      .planner-sim-actions {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .planner-sim-actions .action-btn {
+        flex: 1;
+        font-size: 0.78rem;
+      }
+
+      .planner-sim-actions .action-btn.active {
+        background: var(--accent);
+      }
+
       .planner-3d-toolbar.hidden {
         display: none;
       }
@@ -652,12 +667,19 @@
                       </label>
                       <input id="simOccupancySlider" type="range" min="1" max="120" value="24" step="1" />
                     </div>
-                    <div class="planner-sim-legend">
-                      <span>Low</span>
-                      <div class="planner-sim-legend-bar" aria-hidden="true"></div>
-                      <span>High</span>
+                    <div class="planner-sim-actions">
+                      <button type="button" class="action-btn active" id="simPlayBtn">Pause</button>
+                      <button type="button" class="action-btn" id="simRandomizeBtn">Randomize</button>
                     </div>
                     <div class="planner-sim-kpis">
+                      <div class="planner-sim-kpi">
+                        <span>Session captures</span>
+                        <strong id="simSessionCaptures">0</strong>
+                      </div>
+                      <div class="planner-sim-kpi">
+                        <span>Live rate / hr</span>
+                        <strong id="simLiveRate">—</strong>
+                      </div>
                       <div class="planner-sim-kpi">
                         <span>Captured / hr</span>
                         <strong id="simCapturedInteractions">—</strong>
@@ -682,6 +704,11 @@
                         <span>Tracking events / hr</span>
                         <strong id="simTrackingEvents">—</strong>
                       </div>
+                    </div>
+                    <div class="planner-sim-legend">
+                      <span>Low</span>
+                      <div class="planner-sim-legend-bar" aria-hidden="true"></div>
+                      <span>High</span>
                     </div>
                     <div class="planner-sim-zones">
                       <h5>Zone breakdown</h5>

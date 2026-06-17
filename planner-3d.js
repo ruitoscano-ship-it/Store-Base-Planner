@@ -91,6 +91,20 @@ export function createPlanner3D(containerEl, options = {}) {
   humanGroup.visible = false;
   scene.add(humanGroup);
 
+  const shoppersGroup = new THREE.Group();
+  shoppersGroup.name = "sim-shoppers";
+  scene.add(shoppersGroup);
+
+  const SHOPPER_MAX = 120;
+  const shopperGeo = new THREE.CapsuleGeometry(0.1, 0.38, 4, 8);
+  const shopperMat = new THREE.MeshStandardMaterial({ color: 0xd9f04f, roughness: 0.72, metalness: 0.05 });
+  const shopperMesh = new THREE.InstancedMesh(shopperGeo, shopperMat, SHOPPER_MAX);
+  shopperMesh.count = 0;
+  shopperMesh.castShadow = true;
+  shopperMesh.visible = false;
+  shoppersGroup.add(shopperMesh);
+  const shopperDummy = new THREE.Object3D();
+
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 600);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -149,6 +163,11 @@ export function createPlanner3D(containerEl, options = {}) {
   let simulationMode = false;
   let heatmapMesh = null;
   let heatmapTexture = null;
+  let heatmapCanvas = null;
+  let heatmapCtx = null;
+  let heatmapImageData = null;
+  let heatmapCols = 0;
+  let heatmapRows = 0;
   let artifactConfig = structuredClone(options.artifacts || DEFAULT_ARTIFACTS);
   let plannerConfig = structuredClone(options.planner || DEFAULT_PLANNER);
   let interactionMode = "edit";
@@ -514,22 +533,30 @@ export function createPlanner3D(containerEl, options = {}) {
       heatmapTexture.dispose();
       heatmapTexture = null;
     }
+    heatmapCanvas = null;
+    heatmapCtx = null;
+    heatmapImageData = null;
+    heatmapCols = 0;
+    heatmapRows = 0;
   }
 
-  function updateHeatmap(heatmap) {
-    if (!heatmap?.pixels || !lastLayout) return;
-    disposeHeatmap();
-
+  function ensureHeatmapSurface(heatmap) {
     const { cols, rows, pixels, widthMeters, depthMeters } = heatmap;
-    const canvas = document.createElement("canvas");
-    canvas.width = cols;
-    canvas.height = rows;
-    const ctx = canvas.getContext("2d");
-    const imageData = ctx.createImageData(cols, rows);
-    imageData.data.set(pixels);
-    ctx.putImageData(imageData, 0, 0);
+    if (heatmapMesh && heatmapCols === cols && heatmapRows === rows) {
+      patchHeatmapPixels(pixels);
+      return;
+    }
 
-    heatmapTexture = new THREE.CanvasTexture(canvas);
+    disposeHeatmap();
+    heatmapCols = cols;
+    heatmapRows = rows;
+    heatmapCanvas = document.createElement("canvas");
+    heatmapCanvas.width = cols;
+    heatmapCanvas.height = rows;
+    heatmapCtx = heatmapCanvas.getContext("2d");
+    heatmapImageData = heatmapCtx.createImageData(cols, rows);
+
+    heatmapTexture = new THREE.CanvasTexture(heatmapCanvas);
     heatmapTexture.colorSpace = THREE.SRGBColorSpace;
     heatmapTexture.minFilter = THREE.LinearFilter;
     heatmapTexture.magFilter = THREE.LinearFilter;
@@ -547,11 +574,45 @@ export function createPlanner3D(containerEl, options = {}) {
     heatmapMesh.name = "simulation-heatmap";
     heatmapMesh.renderOrder = 2;
     storeGroup.add(heatmapMesh);
+    patchHeatmapPixels(pixels);
+  }
+
+  function patchHeatmapPixels(pixels) {
+    if (!heatmapImageData || !heatmapCtx || !heatmapTexture || !pixels) return;
+    heatmapImageData.data.set(pixels);
+    heatmapCtx.putImageData(heatmapImageData, 0, 0);
+    heatmapTexture.needsUpdate = true;
+  }
+
+  function updateHeatmap(heatmap) {
+    if (!heatmap?.pixels || !lastLayout) return;
+    ensureHeatmapSurface(heatmap);
+  }
+
+  function updateShoppers(positions) {
+    const count = Math.min(positions?.length || 0, SHOPPER_MAX);
+    for (let i = 0; i < count; i += 1) {
+      const p = positions[i];
+      shopperDummy.position.set(p.x, 0.68, p.z);
+      shopperDummy.rotation.y = p.angle || 0;
+      shopperDummy.updateMatrix();
+      shopperMesh.setMatrixAt(i, shopperDummy.matrix);
+    }
+    shopperMesh.count = count;
+    shopperMesh.instanceMatrix.needsUpdate = count > 0;
+    shopperMesh.visible = simulationMode && count > 0;
+  }
+
+  function clearShoppers() {
+    shopperMesh.count = 0;
+    shopperMesh.visible = false;
   }
 
   function setSimulationMode(on) {
     simulationMode = !!on;
     if (heatmapMesh) heatmapMesh.visible = simulationMode;
+    if (!simulationMode) clearShoppers();
+    else shopperMesh.visible = shopperMesh.count > 0;
     if (simulationMode) {
       selectFixture(null);
       transformControls.detach();
@@ -1039,6 +1100,14 @@ export function createPlanner3D(containerEl, options = {}) {
       updateHeatmap(heatmap);
     },
 
+    updateShoppers(positions) {
+      updateShoppers(positions);
+    },
+
+    clearShoppers() {
+      clearShoppers();
+    },
+
     setActive(isActive) {
       active = isActive;
       if (active) {
@@ -1066,6 +1135,9 @@ export function createPlanner3D(containerEl, options = {}) {
       transformControls.dispose();
       textureKit.dispose();
       disposeHeatmap();
+      clearShoppers();
+      shopperGeo.dispose();
+      shopperMat.dispose();
       disposeObject(storeGroup);
       disposeObject(fixturesGroup);
       disposeObject(humanGroup);
