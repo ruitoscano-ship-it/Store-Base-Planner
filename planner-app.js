@@ -20,10 +20,25 @@
   const planner3dHumanBtn = document.getElementById("planner3dHumanBtn");
   const planner3dWalkBtn = document.getElementById("planner3dWalkBtn");
   const planner3dFitBtn = document.getElementById("planner3dFitBtn");
+  const planner3dZoomInBtn = document.getElementById("planner3dZoomInBtn");
+  const planner3dZoomOutBtn = document.getElementById("planner3dZoomOutBtn");
   const planner3dGridBtn = document.getElementById("planner3dGridBtn");
   const planner3dHint = document.getElementById("planner3dHint");
   const plannerView2dBtn = document.getElementById("plannerView2dBtn");
   const plannerView3dBtn = document.getElementById("plannerView3dBtn");
+  const plannerViewSimBtn = document.getElementById("plannerViewSimBtn");
+  const planner3dToolbar = document.getElementById("planner3dToolbar");
+  const plannerSimDashboard = document.getElementById("plannerSimDashboard");
+  const simOccupancySlider = document.getElementById("simOccupancySlider");
+  const simOccupancyVal = document.getElementById("simOccupancyVal");
+  const simCapturedInteractions = document.getElementById("simCapturedInteractions");
+  const simRawInteractions = document.getElementById("simRawInteractions");
+  const simCaptureRate = document.getElementById("simCaptureRate");
+  const simCoveragePct = document.getElementById("simCoveragePct");
+  const simShelfInteractions = document.getElementById("simShelfInteractions");
+  const simTrackingEvents = document.getElementById("simTrackingEvents");
+  const simZoneList = document.getElementById("simZoneList");
+  const simFootnote = document.getElementById("simFootnote");
   const applyStoreSizeBtn = document.getElementById("applyStoreSizeBtn");
   const plannerAddButtons = Array.from(document.querySelectorAll(".planner-add-btn"));
   const plannerExportPngBtn = document.getElementById("plannerExportPngBtn");
@@ -120,6 +135,81 @@
   let plannerViewMode = "2d";
   let planner3dView = null;
   let planner3dSyncLock = false;
+  let showMonitoringVizPref = true;
+  let simOccupancyPref = 24;
+  let computeStoreSimulationFn = null;
+
+  async function loadSimulationEngine() {
+    if (computeStoreSimulationFn) return computeStoreSimulationFn;
+    const mod = await import("./planner-simulation.js");
+    computeStoreSimulationFn = mod.computeStoreSimulation;
+    return computeStoreSimulationFn;
+  }
+
+  function renderSimulationDashboard(result) {
+    if (!result) return;
+    simOccupancyVal.textContent = String(result.occupancy);
+    simCapturedInteractions.textContent = number.format(result.capturedInteractionsPerHour);
+    simRawInteractions.textContent = number.format(result.rawInteractionsPerHour);
+    simCaptureRate.textContent = `${result.captureRatePct}%`;
+    simCoveragePct.textContent = `${result.coveragePct}%`;
+    simShelfInteractions.textContent = number.format(result.shelfInteractionsPerHour);
+    simTrackingEvents.textContent = number.format(result.trackingEventsPerHour);
+
+    if (!result.zoneCount) {
+      simZoneList.innerHTML = '<p class="offline-note" style="margin:0;">Add monitoring zones on the 2D plan to refine capture estimates.</p>';
+    } else {
+      simZoneList.innerHTML = result.zoneBreakdown
+        .map(
+          (zone) => `
+        <div class="planner-sim-zone-row">
+          <div><strong>${zone.label}</strong><br /><span style="color:var(--muted);">${zone.capability} · ${zone.areaSqm} m²</span></div>
+          <div style="text-align:right;">${number.format(zone.expectedPerHour)}/hr<br /><span style="color:var(--muted);">${zone.capturePct}% cam</span></div>
+        </div>`
+        )
+        .join("");
+    }
+
+    simFootnote.textContent = `${result.cameraCount} ceiling cameras · ${result.zoneCount} monitoring zones · ${number.format(result.storeAreaSqm)} m² selling area. Heatmap blends shopper density with camera capture probability.`;
+  }
+
+  async function runStoreSimulation() {
+    const layout = getPlannerLayoutSnapshot();
+    if (!layout) return null;
+    const compute = await loadSimulationEngine();
+    const occupancy = Number(simOccupancySlider?.value || simOccupancyPref);
+    const result = compute(layout, occupancy);
+    simOccupancyPref = result.occupancy;
+    renderSimulationDashboard(result);
+    if (planner3dView && plannerViewMode === "simulation") {
+      planner3dView.updateHeatmap(result.heatmap);
+    }
+    return result;
+  }
+
+  function syncSimulationUi() {
+    const isSim = plannerViewMode === "simulation";
+    plannerView2dBtn.classList.toggle("active", plannerViewMode === "2d");
+    plannerView3dBtn.classList.toggle("active", plannerViewMode === "3d");
+    plannerViewSimBtn.classList.toggle("active", isSim);
+    plannerCanvasWrap.classList.toggle("hidden", plannerViewMode !== "2d");
+    planner3dWrap.classList.toggle("hidden", plannerViewMode === "2d");
+    planner3dToolbar?.classList.toggle("hidden", isSim);
+    plannerSimDashboard?.classList.toggle("hidden", !isSim);
+    if (planner3dHint) {
+      planner3dHint.textContent = isSim
+        ? "Simulation heatmap · activity × camera capture · adjust occupancy in dashboard"
+        : planner3dHumanPlaced
+          ? "Stick figure placed · Drop human to reposition · Walk for first-person tour"
+          : "Click a fixture to select · Drop human for scale · Walk to explore the store";
+    }
+  }
+
+  function syncMonitoringGridButton() {
+    if (planner3dGridBtn) {
+      planner3dGridBtn.classList.toggle("active", showMonitoringVizPref);
+    }
+  }
 
   function ensurePlannerObjectId(obj) {
     if (!obj.plannerObjectId) {
@@ -273,6 +363,9 @@
     planner3dWalkBtn.classList.toggle("active", isWalk);
     planner3dMoveBtn.disabled = isWalk || isPlace;
     planner3dRotateBtn.disabled = isWalk || isPlace;
+    planner3dZoomInBtn.disabled = isWalk || isPlace;
+    planner3dZoomOutBtn.disabled = isWalk || isPlace;
+    planner3dFitBtn.disabled = isWalk || isPlace;
     planner3dHumanBtn.disabled = isWalk;
     planner3dWalkBtn.textContent = isWalk ? "Exit walk" : "Walk";
     if (isWalk || isPlace) {
@@ -307,6 +400,8 @@
           : "Fixture selected";
       }
     });
+    planner3dView.setShowMonitoringViz(showMonitoringVizPref);
+    syncMonitoringGridButton();
     planner3dView.setTransformMode("translate");
     syncPlanner3dToolbar("edit");
     updatePlanner3dHint("edit");
@@ -345,27 +440,39 @@
 
   async function setPlannerViewMode(mode) {
     plannerViewMode = mode;
-    const is3d = mode === "3d";
-    plannerView2dBtn.classList.toggle("active", !is3d);
-    plannerView3dBtn.classList.toggle("active", is3d);
-    plannerCanvasWrap.classList.toggle("hidden", is3d);
-    planner3dWrap.classList.toggle("hidden", !is3d);
+    syncSimulationUi();
 
-    if (is3d) {
-      if (!plannerState.canvas) initPlanner();
-      const view = await ensurePlanner3D();
-      view.setActive(true);
-      setPlanner3dTool("translate");
-      resizePlanner3DView();
-      syncPlanner3DView({ refitCamera: true });
-    } else if (planner3dView) {
-      planner3dView.setActive(false);
+    if (mode === "2d") {
+      if (planner3dView) {
+        planner3dView.setSimulationMode(false);
+        planner3dView.setActive(false);
+      }
       if (plannerState.canvas) resizePlannerCanvasToContainer();
+      return;
     }
+
+    if (!plannerState.canvas) initPlanner();
+    const view = await ensurePlanner3D();
+    view.setActive(true);
+    resizePlanner3DView();
+    syncPlanner3DView({ refitCamera: mode === "3d" || mode === "simulation" });
+
+    if (mode === "simulation") {
+      view.setSimulationMode(true);
+      if (simOccupancySlider) simOccupancySlider.value = String(simOccupancyPref);
+      await runStoreSimulation();
+      return;
+    }
+
+    view.setSimulationMode(false);
+    setPlanner3dTool("translate");
   }
 
   function requestPlanner3DSync() {
     syncPlanner3DView();
+    if (plannerViewMode === "simulation") {
+      runStoreSimulation();
+    }
   }
 
   const FIXTURE_TEMPLATE_18x14 = [
@@ -1708,6 +1815,16 @@
     await setPlannerViewMode("3d");
   });
 
+  plannerViewSimBtn.addEventListener("click", async () => {
+    await setPlannerViewMode("simulation");
+  });
+
+  simOccupancySlider?.addEventListener("input", () => {
+    simOccupancyPref = Number(simOccupancySlider.value);
+    if (simOccupancyVal) simOccupancyVal.textContent = String(simOccupancyPref);
+    runStoreSimulation();
+  });
+
   planner3dMoveBtn.addEventListener("click", () => setPlanner3dTool("translate"));
   planner3dRotateBtn.addEventListener("click", () => setPlanner3dTool("rotate"));
   planner3dHumanBtn.addEventListener("click", () => {
@@ -1723,11 +1840,18 @@
   planner3dFitBtn.addEventListener("click", () => {
     if (planner3dView) planner3dView.fitCamera();
   });
+  planner3dZoomInBtn.addEventListener("click", () => {
+    if (planner3dView) planner3dView.zoomIn();
+  });
+  planner3dZoomOutBtn.addEventListener("click", () => {
+    if (planner3dView) planner3dView.zoomOut();
+  });
   planner3dGridBtn.addEventListener("click", () => {
-    if (!planner3dView) return;
-    const next = !planner3dView.getShowMonitoringViz();
-    planner3dView.setShowMonitoringViz(next);
-    planner3dGridBtn.classList.toggle("active", next);
+    showMonitoringVizPref = !showMonitoringVizPref;
+    syncMonitoringGridButton();
+    if (planner3dView) {
+      planner3dView.setShowMonitoringViz(showMonitoringVizPref);
+    }
   });
 
   applyStoreSizeBtn.addEventListener("click", () => {
@@ -1877,7 +2001,7 @@
 
   window.addEventListener("resize", () => {
     if (!plannerState.canvas) return;
-    if (plannerViewMode === "3d") resizePlanner3DView();
+    if (plannerViewMode === "3d" || plannerViewMode === "simulation") resizePlanner3DView();
     else resizePlannerCanvasToContainer();
   });
 

@@ -146,6 +146,9 @@ export function createPlanner3D(containerEl, options = {}) {
   let storeSize = { w: 20, d: 20 };
   let floorMesh = null;
   let showMonitoringViz = true;
+  let simulationMode = false;
+  let heatmapMesh = null;
+  let heatmapTexture = null;
   let artifactConfig = structuredClone(options.artifacts || DEFAULT_ARTIFACTS);
   let plannerConfig = structuredClone(options.planner || DEFAULT_PLANNER);
   let interactionMode = "edit";
@@ -336,9 +339,9 @@ export function createPlanner3D(containerEl, options = {}) {
 
     if (mode === "edit") {
       orbit.enabled = true;
-      transformControls.enabled = true;
+      transformControls.enabled = !simulationMode;
       humanGroup.visible = humanPlaced;
-      renderer.domElement.style.cursor = "";
+      renderer.domElement.style.cursor = simulationMode ? "default" : "";
     } else if (mode === "placeHuman") {
       selectFixture(null);
       orbit.enabled = true;
@@ -501,8 +504,67 @@ export function createPlanner3D(containerEl, options = {}) {
     parent.add(lines);
   }
 
+  function disposeHeatmap() {
+    if (heatmapMesh) {
+      storeGroup.remove(heatmapMesh);
+      disposeObject(heatmapMesh);
+      heatmapMesh = null;
+    }
+    if (heatmapTexture) {
+      heatmapTexture.dispose();
+      heatmapTexture = null;
+    }
+  }
+
+  function updateHeatmap(heatmap) {
+    if (!heatmap?.pixels || !lastLayout) return;
+    disposeHeatmap();
+
+    const { cols, rows, pixels, widthMeters, depthMeters } = heatmap;
+    const canvas = document.createElement("canvas");
+    canvas.width = cols;
+    canvas.height = rows;
+    const ctx = canvas.getContext("2d");
+    const imageData = ctx.createImageData(cols, rows);
+    imageData.data.set(pixels);
+    ctx.putImageData(imageData, 0, 0);
+
+    heatmapTexture = new THREE.CanvasTexture(canvas);
+    heatmapTexture.colorSpace = THREE.SRGBColorSpace;
+    heatmapTexture.minFilter = THREE.LinearFilter;
+    heatmapTexture.magFilter = THREE.LinearFilter;
+
+    const mat = new THREE.MeshBasicMaterial({
+      map: heatmapTexture,
+      transparent: true,
+      opacity: 0.82,
+      depthWrite: false
+    });
+    heatmapMesh = new THREE.Mesh(new THREE.PlaneGeometry(widthMeters, depthMeters), mat);
+    heatmapMesh.rotation.x = -Math.PI / 2;
+    heatmapMesh.position.set(widthMeters / 2, 0.048, depthMeters / 2);
+    heatmapMesh.visible = simulationMode;
+    heatmapMesh.name = "simulation-heatmap";
+    heatmapMesh.renderOrder = 2;
+    storeGroup.add(heatmapMesh);
+  }
+
+  function setSimulationMode(on) {
+    simulationMode = !!on;
+    if (heatmapMesh) heatmapMesh.visible = simulationMode;
+    if (simulationMode) {
+      selectFixture(null);
+      transformControls.detach();
+      transformControls.enabled = false;
+      if (interactionMode === "walk" || interactionMode === "placeHuman") applyInteractionMode("edit");
+    } else if (interactionMode === "edit") {
+      transformControls.enabled = true;
+    }
+  }
+
   function rebuildShell(layout) {
     textureKit.dispose();
+    disposeHeatmap();
     while (storeGroup.children.length) {
       const child = storeGroup.children[0];
       storeGroup.remove(child);
@@ -774,6 +836,17 @@ export function createPlanner3D(containerEl, options = {}) {
     }
   }
 
+  function zoomCamera(scale) {
+    if (interactionMode === "walk" || !lastLayout) return;
+    const offset = new THREE.Vector3().subVectors(camera.position, orbit.target);
+    const distance = offset.length();
+    if (distance <= 0) return;
+    const next = clamp(distance * scale, orbit.minDistance, orbit.maxDistance);
+    offset.setLength(next);
+    camera.position.copy(orbit.target).add(offset);
+    orbit.update();
+  }
+
   function refreshFixturesIfReady() {
     if (!active || !lastLayout || !modelsLoaded) return;
     rebuildFixtures(lastLayout, selectedGroup?.userData?.objectId || null);
@@ -846,7 +919,7 @@ export function createPlanner3D(containerEl, options = {}) {
       return;
     }
 
-    if (interactionMode !== "edit") return;
+    if (interactionMode !== "edit" || simulationMode) return;
 
     const rect = renderer.domElement.getBoundingClientRect();
     const mouse = new THREE.Vector2(
@@ -937,6 +1010,14 @@ export function createPlanner3D(containerEl, options = {}) {
       fitCamera(true);
     },
 
+    zoomIn() {
+      zoomCamera(0.82);
+    },
+
+    zoomOut() {
+      zoomCamera(1.22);
+    },
+
     setShowMonitoringViz(show) {
       showMonitoringViz = show !== false;
       if (lastLayout && active) rebuildStore(lastLayout, { preserveSelectionId: selectedGroup?.userData?.objectId || null });
@@ -944,6 +1025,18 @@ export function createPlanner3D(containerEl, options = {}) {
 
     getShowMonitoringViz() {
       return showMonitoringViz;
+    },
+
+    setSimulationMode(on) {
+      setSimulationMode(on);
+    },
+
+    getSimulationMode() {
+      return simulationMode;
+    },
+
+    updateHeatmap(heatmap) {
+      updateHeatmap(heatmap);
     },
 
     setActive(isActive) {
@@ -972,6 +1065,7 @@ export function createPlanner3D(containerEl, options = {}) {
       disposePointerLock();
       transformControls.dispose();
       textureKit.dispose();
+      disposeHeatmap();
       disposeObject(storeGroup);
       disposeObject(fixturesGroup);
       disposeObject(humanGroup);

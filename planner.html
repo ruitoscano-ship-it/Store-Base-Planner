@@ -331,6 +331,127 @@
         display: inline-block;
       }
 
+      .planner-sim-dashboard {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 6;
+        width: min(320px, calc(100% - 20px));
+        max-height: calc(100% - 20px);
+        overflow-y: auto;
+        background: rgba(255, 255, 255, 0.94);
+        border: 1px solid var(--border);
+        padding: 12px;
+        font-size: 0.8rem;
+      }
+
+      .planner-sim-dashboard.hidden {
+        display: none;
+      }
+
+      .planner-sim-dashboard h4 {
+        margin: 0 0 10px;
+        font-size: 0.88rem;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+      }
+
+      .planner-sim-control {
+        margin-bottom: 12px;
+      }
+
+      .planner-sim-control label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+
+      .planner-sim-control input[type="range"] {
+        width: 100%;
+      }
+
+      .planner-sim-kpis {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .planner-sim-kpi {
+        border: 1px solid var(--border);
+        background: var(--bg);
+        padding: 8px;
+      }
+
+      .planner-sim-kpi span {
+        display: block;
+        font-size: 0.68rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+      }
+
+      .planner-sim-kpi strong {
+        display: block;
+        margin-top: 4px;
+        font-size: 1.05rem;
+      }
+
+      .planner-sim-legend {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 10px;
+        font-size: 0.72rem;
+        color: var(--muted);
+      }
+
+      .planner-sim-legend-bar {
+        flex: 1;
+        height: 10px;
+        border: 1px solid var(--border);
+        background: linear-gradient(90deg, #1e40af 0%, #22c55e 35%, #eab308 65%, #ef4444 100%);
+      }
+
+      .planner-sim-zones {
+        border-top: 1px solid var(--border);
+        padding-top: 8px;
+      }
+
+      .planner-sim-zones h5 {
+        margin: 0 0 6px;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .planner-sim-zone-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 4px 8px;
+        padding: 5px 0;
+        border-bottom: 1px solid #ddd;
+        font-size: 0.74rem;
+      }
+
+      .planner-sim-zone-row:last-child {
+        border-bottom: none;
+      }
+
+      .planner-sim-note {
+        margin: 10px 0 0;
+        font-size: 0.72rem;
+        color: var(--muted);
+        line-height: 1.35;
+      }
+
+      .planner-3d-toolbar.hidden {
+        display: none;
+      }
+
       .planner-canvas-wrap {
         overflow: hidden;
       }
@@ -513,6 +634,7 @@
               <div class="planner-view-toolbar">
                 <button type="button" class="action-btn active" id="plannerView2dBtn">2D Plan</button>
                 <button type="button" class="action-btn" id="plannerView3dBtn">3D View</button>
+                <button type="button" class="action-btn" id="plannerViewSimBtn">Simulation</button>
               </div>
               <div class="planner-view-stage">
                 <div class="planner-canvas-wrap" id="plannerCanvasWrap">
@@ -521,12 +643,62 @@
                 <div class="planner-3d-wrap hidden" id="planner3dWrap">
                   <div id="planner3dContainer"></div>
                   <div class="planner-3d-hint" id="planner3dHint">Click a fixture to select · Move or rotate · Syncs to 2D plan</div>
-                  <div class="planner-3d-toolbar">
+                  <div class="planner-sim-dashboard hidden" id="plannerSimDashboard">
+                    <h4>Occupancy simulation</h4>
+                    <div class="planner-sim-control">
+                      <label for="simOccupancySlider">
+                        <span>Concurrent shoppers</span>
+                        <strong id="simOccupancyVal">24</strong>
+                      </label>
+                      <input id="simOccupancySlider" type="range" min="1" max="120" value="24" step="1" />
+                    </div>
+                    <div class="planner-sim-legend">
+                      <span>Low</span>
+                      <div class="planner-sim-legend-bar" aria-hidden="true"></div>
+                      <span>High</span>
+                    </div>
+                    <div class="planner-sim-kpis">
+                      <div class="planner-sim-kpi">
+                        <span>Captured / hr</span>
+                        <strong id="simCapturedInteractions">—</strong>
+                      </div>
+                      <div class="planner-sim-kpi">
+                        <span>Raw potential / hr</span>
+                        <strong id="simRawInteractions">—</strong>
+                      </div>
+                      <div class="planner-sim-kpi">
+                        <span>Capture rate</span>
+                        <strong id="simCaptureRate">—</strong>
+                      </div>
+                      <div class="planner-sim-kpi">
+                        <span>Floor coverage</span>
+                        <strong id="simCoveragePct">—</strong>
+                      </div>
+                      <div class="planner-sim-kpi">
+                        <span>Shelf interactions / hr</span>
+                        <strong id="simShelfInteractions">—</strong>
+                      </div>
+                      <div class="planner-sim-kpi">
+                        <span>Tracking events / hr</span>
+                        <strong id="simTrackingEvents">—</strong>
+                      </div>
+                    </div>
+                    <div class="planner-sim-zones">
+                      <h5>Zone breakdown</h5>
+                      <div id="simZoneList"></div>
+                    </div>
+                    <p class="planner-sim-note" id="simFootnote">
+                      Estimates combine occupancy, camera grid coverage (~3 m), and monitoring zone placement.
+                    </p>
+                  </div>
+                  <div class="planner-3d-toolbar" id="planner3dToolbar">
                     <button type="button" class="action-btn active" id="planner3dMoveBtn">Move</button>
                     <button type="button" class="action-btn" id="planner3dRotateBtn">Rotate</button>
                     <button type="button" class="action-btn" id="planner3dHumanBtn">Drop human</button>
                     <button type="button" class="action-btn" id="planner3dWalkBtn">Walk</button>
                     <button type="button" class="action-btn" id="planner3dFitBtn">Fit view</button>
+                    <button type="button" class="action-btn" id="planner3dZoomInBtn" title="Zoom in">Zoom +</button>
+                    <button type="button" class="action-btn" id="planner3dZoomOutBtn" title="Zoom out">Zoom −</button>
                     <button type="button" class="action-btn active" id="planner3dGridBtn">Camera grid</button>
                   </div>
                   <div class="planner-3d-legend">
@@ -536,7 +708,7 @@
                     <span><i style="background:#06b6d4;"></i>Count</span>
                     <span><i style="background:#38bdf8;"></i>Track</span>
                     <span><i style="background:#a78bfa;"></i>Shelf</span>
-                    <span style="color: #d1d5db;">Ceiling grid ~3 m · FOV cones · Walk: WASD</span>
+                      <span style="color: #d1d5db;">Scroll or Zoom ± · Ceiling grid ~3 m · Walk: WASD</span>
                   </div>
                 </div>
               </div>
