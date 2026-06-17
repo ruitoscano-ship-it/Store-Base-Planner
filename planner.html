@@ -400,6 +400,22 @@
         font-size: 1.05rem;
       }
 
+      .planner-sim-kpis-foot {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+      }
+
+      .planner-sim-kpi-accent {
+        border-color: rgba(6, 182, 212, 0.35);
+        background: rgba(6, 182, 212, 0.06);
+      }
+
+      .planner-sim-kpi-accent strong {
+        color: #0891b2;
+      }
+
       .planner-sim-legend {
         display: flex;
         align-items: center;
@@ -672,6 +688,20 @@
                       <button type="button" class="action-btn" id="simRandomizeBtn">Randomize</button>
                     </div>
                     <div class="planner-sim-kpis">
+                      <div class="planner-sim-kpis-foot">
+                        <div class="planner-sim-kpi planner-sim-kpi-accent">
+                          <span>Inside store</span>
+                          <strong id="simPeopleInside">0</strong>
+                        </div>
+                        <div class="planner-sim-kpi">
+                          <span>Entered (session)</span>
+                          <strong id="simPeopleEntering">0</strong>
+                        </div>
+                        <div class="planner-sim-kpi">
+                          <span>Left (session)</span>
+                          <strong id="simPeopleLeaving">0</strong>
+                        </div>
+                      </div>
                       <div class="planner-sim-kpi">
                         <span>Session captures</span>
                         <strong id="simSessionCaptures">0</strong>

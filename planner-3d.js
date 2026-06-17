@@ -458,26 +458,25 @@ export function createPlanner3D(containerEl, options = {}) {
     const rig = new THREE.Group();
     rig.position.set(x, y, z);
 
-    const body = new THREE.Mesh(
-      new THREE.BoxGeometry(0.14, 0.07, 0.2),
-      new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.45, metalness: 0.2 })
-    );
-    body.rotation.x = Math.PI / 2;
-    body.position.y = 0.02;
+    const mountMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.45, metalness: 0.2 });
+    const lensMat = new THREE.MeshStandardMaterial({
+      color: 0x111827,
+      emissive: accent,
+      emissiveIntensity: 0.35,
+      roughness: 0.2,
+      metalness: 0.4
+    });
+
+    const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.05, 0.16), mountMat);
+    bracket.position.y = -0.025;
+    rig.add(bracket);
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.07, 0.1), mountMat);
+    body.position.y = -0.07;
     rig.add(body);
 
-    const lens = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.045, 0.045, 0.04, 16),
-      new THREE.MeshStandardMaterial({
-        color: 0x111827,
-        emissive: accent,
-        emissiveIntensity: 0.35,
-        roughness: 0.2,
-        metalness: 0.4
-      })
-    );
-    lens.rotation.x = Math.PI / 2;
-    lens.position.set(0, 0.02, 0.1);
+    const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.05, 16), lensMat);
+    lens.position.y = -0.11;
     rig.add(lens);
 
     const fovRadius = fovHeight * Math.tan(THREE.MathUtils.degToRad(fovAngle / 2));
@@ -492,7 +491,7 @@ export function createPlanner3D(containerEl, options = {}) {
       })
     );
     fov.rotation.x = Math.PI;
-    fov.position.y = -fovHeight / 2 + 0.02;
+    fov.position.y = 0;
     rig.add(fov);
 
     return rig;
@@ -671,7 +670,16 @@ export function createPlanner3D(containerEl, options = {}) {
     }
 
     const wallTex = textureKit.applyRepeat(textureKit.createWallTexture(), Math.max(1, w / 2), Math.max(1, wallH / 2));
-    const wallMat = createStandardMaterial(wallTex, { roughness: 0.9, metalness: 0, color: 0xffffff });
+    const wallMat = new THREE.MeshStandardMaterial({
+      map: wallTex,
+      color: 0xffffff,
+      roughness: 0.9,
+      metalness: 0,
+      transparent: true,
+      opacity: 0.22,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
     [
       [w / 2, wallH / 2, -wallT / 2, w, wallH, wallT],
       [w / 2, wallH / 2, d + wallT / 2, w, wallH, wallT],
@@ -681,7 +689,7 @@ export function createPlanner3D(containerEl, options = {}) {
       const wall = new THREE.Mesh(new THREE.BoxGeometry(ww, hh, dd), wallMat);
       wall.position.set(x, y, z);
       wall.receiveShadow = true;
-      wall.castShadow = true;
+      wall.castShadow = false;
       storeGroup.add(wall);
     });
 
@@ -719,12 +727,14 @@ export function createPlanner3D(containerEl, options = {}) {
 
       const cameraRigs = new THREE.Group();
       cameraRigs.name = "camera-grid-rigs";
+      const ceilingDrop = wallH - 0.08;
+      const fovDrop = wallH - 0.1;
       for (let x = CAMERA_GRID_SPACING / 2; x < w; x += CAMERA_GRID_SPACING) {
         for (let z = CAMERA_GRID_SPACING / 2; z < d; z += CAMERA_GRID_SPACING) {
           cameraRigs.add(
-            createCameraRig(x, wallH - 0.1, z, {
+            createCameraRig(x, ceilingDrop, z, {
               accent: 0x06b6d4,
-              fovHeight: 2.6,
+              fovHeight: fovDrop,
               fovAngle: 48,
               fovOpacity: hasMonitoring ? 0.06 : 0.03
             })
@@ -778,10 +788,12 @@ export function createPlanner3D(containerEl, options = {}) {
     });
 
     const fovAngle = kind === "monitor-entrance" ? 62 : kind === "monitor-shelf-zone" ? 44 : 56;
-    const fovHeight = kind === "monitor-shelf-zone" ? 1.8 : 2.5;
-    const zoneCamera = createCameraRig(0, wallHeight() - 0.1, 0, {
+    const wallH = wallHeight();
+    const ceilingDrop = wallH - 0.08;
+    const fovDrop = wallH - 0.1;
+    const zoneCamera = createCameraRig(0, ceilingDrop, 0, {
       accent,
-      fovHeight,
+      fovHeight: fovDrop,
       fovAngle,
       fovOpacity: 0.14
     });

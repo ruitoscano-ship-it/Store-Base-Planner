@@ -34,6 +34,9 @@
   const simPlayBtn = document.getElementById("simPlayBtn");
   const simRandomizeBtn = document.getElementById("simRandomizeBtn");
   const simSessionCaptures = document.getElementById("simSessionCaptures");
+  const simPeopleInside = document.getElementById("simPeopleInside");
+  const simPeopleEntering = document.getElementById("simPeopleEntering");
+  const simPeopleLeaving = document.getElementById("simPeopleLeaving");
   const simLiveRate = document.getElementById("simLiveRate");
   const simCapturedInteractions = document.getElementById("simCapturedInteractions");
   const simRawInteractions = document.getElementById("simRawInteractions");
@@ -183,6 +186,9 @@
 
   function renderLiveSimulationDashboard(sim, staticResult) {
     const live = sim.getLiveMetrics();
+    simPeopleInside.textContent = number.format(live.peopleInside);
+    simPeopleEntering.textContent = number.format(live.sessionEntries);
+    simPeopleLeaving.textContent = number.format(live.sessionLeaves);
     simSessionCaptures.textContent = number.format(live.sessionCaptures);
     simLiveRate.textContent = live.elapsed > 0.5 ? `${number.format(live.liveCapturedPerHour)}/hr` : "—";
     if (staticResult) renderSimulationDashboard(staticResult, live);

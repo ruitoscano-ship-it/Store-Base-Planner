@@ -117,8 +117,13 @@ export class ShopperSim {
     this.shoppers = [];
     this.sessionCaptures = 0;
     this.sessionRaw = 0;
+    this.sessionEntries = 0;
+    this.sessionLeaves = 0;
+    this.targetOccupancy = 0;
     this.elapsed = 0;
     this.setCount(count);
+    this.sessionEntries = 0;
+    this.sessionLeaves = 0;
   }
 
   applyLayout(layout) {
@@ -146,19 +151,68 @@ export class ShopperSim {
 
   setCount(count) {
     const target = clamp(Math.round(Number(count) || 0), 0, 120);
-    while (this.shoppers.length < target) this.shoppers.push(this.spawnShopper());
-    while (this.shoppers.length > target) this.shoppers.pop();
+    this.targetOccupancy = target;
+    while (this.shoppers.length < target) {
+      this.shoppers.push(this.spawnShopper({ atEntrance: true, countEntry: true }));
+    }
+    while (this.shoppers.length > target) {
+      const shopper = this.shoppers.pop();
+      if (shopper && shopper.state === "inside") this.sessionLeaves += 1;
+    }
   }
 
-  spawnShopper() {
-    const speed = 0.65 + Math.random() * 0.85;
-    const angle = Math.random() * Math.PI * 2;
+  entranceZones() {
+    const entrances = this.zones.filter((zone) => zone.capability === "count" || zone.kind === "monitor-entrance");
+    if (entrances.length) return entrances;
+    return [
+      {
+        meters: {
+          x: this.w / 2,
+          z: Math.min(1.4, this.d * 0.12),
+          w: Math.min(4.5, this.w * 0.45),
+          h: 1.2
+        },
+        angle: 0
+      }
+    ];
+  }
+
+  pickEntrancePoint() {
+    const zone = this.entranceZones()[Math.floor(Math.random() * this.entranceZones().length)];
+    const hw = zone.meters.w / 2;
+    const hd = zone.meters.h / 2;
+    const angle = ((zone.angle || 0) * Math.PI) / 180;
+    const lx = (Math.random() * 2 - 1) * hw * 0.75;
+    const lz = (Math.random() * 2 - 1) * hd * 0.75;
+    return {
+      x: zone.meters.x + lx * Math.cos(angle) - lz * Math.sin(angle),
+      z: zone.meters.z + lx * Math.sin(angle) + lz * Math.cos(angle)
+    };
+  }
+
+  pickInsidePoint() {
     return {
       x: this.margin + Math.random() * Math.max(0.5, this.w - this.margin * 2),
-      z: this.margin + Math.random() * Math.max(0.5, this.d - this.margin * 2),
-      vx: Math.cos(angle) * speed,
-      vz: Math.sin(angle) * speed,
-      wander: 1 + Math.random() * 2.5
+      z: this.margin + Math.random() * Math.max(0.5, this.d - this.margin * 2)
+    };
+  }
+
+  spawnShopper({ atEntrance = false, countEntry = false } = {}) {
+    const speed = 0.65 + Math.random() * 0.85;
+    const point = atEntrance ? this.pickEntrancePoint() : this.pickInsidePoint();
+    const inside = atEntrance ? this.pickInsidePoint() : null;
+    const angle = inside ? Math.atan2(inside.x - point.x, inside.z - point.z) : Math.random() * Math.PI * 2;
+    if (countEntry) this.sessionEntries += 1;
+    return {
+      x: point.x,
+      z: point.z,
+      vx: Math.sin(angle) * speed,
+      vz: Math.cos(angle) * speed,
+      wander: 1 + Math.random() * 2.5,
+      state: atEntrance ? "entering" : "inside",
+      enterTarget: inside,
+      exitTarget: null,
+      remainingDwell: 25 + Math.random() * 55
     };
   }
 
@@ -167,7 +221,11 @@ export class ShopperSim {
     this.sessionCaptures = 0;
     this.sessionRaw = 0;
     this.elapsed = 0;
-    this.shoppers = this.shoppers.map(() => this.spawnShopper());
+    const count = this.targetOccupancy || this.shoppers.length;
+    this.shoppers = [];
+    this.setCount(count);
+    this.sessionEntries = 0;
+    this.sessionLeaves = 0;
   }
 
   splatHeat(x, z, amount) {
@@ -192,32 +250,68 @@ export class ShopperSim {
     const decay = Math.pow(0.935, stepDt * 60);
     for (let i = 0; i < this.heat.length; i += 1) this.heat[i] *= decay;
 
+    const nextShoppers = [];
+
     this.shoppers.forEach((shopper) => {
-      shopper.wander -= stepDt;
-      if (shopper.wander <= 0) {
-        const speed = Math.hypot(shopper.vx, shopper.vz) || 0.9;
-        const angle = Math.random() * Math.PI * 2;
-        shopper.vx = Math.cos(angle) * speed;
-        shopper.vz = Math.sin(angle) * speed;
-        shopper.wander = 1.2 + Math.random() * 2.8;
+      if (shopper.state === "entering" && shopper.enterTarget) {
+        const dx = shopper.enterTarget.x - shopper.x;
+        const dz = shopper.enterTarget.z - shopper.z;
+        const dist = Math.hypot(dx, dz);
+        if (dist < 0.45) {
+          shopper.state = "inside";
+          shopper.enterTarget = null;
+          shopper.remainingDwell = 25 + Math.random() * 55;
+        } else {
+          const speed = Math.max(0.75, Math.hypot(shopper.vx, shopper.vz));
+          shopper.vx = (dx / dist) * speed;
+          shopper.vz = (dz / dist) * speed;
+        }
+      } else if (shopper.state === "leaving" && shopper.exitTarget) {
+        const dx = shopper.exitTarget.x - shopper.x;
+        const dz = shopper.exitTarget.z - shopper.z;
+        const dist = Math.hypot(dx, dz);
+        if (dist < 0.45) {
+          this.sessionLeaves += 1;
+          return;
+        }
+        const speed = Math.max(0.75, Math.hypot(shopper.vx, shopper.vz));
+        shopper.vx = (dx / dist) * speed;
+        shopper.vz = (dz / dist) * speed;
+      } else if (shopper.state === "inside") {
+        shopper.remainingDwell -= stepDt;
+        if (shopper.remainingDwell <= 0) {
+          shopper.state = "leaving";
+          shopper.exitTarget = this.pickEntrancePoint();
+        } else {
+          shopper.wander -= stepDt;
+          if (shopper.wander <= 0) {
+            const speed = Math.hypot(shopper.vx, shopper.vz) || 0.9;
+            const angle = Math.random() * Math.PI * 2;
+            shopper.vx = Math.sin(angle) * speed;
+            shopper.vz = Math.cos(angle) * speed;
+            shopper.wander = 1.2 + Math.random() * 2.8;
+          }
+        }
       }
 
       shopper.x += shopper.vx * stepDt;
       shopper.z += shopper.vz * stepDt;
 
-      if (shopper.x < this.margin) {
-        shopper.x = this.margin;
-        shopper.vx = Math.abs(shopper.vx);
-      } else if (shopper.x > this.w - this.margin) {
-        shopper.x = this.w - this.margin;
-        shopper.vx = -Math.abs(shopper.vx);
-      }
-      if (shopper.z < this.margin) {
-        shopper.z = this.margin;
-        shopper.vz = Math.abs(shopper.vz);
-      } else if (shopper.z > this.d - this.margin) {
-        shopper.z = this.d - this.margin;
-        shopper.vz = -Math.abs(shopper.vz);
+      if (shopper.state === "inside") {
+        if (shopper.x < this.margin) {
+          shopper.x = this.margin;
+          shopper.vx = Math.abs(shopper.vx);
+        } else if (shopper.x > this.w - this.margin) {
+          shopper.x = this.w - this.margin;
+          shopper.vx = -Math.abs(shopper.vx);
+        }
+        if (shopper.z < this.margin) {
+          shopper.z = this.margin;
+          shopper.vz = Math.abs(shopper.vz);
+        } else if (shopper.z > this.d - this.margin) {
+          shopper.z = this.d - this.margin;
+          shopper.vz = -Math.abs(shopper.vz);
+        }
       }
 
       const zoneW = zoneWeightAt(shopper.x, shopper.z, this.zones);
@@ -231,7 +325,15 @@ export class ShopperSim {
         this.sessionRaw += stepDt * 0.75;
         this.sessionCaptures += stepDt * 0.75 * capture * clamp(0.35 + zoneW * 0.12, 0.15, 0.95);
       }
+
+      nextShoppers.push(shopper);
     });
+
+    this.shoppers = nextShoppers;
+
+    while (this.shoppers.length < this.targetOccupancy) {
+      this.shoppers.push(this.spawnShopper({ atEntrance: true, countEntry: true }));
+    }
   }
 
   getShopperPositions() {
@@ -271,7 +373,13 @@ export class ShopperSim {
   getLiveMetrics() {
     const hourly = this.elapsed > 0.5 ? 3600 / this.elapsed : 0;
     return {
+      elapsed: this.elapsed,
       shopperCount: this.shoppers.length,
+      peopleInside: this.shoppers.filter((shopper) => shopper.state === "inside").length,
+      sessionEntries: this.sessionEntries,
+      sessionLeaves: this.sessionLeaves,
+      entriesPerHour: Math.round(this.sessionEntries * hourly),
+      leavesPerHour: Math.round(this.sessionLeaves * hourly),
       sessionCaptures: Math.round(this.sessionCaptures),
       sessionRaw: Math.round(this.sessionRaw),
       liveCapturedPerHour: Math.round(this.sessionCaptures * hourly),
