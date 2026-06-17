@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Store Planner · Smart Store</title>
+    <style>
+      :root {
+        --bg: #e9eae6;
+        --card: #eeefeb;
+        --text: #111111;
+        --muted: #3d3d3d;
+        --border: #1a1a1a;
+        --accent: #d9f04f;
+        --ok: #15803d;
+        --warn: #b45309;
+        --bad: #b91c1c;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Inter, Avenir, Segoe UI, Roboto, Arial, sans-serif;
+        color: var(--text);
+        background: var(--bg);
+      }
+
+      .container {
+        max-width: min(1680px, 100%);
+        margin: 0 auto;
+        padding: 12px 16px 24px;
+      }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        border: 1px solid var(--border);
+        background: var(--card);
+        padding: 10px 14px;
+        margin-bottom: 12px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .logo-dot {
+        width: 28px;
+        height: 28px;
+        background: #0b0b0b;
+        color: var(--accent);
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        font-size: 0.85rem;
+      }
+
+      .brand-title {
+        font-size: 1rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+      }
+
+      .brand-sub {
+        display: block;
+        font-size: 0.75rem;
+        color: var(--muted);
+        font-weight: 500;
+        text-transform: none;
+        letter-spacing: 0;
+      }
+
+      .nav-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .action-btn {
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        cursor: pointer;
+        font-size: 0.84rem;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+      }
+
+      .action-btn:hover {
+        background: var(--accent);
+      }
+
+      .action-btn.active {
+        background: var(--accent);
+      }
+
+      .page-intro {
+        margin-bottom: 12px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        padding: 14px 16px;
+      }
+
+      .page-intro h1 {
+        margin: 0 0 6px;
+        font-size: clamp(1.35rem, 2.2vw, 1.85rem);
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: -0.01em;
+      }
+
+      .page-intro p {
+        margin: 0;
+        color: var(--muted);
+        max-width: 820px;
+        line-height: 1.45;
+      }
+
+      .panel {
+        border: 1px solid var(--border);
+        background: var(--card);
+        padding: 14px;
+      }
+
+      .card h3 {
+        margin: 0 0 8px;
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+      }
+
+      .readiness-sub {
+        margin: 0 0 10px;
+        color: var(--muted);
+        font-size: 0.85rem;
+        line-height: 1.4;
+      }
+
+      .offline-note {
+        margin: 0;
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
+
+      .planner-layout {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 12px;
+        align-items: stretch;
+        min-height: min(78vh, 820px);
+      }
+
+      .planner-layout > div:last-child {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        min-width: 0;
+      }
+
+      .planner-tools {
+        border: 1px solid var(--border);
+        background: var(--bg);
+        padding: 12px;
+        overflow-y: auto;
+        max-height: min(78vh, 820px);
+      }
+
+      .planner-tools h4 {
+        margin: 0 0 10px;
+        font-size: 0.9rem;
+      }
+
+      .planner-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+
+      .planner-grid label {
+        display: block;
+        font-size: 0.75rem;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+
+      .planner-grid input {
+        width: 100%;
+        border: 1px solid var(--border);
+        background: #f3f4f0;
+        color: var(--text);
+        padding: 6px 8px;
+      }
+
+      .planner-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+
+      .planner-actions .action-btn {
+        flex: 1 1 130px;
+      }
+
+      .planner-preset-actions .action-btn {
+        flex: 1 1 88px;
+        font-size: 0.78rem;
+      }
+
+      .planner-preset-btn.active {
+        background: var(--accent);
+      }
+
+      .planner-canvas-wrap.hidden {
+        display: none;
+      }
+
+      .planner-view-toolbar {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+
+      .planner-view-stage {
+        position: relative;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 520px;
+        min-width: 0;
+      }
+
+      .planner-canvas-wrap,
+      .planner-3d-wrap {
+        flex: 1;
+        min-height: 520px;
+        border: 1px solid var(--border);
+        background: #f3f4f0;
+        position: relative;
+      }
+
+      .planner-3d-wrap {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .planner-3d-wrap.hidden {
+        display: none;
+      }
+
+      #planner3dContainer {
+        flex: 1;
+        min-height: 420px;
+        width: 100%;
+      }
+
+      .planner-3d-toolbar {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 5;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        max-width: calc(100% - 20px);
+      }
+
+      .planner-3d-toolbar .action-btn {
+        font-size: 0.78rem;
+        padding: 6px 10px;
+      }
+
+      .planner-3d-toolbar .action-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      .planner-3d-hint {
+        position: absolute;
+        bottom: 52px;
+        left: 10px;
+        right: 10px;
+        z-index: 5;
+        font-size: 0.78rem;
+        color: #f3f4f0;
+        background: rgba(17, 24, 39, 0.72);
+        padding: 6px 10px;
+        pointer-events: none;
+      }
+
+      .planner-3d-legend {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        right: 10px;
+        z-index: 5;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        font-size: 0.72rem;
+        color: #e5e7eb;
+        background: rgba(17, 24, 39, 0.72);
+        padding: 6px 10px;
+        pointer-events: none;
+      }
+
+      .planner-3d-legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .planner-3d-legend i {
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        display: inline-block;
+      }
+
+      .planner-canvas-wrap {
+        overflow: hidden;
+      }
+
+      .planner-canvas-wrap #plannerCanvas,
+      .planner-canvas-wrap .lower-canvas {
+        width: 100% !important;
+        height: 100% !important;
+      }
+
+      @media (max-width: 1020px) {
+        .planner-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .planner-tools {
+          max-height: none;
+        }
+
+        .planner-view-stage,
+        .planner-canvas-wrap,
+        .planner-3d-wrap {
+          min-height: 420px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header class="topbar">
+        <div class="brand">
+          <div class="logo-dot">P</div>
+          <div>
+            <span class="brand-title">Store Planner</span>
+            <span class="brand-sub">Layout, monitoring zones &amp; 3D walkthrough</span>
+          </div>
+        </div>
+        <nav class="nav-actions">
+          <a class="action-btn" href="/">← Simulator</a>
+          <a class="action-btn" href="/backoffice.html">Backoffice</a>
+          <button type="button" class="action-btn" id="plannerExportStateBtn">Export session</button>
+          <button type="button" class="action-btn" id="plannerImportStateBtn">Import session</button>
+          <button type="button" class="action-btn" id="plannerResetBtn">Reset</button>
+          <input id="plannerImportStateInput" type="file" accept="application/json" style="display: none;" />
+        </nav>
+      </header>
+
+      <section class="page-intro">
+        <h1>Plan your store footprint</h1>
+        <p>
+          Set dimensions in meters, place fixtures and shelf-monitoring zones, preview camera coverage in 3D,
+          and export layout JSON for implementation.
+        </p>
+      </section>
+
+      <article class="panel">
+        <div class="card">
+          <h3>Planner canvas</h3>
+          <p class="readiness-sub">
+            Drag objects on the 2D plan or switch to 3D for textured walkthrough with ceiling camera grid (~3 m) and FOV cones.
+          </p>
+          <div class="planner-layout">
+            <aside class="planner-tools">
+              <h4>Store Dimensions</h4>
+              <div class="planner-grid">
+                <div>
+                  <label for="plannerWidth">Width (m)</label>
+                  <input id="plannerWidth" type="number" min="5" max="200" value="20" />
+                </div>
+                <div>
+                  <label for="plannerHeight">Depth (m)</label>
+                  <input id="plannerHeight" type="number" min="5" max="200" value="20" />
+                </div>
+              </div>
+              <button class="action-btn" id="applyStoreSizeBtn">Apply Store Size</button>
+              <p class="offline-note">Area: <span id="plannerArea">400 m²</span></p>
+              <p class="offline-note">Grid scale: <span id="plannerGridScale">1 m ≈ 26 px</span></p>
+              <p class="offline-note" id="plannerStatus">Planner ready.</p>
+
+              <h4 style="margin-top: 14px;">Baseline store setups</h4>
+              <p class="readiness-sub" style="margin: 0 0 8px;">
+                Load a reference footprint, fixture mix, and shelf counts to benchmark cost.
+              </p>
+              <div class="planner-actions planner-preset-actions">
+                <button type="button" class="action-btn planner-preset-btn" data-preset="small">Small</button>
+                <button type="button" class="action-btn planner-preset-btn" data-preset="medium">Medium</button>
+                <button type="button" class="action-btn planner-preset-btn" data-preset="large">Large</button>
+                <button type="button" class="action-btn planner-preset-btn" data-preset="xlarge">X-Large</button>
+                <button type="button" class="action-btn planner-preset-btn" data-preset="bespoke">Bespoke</button>
+              </div>
+              <p class="offline-note" id="plannerPresetSummary">No baseline loaded.</p>
+
+              <h4 style="margin-top: 14px;">Add Objects</h4>
+              <div class="planner-actions">
+                <button class="action-btn planner-add-btn" data-kind="server">Server</button>
+                <button class="action-btn planner-add-btn" data-kind="aisle">Aisle</button>
+                <button class="action-btn planner-add-btn" data-kind="shelf-ambient">Shelf Ambient</button>
+                <button class="action-btn planner-add-btn" data-kind="shelf-cold">Shelf Cold</button>
+                <button class="action-btn planner-add-btn" data-kind="shelf-hot">Shelf Hot</button>
+                <button class="action-btn planner-add-btn" data-kind="entry-open">Entry (Open)</button>
+                <button class="action-btn planner-add-btn" data-kind="entry-gated">Entry (Gated)</button>
+                <button class="action-btn planner-add-btn" data-kind="checkout">Checkout</button>
+                <button class="action-btn planner-add-btn" data-kind="warehouse">Warehouse Area</button>
+                <button class="action-btn planner-add-btn" data-kind="technical">Technical Area</button>
+                <button class="action-btn planner-add-btn" data-kind="separator-wall">Separator Wall</button>
+                <button class="action-btn planner-add-btn" data-kind="security-cage">Security Cage</button>
+                <button class="action-btn planner-add-btn" data-kind="entry-zone">Entry Zone</button>
+              </div>
+
+              <h4 style="margin-top: 14px;">Shelf monitoring</h4>
+              <p class="readiness-sub" style="margin: 0 0 8px;">
+                Place entrances and zones to model people counting, tracking, and shelf interactions.
+              </p>
+              <div class="planner-actions">
+                <button class="action-btn planner-add-btn" data-kind="monitor-entrance">Count entrance</button>
+                <button class="action-btn planner-add-btn" data-kind="monitor-people-zone">People zone</button>
+                <button class="action-btn planner-add-btn" data-kind="monitor-shelf-zone">Shelf monitor</button>
+                <button class="action-btn planner-add-btn" data-kind="monitor-interaction-zone">Interaction zone</button>
+              </div>
+              <p class="offline-note" id="plannerMonitoringSummary">No monitoring zones placed.</p>
+
+              <div class="planner-actions" style="margin-top: 8px;">
+                <button class="action-btn" id="plannerDeleteSelectedBtn">Delete Selected</button>
+              </div>
+
+              <h4>Export / Import</h4>
+              <div class="planner-actions">
+                <button class="action-btn" id="plannerLoadBlueprintBtn">Load Blueprint PDF</button>
+                <button class="action-btn" id="plannerClearBlueprintBtn">Clear Blueprint</button>
+                <button class="action-btn" id="plannerExportPngBtn">Export PNG</button>
+                <button class="action-btn" id="plannerExportSvgBtn">Export SVG</button>
+                <button class="action-btn" id="plannerExportJsonBtn">Export Plan JSON</button>
+                <button class="action-btn" id="plannerImportJsonBtn">Import Plan JSON</button>
+                <button class="action-btn" id="plannerClearBtn">Clear Planner</button>
+                <input id="plannerBlueprintInput" type="file" accept="application/pdf,.pdf" style="display: none;" />
+                <input id="plannerImportInput" type="file" accept="application/json" style="display: none;" />
+              </div>
+
+              <h4>Shelf Cost Estimator</h4>
+              <div class="planner-grid">
+                <div>
+                  <label for="costAmbientShelf">Ambient shelf unit cost (EUR)</label>
+                  <input id="costAmbientShelf" type="number" min="0" value="1500" step="50" />
+                </div>
+                <div>
+                  <label for="costColdShelf">Cold shelf unit cost (EUR)</label>
+                  <input id="costColdShelf" type="number" min="0" value="4200" step="50" />
+                </div>
+                <div>
+                  <label for="costHotShelf">Hot shelf unit cost (EUR)</label>
+                  <input id="costHotShelf" type="number" min="0" value="3600" step="50" />
+                </div>
+                <div>
+                  <label for="costInstallPerShelf">Install cost per shelf (EUR)</label>
+                  <input id="costInstallPerShelf" type="number" min="0" value="280" step="10" />
+                </div>
+                <div>
+                  <label for="costIntegrationFixed">Fixed integration cost (EUR)</label>
+                  <input id="costIntegrationFixed" type="number" min="0" value="12000" step="100" />
+                </div>
+                <div>
+                  <label for="costSetupPercent">General setup overhead (%)</label>
+                  <input id="costSetupPercent" type="number" min="0" max="100" value="15" step="0.5" />
+                </div>
+                <div>
+                  <label for="costContingencyPercent">Contingency (%)</label>
+                  <input id="costContingencyPercent" type="number" min="0" max="100" value="10" step="0.5" />
+                </div>
+              </div>
+              <p class="offline-note">Counts from canvas: Ambient <span id="countAmbientShelf">0</span> | Cold <span id="countColdShelf">0</span> | Hot <span id="countHotShelf">0</span></p>
+              <p class="offline-note">Shelf + install subtotal: <strong id="plannerEstimatedSubtotal">€0</strong></p>
+              <p class="offline-note">General setup add-on: <strong id="plannerEstimatedSetup">€0</strong></p>
+              <p class="offline-note">Contingency add-on: <strong id="plannerEstimatedContingency">€0</strong></p>
+              <p class="offline-note">Estimated CAPEX ballpark: <strong id="plannerEstimatedCapex">€0</strong></p>
+              <p class="offline-note">Estimated cost per m²: <strong id="plannerEstimatedCostPerSqm">€0</strong></p>
+              <p class="offline-note">Estimated monthly service (12%/year): <strong id="plannerEstimatedMonthly">€0</strong></p>
+            </aside>
+
+            <div>
+              <div class="planner-view-toolbar">
+                <button type="button" class="action-btn active" id="plannerView2dBtn">2D Plan</button>
+                <button type="button" class="action-btn" id="plannerView3dBtn">3D View</button>
+              </div>
+              <div class="planner-view-stage">
+                <div class="planner-canvas-wrap" id="plannerCanvasWrap">
+                  <canvas id="plannerCanvas" width="960" height="620"></canvas>
+                </div>
+                <div class="planner-3d-wrap hidden" id="planner3dWrap">
+                  <div id="planner3dContainer"></div>
+                  <div class="planner-3d-hint" id="planner3dHint">Click a fixture to select · Move or rotate · Syncs to 2D plan</div>
+                  <div class="planner-3d-toolbar">
+                    <button type="button" class="action-btn active" id="planner3dMoveBtn">Move</button>
+                    <button type="button" class="action-btn" id="planner3dRotateBtn">Rotate</button>
+                    <button type="button" class="action-btn" id="planner3dHumanBtn">Drop human</button>
+                    <button type="button" class="action-btn" id="planner3dWalkBtn">Walk</button>
+                    <button type="button" class="action-btn" id="planner3dFitBtn">Fit view</button>
+                    <button type="button" class="action-btn active" id="planner3dGridBtn">Camera grid</button>
+                  </div>
+                  <div class="planner-3d-legend">
+                    <span><i style="background:#d9f04f;"></i>Ambient</span>
+                    <span><i style="background:#3b82f6;"></i>Cold</span>
+                    <span><i style="background:#f97316;"></i>Hot</span>
+                    <span><i style="background:#06b6d4;"></i>Count</span>
+                    <span><i style="background:#38bdf8;"></i>Track</span>
+                    <span><i style="background:#a78bfa;"></i>Shelf</span>
+                    <span style="color: #d1d5db;">Ceiling grid ~3 m · FOV cones · Walk: WASD</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+    <script src="libs/fabric.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="planner-app.js"></script>
+  </body>
+</html>

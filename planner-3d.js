@@ -5,9 +5,12 @@ import { PointerLockControls } from "three/addons/controls/PointerLockControls.j
 import { DEFAULT_ARTIFACTS, DEFAULT_PLANNER } from "./planner-artifacts.js";
 import { PlannerModelLibrary } from "./planner-model-loader.js";
 import { buildProceduralFixture } from "./planner-shelf-models.js";
+import { StoreTextureKit } from "./planner-textures.js";
 
 const EYE_HEIGHT = 1.62;
 const WALK_SPEED = 3.8;
+const CAMERA_GRID_SPACING = 3;
+const COVERAGE_CELL_SIZE = 1;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -130,6 +133,7 @@ export function createPlanner3D(containerEl, options = {}) {
   scene.add(new THREE.PointLight(0xffffff, 0.18, 30).translateY(4).translateX(0).translateZ(0));
 
   const modelLibrary = new PlannerModelLibrary();
+  const textureKit = new StoreTextureKit();
   let modelsLoaded = false;
 
   const clock = new THREE.Clock();
@@ -141,6 +145,7 @@ export function createPlanner3D(containerEl, options = {}) {
   let fixtureGroups = new Map();
   let storeSize = { w: 20, d: 20 };
   let floorMesh = null;
+  let showMonitoringViz = true;
   let artifactConfig = structuredClone(options.artifacts || DEFAULT_ARTIFACTS);
   let plannerConfig = structuredClone(options.planner || DEFAULT_PLANNER);
   let interactionMode = "edit";
@@ -414,7 +419,90 @@ export function createPlanner3D(containerEl, options = {}) {
     }
   }
 
+  function layoutHasMonitoring(layout) {
+    return (layout?.objects || []).some((obj) => obj.kind?.startsWith("monitor-"));
+  }
+
+  function createStandardMaterial(map, { roughness = 0.88, metalness = 0.02, color = 0xffffff } = {}) {
+    return new THREE.MeshStandardMaterial({
+      map,
+      color,
+      roughness,
+      metalness
+    });
+  }
+
+  function createCameraRig(x, y, z, { accent = 0x06b6d4, fovHeight = 2.4, fovAngle = 52, fovOpacity = 0.1 } = {}) {
+    const rig = new THREE.Group();
+    rig.position.set(x, y, z);
+
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(0.14, 0.07, 0.2),
+      new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.45, metalness: 0.2 })
+    );
+    body.rotation.x = Math.PI / 2;
+    body.position.y = 0.02;
+    rig.add(body);
+
+    const lens = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.045, 0.045, 0.04, 16),
+      new THREE.MeshStandardMaterial({
+        color: 0x111827,
+        emissive: accent,
+        emissiveIntensity: 0.35,
+        roughness: 0.2,
+        metalness: 0.4
+      })
+    );
+    lens.rotation.x = Math.PI / 2;
+    lens.position.set(0, 0.02, 0.1);
+    rig.add(lens);
+
+    const fovRadius = fovHeight * Math.tan(THREE.MathUtils.degToRad(fovAngle / 2));
+    const fov = new THREE.Mesh(
+      new THREE.ConeGeometry(fovRadius, fovHeight, 28, 1, true),
+      new THREE.MeshBasicMaterial({
+        color: accent,
+        transparent: true,
+        opacity: fovOpacity,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      })
+    );
+    fov.rotation.x = Math.PI;
+    fov.position.y = -fovHeight / 2 + 0.02;
+    rig.add(fov);
+
+    return rig;
+  }
+
+  function addLocalCoverageGrid(parent, footprintW, footprintD, strokeColor) {
+    const cell = COVERAGE_CELL_SIZE;
+    const cols = Math.max(1, Math.ceil(footprintW / cell));
+    const rows = Math.max(1, Math.ceil(footprintD / cell));
+    const points = [];
+    const ox = -footprintW / 2;
+    const oz = -footprintD / 2;
+
+    for (let c = 0; c <= cols; c += 1) {
+      const x = ox + c * cell;
+      points.push(new THREE.Vector3(x, 0.06, oz), new THREE.Vector3(x, 0.06, oz + rows * cell));
+    }
+    for (let r = 0; r <= rows; r += 1) {
+      const z = oz + r * cell;
+      points.push(new THREE.Vector3(ox, 0.06, z), new THREE.Vector3(ox + cols * cell, 0.06, z));
+    }
+
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const lines = new THREE.LineSegments(
+      geometry,
+      new THREE.LineBasicMaterial({ color: strokeColor, transparent: true, opacity: 0.55 })
+    );
+    parent.add(lines);
+  }
+
   function rebuildShell(layout) {
+    textureKit.dispose();
     while (storeGroup.children.length) {
       const child = storeGroup.children[0];
       storeGroup.remove(child);
@@ -426,20 +514,41 @@ export function createPlanner3D(containerEl, options = {}) {
     storeSize = { w, d };
     const wallH = wallHeight();
     const wallT = wallThickness();
-    const surfaceMat = new THREE.MeshStandardMaterial({
-      color: 0xf3f4f0,
-      roughness: 0.88,
-      metalness: 0.02
-    });
+    const hasMonitoring = layoutHasMonitoring(layout);
 
-    floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), surfaceMat);
+    const floorTex = textureKit.applyRepeat(textureKit.createFloorTexture(), Math.max(1, w / 2), Math.max(1, d / 2));
+    const floorMat = createStandardMaterial(floorTex);
+
+    floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), floorMat);
     floorMesh.rotation.x = -Math.PI / 2;
     floorMesh.position.set(w / 2, 0, d / 2);
     floorMesh.receiveShadow = true;
     floorMesh.userData.isStoreFloor = true;
     storeGroup.add(floorMesh);
 
-    const wallMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
+    if (hasMonitoring && showMonitoringViz) {
+      const coverageTex = textureKit.applyRepeat(
+        textureKit.createCoverageGridTexture(),
+        Math.max(1, w / COVERAGE_CELL_SIZE),
+        Math.max(1, d / COVERAGE_CELL_SIZE)
+      );
+      const coverageMat = new THREE.MeshStandardMaterial({
+        map: coverageTex,
+        transparent: true,
+        opacity: 0.55,
+        depthWrite: false,
+        roughness: 1,
+        metalness: 0
+      });
+      const coverage = new THREE.Mesh(new THREE.PlaneGeometry(w, d), coverageMat);
+      coverage.rotation.x = -Math.PI / 2;
+      coverage.position.set(w / 2, 0.025, d / 2);
+      coverage.renderOrder = 1;
+      storeGroup.add(coverage);
+    }
+
+    const wallTex = textureKit.applyRepeat(textureKit.createWallTexture(), Math.max(1, w / 2), Math.max(1, wallH / 2));
+    const wallMat = createStandardMaterial(wallTex, { roughness: 0.9, metalness: 0, color: 0xffffff });
     [
       [w / 2, wallH / 2, -wallT / 2, w, wallH, wallT],
       [w / 2, wallH / 2, d + wallT / 2, w, wallH, wallT],
@@ -449,8 +558,58 @@ export function createPlanner3D(containerEl, options = {}) {
       const wall = new THREE.Mesh(new THREE.BoxGeometry(ww, hh, dd), wallMat);
       wall.position.set(x, y, z);
       wall.receiveShadow = true;
+      wall.castShadow = true;
       storeGroup.add(wall);
     });
+
+    const ceilingTex = textureKit.applyRepeat(
+      textureKit.createCeilingTexture(),
+      Math.max(1, w / 2),
+      Math.max(1, d / 2)
+    );
+    const ceilingMat = createStandardMaterial(ceilingTex, { roughness: 0.95, metalness: 0 });
+    const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(w, d), ceilingMat);
+    ceiling.rotation.x = Math.PI / 2;
+    ceiling.position.set(w / 2, wallH - 0.04, d / 2);
+    ceiling.receiveShadow = true;
+    storeGroup.add(ceiling);
+
+    if (showMonitoringViz) {
+      const gridTex = textureKit.applyRepeat(
+        textureKit.createCameraGridTexture(),
+        Math.max(1, w / CAMERA_GRID_SPACING),
+        Math.max(1, d / CAMERA_GRID_SPACING)
+      );
+      const gridMat = new THREE.MeshStandardMaterial({
+        map: gridTex,
+        transparent: true,
+        opacity: hasMonitoring ? 0.88 : 0.45,
+        roughness: 1,
+        metalness: 0,
+        side: THREE.DoubleSide
+      });
+      const cameraGridCeiling = new THREE.Mesh(new THREE.PlaneGeometry(w, d), gridMat);
+      cameraGridCeiling.rotation.x = Math.PI / 2;
+      cameraGridCeiling.position.set(w / 2, wallH - 0.06, d / 2);
+      cameraGridCeiling.name = "camera-grid-ceiling";
+      storeGroup.add(cameraGridCeiling);
+
+      const cameraRigs = new THREE.Group();
+      cameraRigs.name = "camera-grid-rigs";
+      for (let x = CAMERA_GRID_SPACING / 2; x < w; x += CAMERA_GRID_SPACING) {
+        for (let z = CAMERA_GRID_SPACING / 2; z < d; z += CAMERA_GRID_SPACING) {
+          cameraRigs.add(
+            createCameraRig(x, wallH - 0.1, z, {
+              accent: 0x06b6d4,
+              fovHeight: 2.6,
+              fovAngle: 48,
+              fovOpacity: hasMonitoring ? 0.06 : 0.03
+            })
+          );
+        }
+      }
+      storeGroup.add(cameraRigs);
+    }
 
     const grid = new THREE.GridHelper(Math.max(w, d), Math.max(w, d), 0x6b7280, 0xd1d5db);
     grid.position.set(w / 2, 0.015, d / 2);
@@ -464,8 +623,10 @@ export function createPlanner3D(containerEl, options = {}) {
 
   function addMonitoringOverlay(parent, spec, footprintW, footprintD, kind) {
     const overlayH = 0.04;
+    const accent = hexToNumber(spec.color3d);
+    const stroke = hexToNumber(spec.palette?.stroke || spec.color3d);
     const mat = makeMaterial(spec, kind);
-    mat.emissive = new THREE.Color(hexToNumber(spec.color3d));
+    mat.emissive = new THREE.Color(accent);
     mat.emissiveIntensity = 0.35;
     mat.depthWrite = false;
 
@@ -473,8 +634,10 @@ export function createPlanner3D(containerEl, options = {}) {
     slab.position.y = overlayH / 2 + 0.02;
     parent.add(slab);
 
+    addLocalCoverageGrid(parent, footprintW, footprintD, stroke);
+
     const edgeMat = new THREE.MeshBasicMaterial({
-      color: hexToNumber(spec.palette?.stroke || spec.color3d),
+      color: stroke,
       transparent: true,
       opacity: 0.85
     });
@@ -485,16 +648,26 @@ export function createPlanner3D(containerEl, options = {}) {
       [0, edgeH / 2, footprintD / 2, footprintW, edgeH, edgeT],
       [-footprintW / 2, edgeH / 2, 0, edgeT, edgeH, footprintD],
       [footprintW / 2, edgeH / 2, 0, edgeT, edgeH, footprintD]
-    ].forEach(([x, y, z, w, h, d]) => {
-      const edge = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), edgeMat);
+    ].forEach(([x, y, z, w, h, dd]) => {
+      const edge = new THREE.Mesh(new THREE.BoxGeometry(w, h, dd), edgeMat);
       edge.position.set(x, y + 0.02, z);
       parent.add(edge);
     });
 
+    const fovAngle = kind === "monitor-entrance" ? 62 : kind === "monitor-shelf-zone" ? 44 : 56;
+    const fovHeight = kind === "monitor-shelf-zone" ? 1.8 : 2.5;
+    const zoneCamera = createCameraRig(0, wallHeight() - 0.1, 0, {
+      accent,
+      fovHeight,
+      fovAngle,
+      fovOpacity: 0.14
+    });
+    parent.add(zoneCamera);
+
     if (kind === "monitor-entrance") {
       const postMat = new THREE.MeshStandardMaterial({
-        color: hexToNumber(spec.color3d),
-        emissive: hexToNumber(spec.color3d),
+        color: accent,
+        emissive: accent,
         emissiveIntensity: 0.5,
         roughness: 0.4
       });
@@ -764,6 +937,15 @@ export function createPlanner3D(containerEl, options = {}) {
       fitCamera(true);
     },
 
+    setShowMonitoringViz(show) {
+      showMonitoringViz = show !== false;
+      if (lastLayout && active) rebuildStore(lastLayout, { preserveSelectionId: selectedGroup?.userData?.objectId || null });
+    },
+
+    getShowMonitoringViz() {
+      return showMonitoringViz;
+    },
+
     setActive(isActive) {
       active = isActive;
       if (active) {
@@ -789,6 +971,7 @@ export function createPlanner3D(containerEl, options = {}) {
       resizeObserver.disconnect();
       disposePointerLock();
       transformControls.dispose();
+      textureKit.dispose();
       disposeObject(storeGroup);
       disposeObject(fixturesGroup);
       disposeObject(humanGroup);
