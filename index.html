@@ -1949,6 +1949,21 @@
                   <button class="action-btn planner-add-btn" data-kind="separator-wall">Separator Wall</button>
                   <button class="action-btn planner-add-btn" data-kind="security-cage">Security Cage</button>
                   <button class="action-btn planner-add-btn" data-kind="entry-zone">Entry Zone</button>
+                </div>
+
+                <h4 style="margin-top: 14px;">Shelf monitoring</h4>
+                <p class="readiness-sub" style="margin: 0 0 8px;">
+                  Place entrances and zones to model people counting, tracking, and shelf interactions.
+                </p>
+                <div class="planner-actions">
+                  <button class="action-btn planner-add-btn" data-kind="monitor-entrance">Count entrance</button>
+                  <button class="action-btn planner-add-btn" data-kind="monitor-people-zone">People zone</button>
+                  <button class="action-btn planner-add-btn" data-kind="monitor-shelf-zone">Shelf monitor</button>
+                  <button class="action-btn planner-add-btn" data-kind="monitor-interaction-zone">Interaction zone</button>
+                </div>
+                <p class="offline-note" id="plannerMonitoringSummary">No monitoring zones placed.</p>
+
+                <div class="planner-actions" style="margin-top: 8px;">
                   <button class="action-btn" id="plannerDeleteSelectedBtn">Delete Selected</button>
                 </div>
 
@@ -2028,7 +2043,10 @@
                       <span><i style="background:#d9f04f;"></i>Ambient</span>
                       <span><i style="background:#3b82f6;"></i>Cold</span>
                       <span><i style="background:#f97316;"></i>Hot</span>
-                      <span style="color: var(--muted);">Shelves: Kenney CC0 models · Walk: WASD · Esc exits</span>
+                      <span><i style="background:#06b6d4;"></i>Count</span>
+                      <span><i style="background:#38bdf8;"></i>Track</span>
+                      <span><i style="background:#a78bfa;"></i>Shelf</span>
+                      <span style="color: var(--muted);">Walk: WASD · Esc exits</span>
                     </div>
                   </div>
                 </div>
@@ -2535,7 +2553,9 @@
             badge3d: spec.badge3d,
             emissive3d: spec.emissive3d,
             tag2d: spec.tag2d,
-            opacity3d: spec.opacity3d
+            opacity3d: spec.opacity3d,
+            monitorCapability: spec.monitorCapability,
+            monitorMetrics: spec.monitorMetrics
           };
         });
       }
@@ -2574,6 +2594,46 @@
         return plannerState.canvas.getObjects().find((obj) => obj.plannerObjectId === objectId) || null;
       }
 
+      function buildMonitoringPlan(objects) {
+        const zones = (objects || [])
+          .filter((obj) => obj.kind && obj.kind.startsWith("monitor-"))
+          .map((obj) => {
+            const spec = getArtifactSpec(obj.kind);
+            return {
+              id: obj.id,
+              kind: obj.kind,
+              label: spec.label,
+              capability: spec.monitorCapability || obj.monitor?.capability,
+              metrics: spec.monitorMetrics || obj.monitor?.metrics || [],
+              meters: obj.meters,
+              angle: obj.angle
+            };
+          });
+        return {
+          zoneCount: zones.length,
+          entrances: zones.filter((z) => z.capability === "count").length,
+          tracking: zones.filter((z) => z.capability === "track").length,
+          interaction: zones.filter((z) => z.capability === "interaction").length,
+          zones
+        };
+      }
+
+      function updateMonitoringSummary() {
+        const summaryEl = document.getElementById("plannerMonitoringSummary");
+        if (!summaryEl || !plannerState.canvas) return;
+        const layout = getPlannerLayoutSnapshot();
+        if (!layout) {
+          summaryEl.textContent = "No monitoring zones placed.";
+          return;
+        }
+        const plan = layout.monitoring;
+        if (!plan?.zoneCount) {
+          summaryEl.textContent = "No monitoring zones placed.";
+          return;
+        }
+        summaryEl.textContent = `${plan.zoneCount} zones · ${plan.entrances} count entrances · ${plan.tracking} people tracking · ${plan.interaction} interaction`;
+      }
+
       function getPlannerLayoutSnapshot() {
         if (!plannerState.canvas) return null;
         const skip = new Set([plannerState.boundary, plannerState.blueprintObject, ...plannerState.gridObjects]);
@@ -2602,13 +2662,22 @@
                 z: (center.y - PLANNER_MARGIN) / plannerState.scale,
                 w: footprintW,
                 h: footprintD
-              }
+              },
+              ...(kind.startsWith("monitor-")
+                ? {
+                    monitor: {
+                      capability: spec.monitorCapability,
+                      metrics: spec.monitorMetrics || []
+                    }
+                  }
+                : {})
             };
           });
 
         return {
           widthMeters: plannerState.widthMeters,
           heightMeters: plannerState.heightMeters,
+          monitoring: buildMonitoringPlan(objects),
           objects
         };
       }
@@ -3474,6 +3543,80 @@
               })
             );
           }
+        } else if (type === "monitor-entrance") {
+          const { fill, stroke } = spec.palette || { fill: "#cffafe", stroke: "#0e7490" };
+          shapes.push(
+            new fabric.Rect({
+              width,
+              height: Math.max(6, height),
+              fill,
+              stroke,
+              strokeWidth: strokeW,
+              strokeDashArray: [8, 4],
+              originX: "center",
+              originY: "center"
+            })
+          );
+          [-0.32, 0.32].forEach((offset) => {
+            shapes.push(
+              new fabric.Triangle({
+                width: Math.max(10, width * 0.14),
+                height: Math.max(10, width * 0.12),
+                left: width * offset,
+                fill: stroke,
+                angle: offset < 0 ? -90 : 90,
+                originX: "center",
+                originY: "center"
+              })
+            );
+          });
+          shapes.push(
+            new fabric.Text(spec.tag2d || "IN/OUT", {
+              fontSize: Math.max(8, plannerFontSize(0.5)),
+              fontFamily: "Inter, Arial, sans-serif",
+              fontWeight: "700",
+              fill: stroke,
+              originX: "center",
+              originY: "center"
+            })
+          );
+        } else if (type === "monitor-zone") {
+          const { fill, stroke } = spec.palette || { fill: "#e0f2fe", stroke: "#0369a1" };
+          shapes.push(
+            new fabric.Rect({
+              width,
+              height,
+              fill,
+              stroke,
+              strokeWidth: strokeW,
+              strokeDashArray: [10, 5],
+              originX: "center",
+              originY: "center"
+            })
+          );
+          const stripes = 5;
+          for (let i = 0; i < stripes; i += 1) {
+            const x = -width / 2 + ((i + 0.5) * width) / stripes;
+            shapes.push(
+              new fabric.Line([x, -height / 2 + 4, x + width * 0.08, height / 2 - 4], {
+                stroke,
+                strokeWidth: Math.max(0.5, strokeW * 0.45),
+                opacity: 0.35,
+                originX: "center",
+                originY: "center"
+              })
+            );
+          }
+          shapes.push(
+            new fabric.Text(spec.tag2d || "ZONE", {
+              fontSize: Math.max(9, plannerFontSize(0.55)),
+              fontFamily: "Inter, Arial, sans-serif",
+              fontWeight: "800",
+              fill: stroke,
+              originX: "center",
+              originY: "center"
+            })
+          );
         }
 
         shapes.push(
@@ -3567,6 +3710,7 @@
         plannerEstimatedCapexLabel.textContent = currency.format(capex);
         plannerEstimatedCostPerSqmLabel.textContent = `${currency.format(capexPerSqm)}/m²`;
         plannerEstimatedMonthlyLabel.textContent = currency.format(monthlyService);
+        updateMonitoringSummary();
       }
 
       function resizePlannerCanvasToContainer() {
@@ -4201,12 +4345,15 @@
       plannerExportJsonBtn.addEventListener("click", () => {
         if (!plannerState.canvas) initPlanner();
         if (!plannerState.canvas) return;
+        const layout = getPlannerLayoutSnapshot();
         const plannerPayload = {
           exportedAt: new Date().toISOString(),
           widthMeters: plannerState.widthMeters,
           heightMeters: plannerState.heightMeters,
           activePresetId: plannerState.activePresetId,
           costModel: getPlannerCostModel(),
+          monitoring: layout?.monitoring || null,
+          layout,
           canvasJson: plannerState.canvas.toDatalessJSON(["plannerKind", "plannerObjectId", "plannerMeters"])
         };
         const blob = new Blob([JSON.stringify(plannerPayload, null, 2)], { type: "application/json" });

@@ -426,9 +426,8 @@ export function createPlanner3D(containerEl, options = {}) {
     storeSize = { w, d };
     const wallH = wallHeight();
     const wallT = wallThickness();
-    const surfaceColor = 0xf3f4f0;
     const surfaceMat = new THREE.MeshStandardMaterial({
-      color: surfaceColor,
+      color: 0xf3f4f0,
       roughness: 0.88,
       metalness: 0.02
     });
@@ -440,7 +439,7 @@ export function createPlanner3D(containerEl, options = {}) {
     floorMesh.userData.isStoreFloor = true;
     storeGroup.add(floorMesh);
 
-    const wallMat = surfaceMat.clone();
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
     [
       [w / 2, wallH / 2, -wallT / 2, w, wallH, wallT],
       [w / 2, wallH / 2, d + wallT / 2, w, wallH, wallT],
@@ -460,6 +459,50 @@ export function createPlanner3D(containerEl, options = {}) {
     if (humanPlaced) {
       const next = clampToStore(humanGroup.position.x, humanGroup.position.z);
       humanGroup.position.set(next.x, 0, next.z);
+    }
+  }
+
+  function addMonitoringOverlay(parent, spec, footprintW, footprintD, kind) {
+    const overlayH = 0.04;
+    const mat = makeMaterial(spec, kind);
+    mat.emissive = new THREE.Color(hexToNumber(spec.color3d));
+    mat.emissiveIntensity = 0.35;
+    mat.depthWrite = false;
+
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(footprintW, overlayH, footprintD), mat);
+    slab.position.y = overlayH / 2 + 0.02;
+    parent.add(slab);
+
+    const edgeMat = new THREE.MeshBasicMaterial({
+      color: hexToNumber(spec.palette?.stroke || spec.color3d),
+      transparent: true,
+      opacity: 0.85
+    });
+    const edgeT = 0.03;
+    const edgeH = 0.12;
+    [
+      [0, edgeH / 2, -footprintD / 2, footprintW, edgeH, edgeT],
+      [0, edgeH / 2, footprintD / 2, footprintW, edgeH, edgeT],
+      [-footprintW / 2, edgeH / 2, 0, edgeT, edgeH, footprintD],
+      [footprintW / 2, edgeH / 2, 0, edgeT, edgeH, footprintD]
+    ].forEach(([x, y, z, w, h, d]) => {
+      const edge = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), edgeMat);
+      edge.position.set(x, y + 0.02, z);
+      parent.add(edge);
+    });
+
+    if (kind === "monitor-entrance") {
+      const postMat = new THREE.MeshStandardMaterial({
+        color: hexToNumber(spec.color3d),
+        emissive: hexToNumber(spec.color3d),
+        emissiveIntensity: 0.5,
+        roughness: 0.4
+      });
+      [-footprintW * 0.35, footprintW * 0.35].forEach((x) => {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.1, 8), postMat);
+        post.position.set(x, 0.55, 0);
+        parent.add(post);
+      });
     }
   }
 
@@ -503,6 +546,11 @@ export function createPlanner3D(containerEl, options = {}) {
       const dd = isVertical ? footprintD : wallThickness();
       const wallSpec = { ...spec, heightMeters: wallHeight() };
       addBox(group, ww, wallHeight(), dd, wallSpec, obj.kind);
+      return group;
+    }
+
+    if (obj.kind.startsWith("monitor-")) {
+      addMonitoringOverlay(group, spec, footprintW, footprintD, obj.kind);
       return group;
     }
 

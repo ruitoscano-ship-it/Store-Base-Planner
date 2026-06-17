@@ -141,6 +141,62 @@ export const DEFAULT_ARTIFACTS = {
     shelfLevels: 0,
     color3d: "#facc15",
     opacity3d: 0.5
+  },
+  "monitor-entrance": {
+    label: "Count entrance",
+    type: "monitor-entrance",
+    widthMeters: 2,
+    depthMeters: 0.35,
+    heightMeters: 0.05,
+    shelfLevels: 0,
+    monitorCapability: "count",
+    monitorMetrics: ["entries", "exits", "occupancy"],
+    palette: { fill: "#cffafe", stroke: "#0e7490" },
+    color3d: "#06b6d4",
+    opacity3d: 0.58,
+    tag2d: "IN/OUT"
+  },
+  "monitor-people-zone": {
+    label: "People zone",
+    type: "monitor-zone",
+    widthMeters: 4,
+    depthMeters: 3,
+    heightMeters: 0.05,
+    shelfLevels: 0,
+    monitorCapability: "track",
+    monitorMetrics: ["footfall", "dwell", "path"],
+    palette: { fill: "#e0f2fe", stroke: "#0369a1" },
+    color3d: "#38bdf8",
+    opacity3d: 0.4,
+    tag2d: "TRACK"
+  },
+  "monitor-shelf-zone": {
+    label: "Shelf monitor",
+    type: "monitor-zone",
+    widthMeters: 1.2,
+    depthMeters: 0.85,
+    heightMeters: 0.05,
+    shelfLevels: 0,
+    monitorCapability: "interaction",
+    monitorMetrics: ["pick", "touch", "attention"],
+    palette: { fill: "#ede9fe", stroke: "#6d28d9" },
+    color3d: "#a78bfa",
+    opacity3d: 0.45,
+    tag2d: "SHELF"
+  },
+  "monitor-interaction-zone": {
+    label: "Interaction zone",
+    type: "monitor-zone",
+    widthMeters: 2.5,
+    depthMeters: 2,
+    heightMeters: 0.05,
+    shelfLevels: 0,
+    monitorCapability: "interaction",
+    monitorMetrics: ["engagement", "conversion", "queue"],
+    palette: { fill: "#fce7f3", stroke: "#be185d" },
+    color3d: "#f472b6",
+    opacity3d: 0.42,
+    tag2d: "ENGAGE"
   }
 };
 
@@ -159,7 +215,9 @@ export function artifactsToPlannerMap(artifacts = DEFAULT_ARTIFACTS) {
       badge3d: spec.badge3d,
       emissive3d: spec.emissive3d,
       tag2d: spec.tag2d,
-      opacity3d: spec.opacity3d
+      opacity3d: spec.opacity3d,
+      monitorCapability: spec.monitorCapability,
+      monitorMetrics: spec.monitorMetrics
     };
   });
   return map;

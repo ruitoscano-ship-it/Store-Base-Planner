@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-02T22:12:24.808Z",
+  "updatedAt": "2026-06-17T16:53:05.074Z",
   "planner": {
     "wallHeightMeters": 2.8,
     "wallThicknessMeters": 0.12,
@@ -37,7 +37,10 @@
         "fill": "#f4eed8",
         "stroke": "#5c4a1f"
       },
-      "color3d": "#e8dcc0"
+      "color3d": "#e8dcc0",
+      "badge3d": "#bef264",
+      "emissive3d": "#84cc16",
+      "tag2d": "AMB"
     },
     "shelf-cold": {
       "label": "Cold",
@@ -50,7 +53,10 @@
         "fill": "#dbeafe",
         "stroke": "#1e40af"
       },
-      "color3d": "#5b9bd5"
+      "color3d": "#5b9bd5",
+      "badge3d": "#3b82f6",
+      "emissive3d": "#0284c7",
+      "tag2d": "COLD"
     },
     "shelf-hot": {
       "label": "Hot",
@@ -63,7 +69,10 @@
         "fill": "#ffedd5",
         "stroke": "#9a3412"
       },
-      "color3d": "#e8935a"
+      "color3d": "#e8935a",
+      "badge3d": "#f97316",
+      "emissive3d": "#ea580c",
+      "tag2d": "HOT"
     },
     "entry-open": {
       "label": "Entry",
@@ -148,6 +157,90 @@
       "shelfLevels": 0,
       "color3d": "#facc15",
       "opacity3d": 0.5
+    },
+    "monitor-entrance": {
+      "label": "Count entrance",
+      "type": "monitor-entrance",
+      "widthMeters": 2,
+      "depthMeters": 0.35,
+      "heightMeters": 0.05,
+      "shelfLevels": 0,
+      "monitorCapability": "count",
+      "monitorMetrics": [
+        "entries",
+        "exits",
+        "occupancy"
+      ],
+      "palette": {
+        "fill": "#cffafe",
+        "stroke": "#0e7490"
+      },
+      "color3d": "#06b6d4",
+      "opacity3d": 0.58,
+      "tag2d": "IN/OUT"
+    },
+    "monitor-people-zone": {
+      "label": "People zone",
+      "type": "monitor-zone",
+      "widthMeters": 4,
+      "depthMeters": 3,
+      "heightMeters": 0.05,
+      "shelfLevels": 0,
+      "monitorCapability": "track",
+      "monitorMetrics": [
+        "footfall",
+        "dwell",
+        "path"
+      ],
+      "palette": {
+        "fill": "#e0f2fe",
+        "stroke": "#0369a1"
+      },
+      "color3d": "#38bdf8",
+      "opacity3d": 0.4,
+      "tag2d": "TRACK"
+    },
+    "monitor-shelf-zone": {
+      "label": "Shelf monitor",
+      "type": "monitor-zone",
+      "widthMeters": 1.2,
+      "depthMeters": 0.85,
+      "heightMeters": 0.05,
+      "shelfLevels": 0,
+      "monitorCapability": "interaction",
+      "monitorMetrics": [
+        "pick",
+        "touch",
+        "attention"
+      ],
+      "palette": {
+        "fill": "#ede9fe",
+        "stroke": "#6d28d9"
+      },
+      "color3d": "#a78bfa",
+      "opacity3d": 0.45,
+      "tag2d": "SHELF"
+    },
+    "monitor-interaction-zone": {
+      "label": "Interaction zone",
+      "type": "monitor-zone",
+      "widthMeters": 2.5,
+      "depthMeters": 2,
+      "heightMeters": 0.05,
+      "shelfLevels": 0,
+      "monitorCapability": "interaction",
+      "monitorMetrics": [
+        "engagement",
+        "conversion",
+        "queue"
+      ],
+      "palette": {
+        "fill": "#fce7f3",
+        "stroke": "#be185d"
+      },
+      "color3d": "#f472b6",
+      "opacity3d": 0.42,
+      "tag2d": "ENGAGE"
     }
   },
   "costs": {
