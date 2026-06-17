@@ -454,9 +454,11 @@ export function createPlanner3D(containerEl, options = {}) {
     });
   }
 
-  function createCameraRig(x, y, z, { accent = 0x06b6d4, fovHeight = 2.4, fovAngle = 52, fovOpacity = 0.1 } = {}) {
+  function createCameraRig(x, y, z, { accent = 0x06b6d4, fovHeight, fovAngle = 52, fovOpacity = 0.1 } = {}) {
     const rig = new THREE.Group();
     rig.position.set(x, y, z);
+
+    const dropHeight = Math.max(0.5, fovHeight ?? y);
 
     const mountMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.45, metalness: 0.2 });
     const lensMat = new THREE.MeshStandardMaterial({
@@ -479,9 +481,9 @@ export function createPlanner3D(containerEl, options = {}) {
     lens.position.y = -0.11;
     rig.add(lens);
 
-    const fovRadius = fovHeight * Math.tan(THREE.MathUtils.degToRad(fovAngle / 2));
+    const fovRadius = dropHeight * Math.tan(THREE.MathUtils.degToRad(fovAngle / 2));
     const fov = new THREE.Mesh(
-      new THREE.ConeGeometry(fovRadius, fovHeight, 28, 1, true),
+      new THREE.ConeGeometry(fovRadius, dropHeight, 28, 1, true),
       new THREE.MeshBasicMaterial({
         color: accent,
         transparent: true,
@@ -490,8 +492,8 @@ export function createPlanner3D(containerEl, options = {}) {
         side: THREE.DoubleSide
       })
     );
-    fov.rotation.x = Math.PI;
-    fov.position.y = 0;
+    // ConeGeometry is Y-centered: apex at +h/2, base at -h/2. Offset so apex is at the mount and base reaches y=0.
+    fov.position.y = -dropHeight / 2;
     rig.add(fov);
 
     return rig;
@@ -728,13 +730,12 @@ export function createPlanner3D(containerEl, options = {}) {
       const cameraRigs = new THREE.Group();
       cameraRigs.name = "camera-grid-rigs";
       const ceilingDrop = wallH - 0.08;
-      const fovDrop = wallH - 0.1;
       for (let x = CAMERA_GRID_SPACING / 2; x < w; x += CAMERA_GRID_SPACING) {
         for (let z = CAMERA_GRID_SPACING / 2; z < d; z += CAMERA_GRID_SPACING) {
           cameraRigs.add(
             createCameraRig(x, ceilingDrop, z, {
               accent: 0x06b6d4,
-              fovHeight: fovDrop,
+              fovHeight: ceilingDrop,
               fovAngle: 48,
               fovOpacity: hasMonitoring ? 0.06 : 0.03
             })
@@ -790,10 +791,9 @@ export function createPlanner3D(containerEl, options = {}) {
     const fovAngle = kind === "monitor-entrance" ? 62 : kind === "monitor-shelf-zone" ? 44 : 56;
     const wallH = wallHeight();
     const ceilingDrop = wallH - 0.08;
-    const fovDrop = wallH - 0.1;
     const zoneCamera = createCameraRig(0, ceilingDrop, 0, {
       accent,
-      fovHeight: fovDrop,
+      fovHeight: ceilingDrop,
       fovAngle,
       fovOpacity: 0.14
     });

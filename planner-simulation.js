@@ -121,9 +121,7 @@ export class ShopperSim {
     this.sessionLeaves = 0;
     this.targetOccupancy = 0;
     this.elapsed = 0;
-    this.setCount(count);
-    this.sessionEntries = 0;
-    this.sessionLeaves = 0;
+    this.setCount(count, { trackEntries: false });
   }
 
   applyLayout(layout) {
@@ -149,15 +147,15 @@ export class ShopperSim {
     return this.signature === layoutSignature(layout);
   }
 
-  setCount(count) {
+  setCount(count, { trackEntries = true } = {}) {
     const target = clamp(Math.round(Number(count) || 0), 0, 120);
     this.targetOccupancy = target;
     while (this.shoppers.length < target) {
-      this.shoppers.push(this.spawnShopper({ atEntrance: true, countEntry: true }));
+      this.shoppers.push(this.spawnShopper({ atEntrance: true, countEntry: trackEntries }));
     }
     while (this.shoppers.length > target) {
       const shopper = this.shoppers.pop();
-      if (shopper && shopper.state === "inside") this.sessionLeaves += 1;
+      if (trackEntries && shopper && shopper.state === "inside") this.sessionLeaves += 1;
     }
   }
 
@@ -220,12 +218,12 @@ export class ShopperSim {
     this.heat.fill(0);
     this.sessionCaptures = 0;
     this.sessionRaw = 0;
+    this.sessionEntries = 0;
+    this.sessionLeaves = 0;
     this.elapsed = 0;
     const count = this.targetOccupancy || this.shoppers.length;
     this.shoppers = [];
-    this.setCount(count);
-    this.sessionEntries = 0;
-    this.sessionLeaves = 0;
+    this.setCount(count, { trackEntries: false });
   }
 
   splatHeat(x, z, amount) {
