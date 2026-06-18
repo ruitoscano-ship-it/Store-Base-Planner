@@ -89,6 +89,25 @@
     layoutGapMeters: 0.15
   };
   let layoutStepForArtifact = null;
+  let buildStorePresetLayoutFn = null;
+
+  async function ensureLayoutBuilder() {
+    if (buildStorePresetLayoutFn) return buildStorePresetLayoutFn;
+    const mod = await import("./planner-layout-builder.js");
+    buildStorePresetLayoutFn = mod.buildStorePresetLayout;
+    return buildStorePresetLayoutFn;
+  }
+
+  function artifactCatalogForBuilder() {
+    const catalog = {};
+    Object.entries(PLANNER_ARTIFACTS).forEach(([kind, spec]) => {
+      catalog[kind] = {
+        widthMeters: spec.w,
+        depthMeters: spec.h
+      };
+    });
+    return catalog;
+  }
 
   function getArtifactSpec(kind) {
     return PLANNER_ARTIFACTS[kind] || { label: kind, w: 1, h: 1, widthMeters: 1, depthMeters: 1 };
@@ -591,57 +610,6 @@
     }
   }
 
-  const FIXTURE_TEMPLATE_18x14 = [
-    { kind: "entry-gated", x: 7.2, y: 0.25 },
-    { kind: "checkout", x: 10.2, y: 1 },
-    { kind: "technical", x: 0.7, y: 9.2 },
-    { kind: "warehouse", x: 12.8, y: 8.8 },
-    { kind: "aisle", x: 7, y: 5, angle: 0 }
-  ];
-
-  const CLIENT_PRESET_LAYOUT = {
-    small: {
-      fixtures: [
-        { kind: "entry-gated", x: 4.1, y: 0.2 },
-        { kind: "checkout", x: 6.2, y: 1 },
-        { kind: "technical", x: 0.6, y: 6.8 },
-        { kind: "warehouse", x: 7.2, y: 7.8 },
-        { kind: "aisle", x: 3.8, y: 4.2, angle: 90 }
-      ]
-    },
-    medium: {
-      fixtures: FIXTURE_TEMPLATE_18x14
-    },
-    large: {
-      fixtures: FIXTURE_TEMPLATE_18x14,
-      refW: 18,
-      refH: 14,
-      extras: [
-        { kind: "checkout", x: 14.5, y: 1 },
-        { kind: "warehouse", x: 22, y: 18 },
-        { kind: "aisle", x: 14, y: 12, angle: 90 }
-      ]
-    },
-    xlarge: {
-      fixtures: FIXTURE_TEMPLATE_18x14,
-      refW: 18,
-      refH: 14,
-      extras: [
-        { kind: "checkout", x: 16, y: 1 },
-        { kind: "checkout", x: 22, y: 1 },
-        { kind: "warehouse", x: 32, y: 22 },
-        { kind: "aisle", x: 20, y: 16, angle: 0 },
-        { kind: "aisle", x: 28, y: 10, angle: 90 }
-      ]
-    },
-    bespoke: {
-      fixtures: FIXTURE_TEMPLATE_18x14,
-      refW: 18,
-      refH: 14,
-      dynamicSize: true
-    }
-  };
-
   let storeProfileConfig = null;
   let STORE_PRESETS = {};
 
@@ -650,11 +618,10 @@
     const merged = {};
     Object.keys(config.profiles).forEach((id) => {
       const profile = config.profiles[id];
-      const layout = CLIENT_PRESET_LAYOUT[id] || {};
       merged[id] = {
-        ...layout,
         ...profile,
-        shelves: profile.shelves ? { ...profile.shelves } : layout.shelves
+        shelves: profile.shelves ? { ...profile.shelves } : undefined,
+        dynamicSize: Boolean(profile.dynamicSize || id === "bespoke")
       };
     });
     return merged;
@@ -703,6 +670,7 @@
       STORE_PRESETS = buildStorePresetsFromConfig(storeProfileConfig);
       defaultPlannerCostModel = getDefaultPlannerCostModel();
       applyPlannerCostModel(defaultPlannerCostModel);
+      await ensureLayoutBuilder();
       return true;
     } catch (_error) {
       try {
@@ -711,6 +679,7 @@
           layoutStepForArtifact = mod.layoutStepForArtifact;
           applyArtifactConfigFromProfiles({ planner: mod.DEFAULT_PLANNER, artifacts: mod.getAllArtifacts() });
         }
+        await ensureLayoutBuilder();
       } catch (_importError) {
         // Keep empty artifacts if module fails.
       }
@@ -736,14 +705,6 @@
     };
   }
 
-  function scaleFixturesToStore(fixtures, storeW, storeH, refW, refH) {
-    return fixtures.map((fixture) => ({
-      kind: fixture.kind,
-      x: (fixture.x / refW) * storeW,
-      y: (fixture.y / refH) * storeH,
-      angle: fixture.angle || 0
-    }));
-  }
 
   function shelvesForBespokeArea(widthMeters, heightMeters) {
     const area = widthMeters * heightMeters;
@@ -761,7 +722,7 @@
 
   function resolvePresetLayout(presetId) {
     const preset = STORE_PRESETS[presetId];
-    if (!preset) return null;
+    if (!preset || !buildStorePresetLayoutFn) return null;
 
     let widthMeters = preset.widthMeters;
     let heightMeters = preset.heightMeters;
@@ -771,81 +732,29 @@
     }
 
     let shelves = preset.shelves;
-    if (preset.dynamicSize) {
+    if (preset.dynamicSize || !shelves) {
       shelves = shelvesForBespokeArea(widthMeters, heightMeters);
     }
 
-    let fixtures = preset.fixtures || [];
-    if (preset.refW && preset.refH) {
-      fixtures = scaleFixturesToStore(fixtures, widthMeters, heightMeters, preset.refW, preset.refH);
-    }
-    if (preset.extras) {
-      const scaledExtras = preset.extras.map((fixture) => {
-        if (fixture.x <= 1 && fixture.y <= 1 && presetId !== "bespoke") {
-          return {
-            kind: fixture.kind,
-            x: fixture.x * widthMeters,
-            y: fixture.y * heightMeters,
-            angle: fixture.angle || 0
-          };
-        }
-        return fixture;
-      });
-      fixtures = fixtures.concat(scaledExtras);
-    }
-    if (preset.dynamicSize) {
-      fixtures = scaleFixturesToStore(preset.fixtures, widthMeters, heightMeters, preset.refW, preset.refH);
-    }
+    const built = buildStorePresetLayoutFn({
+      widthMeters,
+      depthMeters: heightMeters,
+      shelves,
+      artifacts: artifactCatalogForBuilder(),
+      gapMeters: plannerSettings.layoutGapMeters ?? 0.15,
+      marginMeters: 0.55,
+      includeMonitoring: true
+    });
 
-    return { preset, widthMeters, heightMeters, shelves, fixtures };
-  }
-
-  function layoutPresetShelves(counts) {
-    const w = plannerState.widthMeters;
-    const h = plannerState.heightMeters;
-    const gap = plannerSettings.layoutGapMeters ?? 0.15;
-    const coldSpec = getArtifactSpec("shelf-cold");
-    const hotSpec = getArtifactSpec("shelf-hot");
-    const ambientSpec = getArtifactSpec("shelf-ambient");
-    const stepCold = artifactLayoutStep("shelf-cold");
-    const stepHot = artifactLayoutStep("shelf-hot");
-    const stepAmbientX = (ambientSpec.w || 1.2) + gap;
-    const stepAmbientY = (ambientSpec.h || 0.45) + gap + 0.5;
-    const inset = 0.7;
-
-    let x = inset;
-    for (let i = 0; i < counts.cold; i += 1) {
-      if (x > w - inset - (coldSpec.w || 1.2)) break;
-      const point = canvasPointFromMeters(x, inset);
-      addPlannerObject("shelf-cold", { left: point.left, top: point.top, angle: 0, silent: true });
-      x += stepCold;
-    }
-
-    let y = inset + (hotSpec.h || 0.6) + gap;
-    for (let i = 0; i < counts.hot; i += 1) {
-      if (y > h - inset - (hotSpec.w || 1)) break;
-      const point = canvasPointFromMeters(w - inset - (hotSpec.w || 1), y);
-      addPlannerObject("shelf-hot", { left: point.left, top: point.top, angle: 90, silent: true });
-      y += stepHot;
-    }
-
-    const cols = Math.max(2, Math.floor((w - inset * 2 - stepAmbientX) / stepAmbientX));
-    const startX = inset + 0.4;
-    const startY = inset + (coldSpec.h || 0.55) + stepAmbientY;
-    for (let i = 0; i < counts.ambient; i += 1) {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      const px = startX + col * stepAmbientX;
-      const py = startY + row * stepAmbientY;
-      if (py > h - inset - (ambientSpec.h || 0.45)) break;
-      const point = canvasPointFromMeters(px, py);
-      addPlannerObject("shelf-ambient", {
-        left: point.left,
-        top: point.top,
-        angle: col % 2 === 1 ? 90 : 0,
-        silent: true
-      });
-    }
+    return {
+      preset,
+      widthMeters,
+      heightMeters,
+      shelves,
+      fixtures: built.fixtures,
+      placed: built.placed,
+      requested: built.requested
+    };
   }
 
   function clearPlannerBlueprint() {
@@ -895,14 +804,19 @@
       });
     });
 
-    layoutPresetShelves(shelves);
-
     plannerState.activePresetId = presetId;
     highlightActivePresetButton();
 
     const area = widthMeters * heightMeters;
-    const shelfTotal = shelves.ambient + shelves.cold + shelves.hot;
-    plannerPresetSummary.textContent = `${preset.label}: ${widthMeters}×${heightMeters} m (${number.format(area)} m²) · ${shelfTotal} shelves (${shelves.ambient} amb / ${shelves.cold} cold / ${shelves.hot} hot)`;
+    const placed = layout.placed || {};
+    const requested = layout.requested || shelves;
+    const shelfTotal = (placed.ambient ?? 0) + (placed.cold ?? 0) + (placed.hot ?? 0);
+    const requestedTotal = (requested.ambient ?? 0) + (requested.cold ?? 0) + (requested.hot ?? 0);
+    const fitNote =
+      shelfTotal < requestedTotal
+        ? ` · ${shelfTotal}/${requestedTotal} shelves fit without overlap`
+        : "";
+    plannerPresetSummary.textContent = `${preset.label}: ${widthMeters}×${heightMeters} m (${number.format(area)} m²) · ${shelfTotal} shelves (${placed.ambient ?? 0} dry / ${placed.cold ?? 0} cold / ${placed.hot ?? 0} hot)${fitNote}`;
     plannerStatus.textContent = `${preset.label} baseline loaded — ${preset.blurb}. Adjust layout and costs as needed.`;
     plannerStatus.style.color = "var(--ok)";
 
