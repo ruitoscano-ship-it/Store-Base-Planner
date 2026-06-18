@@ -20,6 +20,7 @@
   const planner3dHumanBtn = document.getElementById("planner3dHumanBtn");
   const planner3dWalkBtn = document.getElementById("planner3dWalkBtn");
   const planner3dFitBtn = document.getElementById("planner3dFitBtn");
+  const planner3dIsoBtn = document.getElementById("planner3dIsoBtn");
   const planner3dZoomInBtn = document.getElementById("planner3dZoomInBtn");
   const planner3dZoomOutBtn = document.getElementById("planner3dZoomOutBtn");
   const planner3dGridBtn = document.getElementById("planner3dGridBtn");
@@ -476,6 +477,7 @@
     planner3dZoomInBtn.disabled = isWalk || isPlace;
     planner3dZoomOutBtn.disabled = isWalk || isPlace;
     planner3dFitBtn.disabled = isWalk || isPlace;
+    if (planner3dIsoBtn) planner3dIsoBtn.disabled = isWalk || isPlace;
     planner3dHumanBtn.disabled = isWalk;
     planner3dWalkBtn.textContent = isWalk ? "Exit walk" : "Walk";
     if (isWalk || isPlace) {
@@ -1982,6 +1984,14 @@
     if (!planner3dView) return;
     const mode = planner3dView.getInteractionMode();
     planner3dView.setInteractionMode(mode === "walk" ? "edit" : "walk");
+  });
+  planner3dIsoBtn?.addEventListener("click", () => {
+    if (!planner3dView) return;
+    const next = planner3dView.getCameraView() === "isometric" ? "perspective" : "isometric";
+    planner3dView.setCameraView(next);
+    planner3dIsoBtn.classList.toggle("active", next === "isometric");
+    planner3dIsoBtn.textContent = next === "isometric" ? "Isometric" : "Perspective";
+    planner3dView.fitCamera();
   });
   planner3dFitBtn.addEventListener("click", () => {
     if (planner3dView) planner3dView.fitCamera();

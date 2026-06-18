@@ -1,5 +1,8 @@
 /** Occupancy → interaction capture estimates for store monitoring layouts. */
 
+import { DEFAULT_PLANNER } from "./planner-artifacts.js";
+import { buildLayoutObstacles, resolveMovement, SHOPPER_BODY_RADIUS } from "./planner-collision.js";
+
 export const SIM_CELL_SIZE = 1;
 export const CAMERA_GRID_SPACING = 3;
 const AVG_DWELL_MINUTES = 12;
@@ -130,6 +133,9 @@ export class ShopperSim {
     this.d = layout?.heightMeters || 20;
     this.margin = 0.55;
     this.zones = layout?.monitoring?.zones || [];
+    this.obstacles = buildLayoutObstacles(layout?.objects || [], {
+      wallThickness: layout?.planner?.wallThicknessMeters ?? DEFAULT_PLANNER.wallThicknessMeters
+    });
     this.cameras = listCeilingCameras(this.w, this.d);
     this.cols = Math.max(1, Math.ceil(this.w / SIM_CELL_SIZE));
     this.rows = Math.max(1, Math.ceil(this.d / SIM_CELL_SIZE));
@@ -292,8 +298,14 @@ export class ShopperSim {
         }
       }
 
+      const prevX = shopper.x;
+      const prevZ = shopper.z;
       shopper.x += shopper.vx * stepDt;
       shopper.z += shopper.vz * stepDt;
+
+      const resolved = resolveMovement(prevX, prevZ, shopper.x, shopper.z, SHOPPER_BODY_RADIUS, this.obstacles);
+      shopper.x = resolved.x;
+      shopper.z = resolved.z;
 
       if (shopper.state === "inside") {
         if (shopper.x < this.margin) {

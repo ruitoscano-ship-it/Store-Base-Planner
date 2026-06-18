@@ -3,6 +3,11 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { TransformControls } from "three/addons/controls/TransformControls.js";
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
 import { DEFAULT_ARTIFACTS, DEFAULT_PLANNER } from "./planner-artifacts.js";
+import {
+  buildLayoutObstacles,
+  resolveMovement,
+  WALK_BODY_RADIUS
+} from "./planner-collision.js";
 import { PlannerModelLibrary } from "./planner-model-loader.js";
 import { buildProceduralFixture } from "./planner-shelf-models.js";
 import { StoreTextureKit } from "./planner-textures.js";
@@ -36,37 +41,38 @@ function hexToNumber(hex, fallback = 0x94a3b8) {
 function createStickFigure() {
   const group = new THREE.Group();
   group.name = "stick-figure";
-  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.85 });
-  const accentMat = new THREE.MeshStandardMaterial({ color: 0xd9f04f, roughness: 0.7 });
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x374151, roughness: 0.82, metalness: 0.04 });
+  const shadowMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, transparent: true, opacity: 0.35, roughness: 1 });
 
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 14), bodyMat);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 12), bodyMat);
   head.position.y = 1.62;
   head.castShadow = true;
   group.add(head);
 
-  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.52, 10), bodyMat);
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.05, 0.5, 10), bodyMat);
   torso.position.y = 1.24;
   torso.castShadow = true;
   group.add(torso);
 
-  const pelvis = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.1, 0.12), bodyMat);
+  const pelvis = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.11), bodyMat);
   pelvis.position.y = 0.93;
   group.add(pelvis);
 
   const limb = (x, y, z, length, angleZ) => {
-    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, length, 8), bodyMat);
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, length, 8), bodyMat);
     mesh.position.set(x, y, z);
     mesh.rotation.z = angleZ;
     mesh.castShadow = true;
     group.add(mesh);
   };
 
-  limb(-0.24, 1.28, 0, 0.42, 0.95);
-  limb(0.24, 1.28, 0, 0.42, -0.95);
-  limb(-0.08, 0.58, 0, 0.62, 0.08);
-  limb(0.08, 0.58, 0, 0.62, -0.08);
+  limb(-0.22, 1.28, 0, 0.4, 0.95);
+  limb(0.22, 1.28, 0, 0.4, -0.95);
+  limb(-0.08, 0.58, 0, 0.6, 0.08);
+  limb(0.08, 0.58, 0, 0.6, -0.08);
 
-  const marker = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.015, 24), accentMat);
+  const marker = new THREE.Mesh(new THREE.CircleGeometry(0.16, 24), shadowMat);
+  marker.rotation.x = -Math.PI / 2;
   marker.position.y = 0.008;
   marker.receiveShadow = true;
   group.add(marker);
@@ -76,7 +82,7 @@ function createStickFigure() {
 
 export function createPlanner3D(containerEl, options = {}) {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xe9eae6);
+  scene.background = new THREE.Color(0xf5f5f5);
 
   const storeGroup = new THREE.Group();
   storeGroup.name = "store-shell";
@@ -96,8 +102,8 @@ export function createPlanner3D(containerEl, options = {}) {
   scene.add(shoppersGroup);
 
   const SHOPPER_MAX = 120;
-  const shopperGeo = new THREE.CapsuleGeometry(0.1, 0.38, 4, 8);
-  const shopperMat = new THREE.MeshStandardMaterial({ color: 0xd9f04f, roughness: 0.72, metalness: 0.05 });
+  const shopperGeo = new THREE.CapsuleGeometry(0.09, 0.36, 4, 8);
+  const shopperMat = new THREE.MeshStandardMaterial({ color: 0x374151, roughness: 0.78, metalness: 0.04 });
   const shopperMesh = new THREE.InstancedMesh(shopperGeo, shopperMat, SHOPPER_MAX);
   shopperMesh.count = 0;
   shopperMesh.castShadow = true;
@@ -112,7 +118,7 @@ export function createPlanner3D(containerEl, options = {}) {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.08;
+  renderer.toneMappingExposure = 1.02;
   renderer.domElement.style.display = "block";
   renderer.domElement.style.width = "100%";
   renderer.domElement.style.height = "100%";
@@ -129,10 +135,10 @@ export function createPlanner3D(containerEl, options = {}) {
   transformControls.setSpace("world");
   scene.add(transformControls);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.42));
-  scene.add(new THREE.HemisphereLight(0xf8fafc, 0xe2e8f0, 0.55));
-  const sun = new THREE.DirectionalLight(0xffffff, 1.05);
-  sun.position.set(14, 24, 12);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.58));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xe5e7eb, 0.42));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.72);
+  sun.position.set(10, 22, 14);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.near = 0.5;
@@ -143,8 +149,7 @@ export function createPlanner3D(containerEl, options = {}) {
   sun.shadow.camera.bottom = -40;
   sun.shadow.bias = -0.00015;
   scene.add(sun);
-  scene.add(new THREE.DirectionalLight(0xd9e57a, 0.28).translateX(-10).translateY(8).translateZ(-8));
-  scene.add(new THREE.PointLight(0xffffff, 0.18, 30).translateY(4).translateX(0).translateZ(0));
+  scene.add(new THREE.DirectionalLight(0xffffff, 0.18).translateX(-8).translateY(10).translateZ(-6));
 
   const modelLibrary = new PlannerModelLibrary();
   const textureKit = new StoreTextureKit();
@@ -157,6 +162,9 @@ export function createPlanner3D(containerEl, options = {}) {
   let selectedGroup = null;
   let transformMode = "translate";
   let fixtureGroups = new Map();
+  let layoutObstacles = [];
+  let cameraViewMode = "isometric";
+  let productFaceTextures = {};
   let storeSize = { w: 20, d: 20 };
   let floorMesh = null;
   let showMonitoringViz = true;
@@ -229,6 +237,32 @@ export function createPlanner3D(containerEl, options = {}) {
     };
   }
 
+  function refreshLayoutObstacles(layout) {
+    layoutObstacles = buildLayoutObstacles(layout?.objects || [], {
+      wallThickness: wallThickness()
+    });
+  }
+
+  function fixtureTextureBridge() {
+    if (!productFaceTextures.ambient) {
+      productFaceTextures = {
+        ambient: textureKit.createProductFaceTexture("ambient"),
+        cold: textureKit.createProductFaceTexture("cold"),
+        hot: textureKit.createProductFaceTexture("hot")
+      };
+    }
+    return {
+      getProductFace(variant) {
+        return productFaceTextures[variant] || productFaceTextures.ambient;
+      }
+    };
+  }
+
+  function resolveBodyPosition(prevX, prevZ, nextX, nextZ, radius, excludeId = null) {
+    const bounded = clampToStore(nextX, nextZ);
+    return resolveMovement(prevX, prevZ, bounded.x, bounded.z, radius, layoutObstacles, { excludeId });
+  }
+
   function makeMaterial(spec, kind = "") {
     const opacity = spec.opacity3d ?? 1;
     return new THREE.MeshStandardMaterial({
@@ -259,9 +293,17 @@ export function createPlanner3D(containerEl, options = {}) {
   }
 
   function clampGroupPosition(group) {
-    const next = clampToStore(group.position.x, group.position.z);
-    group.position.x = next.x;
-    group.position.z = next.z;
+    const anchor = group.userData.dragAnchor || { x: group.position.x, z: group.position.z };
+    const resolved = resolveBodyPosition(
+      anchor.x,
+      anchor.z,
+      group.position.x,
+      group.position.z,
+      WALK_BODY_RADIUS,
+      group.userData?.objectId || null
+    );
+    group.position.x = resolved.x;
+    group.position.z = resolved.z;
     group.position.y = 0;
   }
 
@@ -298,8 +340,8 @@ export function createPlanner3D(containerEl, options = {}) {
 
   function placeHumanAt(x, z) {
     ensureStickFigure();
-    const next = clampToStore(x, z);
-    humanGroup.position.set(next.x, 0, next.z);
+    const resolved = resolveBodyPosition(humanGroup.position.x, humanGroup.position.z, x, z, WALK_BODY_RADIUS);
+    humanGroup.position.set(resolved.x, 0, resolved.z);
     humanGroup.rotation.y = 0;
     humanGroup.visible = true;
     humanPlaced = true;
@@ -389,15 +431,17 @@ export function createPlanner3D(containerEl, options = {}) {
   function updateWalk(delta) {
     if (interactionMode !== "walk" || !pointerLockControls?.isLocked) return;
 
+    const prevX = camera.position.x;
+    const prevZ = camera.position.z;
     const speed = WALK_SPEED * delta;
     if (moveState.forward) pointerLockControls.moveForward(speed);
     if (moveState.backward) pointerLockControls.moveForward(-speed);
     if (moveState.left) pointerLockControls.moveRight(-speed);
     if (moveState.right) pointerLockControls.moveRight(speed);
 
-    const next = clampToStore(camera.position.x, camera.position.z);
-    camera.position.x = next.x;
-    camera.position.z = next.z;
+    const resolved = resolveBodyPosition(prevX, prevZ, camera.position.x, camera.position.z, WALK_BODY_RADIUS);
+    camera.position.x = resolved.x;
+    camera.position.z = resolved.z;
     camera.position.y = EYE_HEIGHT;
   }
 
@@ -637,6 +681,7 @@ export function createPlanner3D(containerEl, options = {}) {
 
   function rebuildShell(layout) {
     textureKit.dispose();
+    productFaceTextures = {};
     disposeHeatmap();
     while (storeGroup.children.length) {
       const child = storeGroup.children[0];
@@ -685,11 +730,11 @@ export function createPlanner3D(containerEl, options = {}) {
     const wallTex = textureKit.applyRepeat(textureKit.createWallTexture(), Math.max(1, w / 2), Math.max(1, wallH / 2));
     const wallMat = new THREE.MeshStandardMaterial({
       map: wallTex,
-      color: 0xffffff,
-      roughness: 0.9,
+      color: 0xf8fafc,
+      roughness: 0.92,
       metalness: 0,
       transparent: true,
-      opacity: 0.22,
+      opacity: 0.28,
       depthWrite: false,
       side: THREE.DoubleSide
     });
@@ -755,8 +800,10 @@ export function createPlanner3D(containerEl, options = {}) {
       storeGroup.add(cameraRigs);
     }
 
-    const grid = new THREE.GridHelper(Math.max(w, d), Math.max(w, d), 0x6b7280, 0xd1d5db);
-    grid.position.set(w / 2, 0.015, d / 2);
+    const grid = new THREE.GridHelper(Math.max(w, d), Math.max(w, d), 0xe5e7eb, 0xf3f4f6);
+    grid.position.set(w / 2, 0.012, d / 2);
+    grid.material.opacity = 0.45;
+    grid.material.transparent = true;
     storeGroup.add(grid);
 
     if (humanPlaced) {
@@ -823,6 +870,11 @@ export function createPlanner3D(containerEl, options = {}) {
   }
 
   function addFixtureMesh(group, obj, spec, footprintW, footprintD, height) {
+    if (obj.kind.startsWith("shelf-") || obj.kind === "checkout" || obj.kind === "entry-open" || obj.kind === "entry-gated") {
+      buildProceduralFixture(group, obj.kind, spec, footprintW, footprintD, height, fixtureTextureBridge());
+      return;
+    }
+
     const useGlb = modelLibrary.hasModel(obj.kind) && modelLibrary.isModelReady(obj.kind);
     if (useGlb) {
       const model = modelLibrary.createFixtureModelSync(obj.kind, {
@@ -835,11 +887,6 @@ export function createPlanner3D(containerEl, options = {}) {
         group.add(model);
         return;
       }
-    }
-
-    if (obj.kind.startsWith("shelf-") || obj.kind === "checkout" || obj.kind === "entry-open" || obj.kind === "entry-gated") {
-      buildProceduralFixture(group, obj.kind, spec, footprintW, footprintD, height);
-      return;
     }
 
     addBox(group, footprintW, height, footprintD, spec, obj.kind);
@@ -860,7 +907,7 @@ export function createPlanner3D(containerEl, options = {}) {
       const isVertical = Math.abs(obj.angle % 180) > 45 && Math.abs(obj.angle % 180) < 135;
       const ww = isVertical ? wallThickness() : footprintW;
       const dd = isVertical ? footprintD : wallThickness();
-      const wallSpec = { ...spec, heightMeters: wallHeight() };
+      const wallSpec = { ...spec, heightMeters: wallHeight(), color3d: "#e5e7eb", opacity3d: 0.95 };
       addBox(group, ww, wallHeight(), dd, wallSpec, obj.kind);
       return group;
     }
@@ -892,6 +939,8 @@ export function createPlanner3D(containerEl, options = {}) {
       if (obj.id) fixtureGroups.set(obj.id, group);
     });
 
+    refreshLayoutObstacles(layout);
+
     if (previousSelection && fixtureGroups.has(previousSelection) && interactionMode === "edit") {
       selectFixture(fixtureGroups.get(previousSelection));
     }
@@ -903,15 +952,22 @@ export function createPlanner3D(containerEl, options = {}) {
     const d = lastLayout.heightMeters;
     const centerX = w / 2;
     const centerZ = d / 2;
-    const aspect = Math.max(0.4, camera.aspect);
-    const fovRad = THREE.MathUtils.degToRad(camera.fov);
-    const distForHeight = (d * 0.55) / Math.tan(fovRad / 2);
-    const distForWidth = (w * 0.55) / Math.tan(fovRad / 2) / aspect;
-    const distance = Math.max(distForHeight, distForWidth, Math.max(w, d) * 0.75) * 1.22;
+    const span = Math.max(w, d);
 
     if (force || !fitCamera._initialized) {
-      camera.position.set(centerX + distance * 0.78, distance * 0.58, centerZ + distance * 0.78);
-      orbit.target.set(centerX, 1, centerZ);
+      if (cameraViewMode === "isometric") {
+        const dist = span * 0.92;
+        camera.position.set(centerX + dist * 0.72, dist * 0.62, centerZ + dist * 0.72);
+        orbit.target.set(centerX, 0.4, centerZ);
+      } else {
+        const aspect = Math.max(0.4, camera.aspect);
+        const fovRad = THREE.MathUtils.degToRad(camera.fov);
+        const distForHeight = (d * 0.55) / Math.tan(fovRad / 2);
+        const distForWidth = (w * 0.55) / Math.tan(fovRad / 2) / aspect;
+        const distance = Math.max(distForHeight, distForWidth, span * 0.75) * 1.22;
+        camera.position.set(centerX + distance * 0.78, distance * 0.58, centerZ + distance * 0.78);
+        orbit.target.set(centerX, 1, centerZ);
+      }
       orbit.update();
       fitCamera._initialized = true;
     }
@@ -977,6 +1033,12 @@ export function createPlanner3D(containerEl, options = {}) {
 
   transformControls.addEventListener("dragging-changed", (event) => {
     orbit.enabled = !event.value && interactionMode === "edit";
+    if (selectedGroup && event.value) {
+      selectedGroup.userData.dragAnchor = {
+        x: selectedGroup.position.x,
+        z: selectedGroup.position.z
+      };
+    }
   });
 
   transformControls.addEventListener("objectChange", () => {
@@ -1097,6 +1159,15 @@ export function createPlanner3D(containerEl, options = {}) {
 
     zoomOut() {
       zoomCamera(1.22);
+    },
+
+    setCameraView(mode) {
+      cameraViewMode = mode === "perspective" ? "perspective" : "isometric";
+      fitCamera(true);
+    },
+
+    getCameraView() {
+      return cameraViewMode;
     },
 
     setShowMonitoringViz(show) {

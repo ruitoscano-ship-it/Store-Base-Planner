@@ -28,44 +28,88 @@ export class StoreTextureKit {
     return this.register(new THREE.CanvasTexture(canvas));
   }
 
-  /** Retail vinyl / polished concrete floor tiles */
-  createFloorTexture() {
+  /** Light polished retail floor for 3D visualizer */
+  createVisualizerFloorTexture() {
     return this.createCanvasTexture((ctx, size) => {
-      const tiles = 8;
+      ctx.fillStyle = "#ececec";
+      ctx.fillRect(0, 0, size, size);
+      const tiles = 12;
       const tile = size / tiles;
       for (let y = 0; y < tiles; y += 1) {
         for (let x = 0; x < tiles; x += 1) {
-          const base = (x + y) % 2 === 0 ? "#f0efeb" : "#e4e3df";
-          ctx.fillStyle = base;
-          ctx.fillRect(x * tile + 1, y * tile + 1, tile - 2, tile - 2);
-          ctx.strokeStyle = "#d4d3cf";
-          ctx.lineWidth = 1;
-          ctx.strokeRect(x * tile + 0.5, y * tile + 0.5, tile - 1, tile - 1);
+          const shade = (x + y) % 2 === 0 ? "#f3f3f3" : "#e8e8e8";
+          ctx.fillStyle = shade;
+          ctx.fillRect(x * tile + 0.5, y * tile + 0.5, tile - 1, tile - 1);
         }
       }
-      ctx.globalAlpha = 0.06;
-      for (let i = 0; i < 8000; i += 1) {
-        ctx.fillStyle = i % 2 ? "#ffffff" : "#000000";
+      ctx.globalAlpha = 0.04;
+      for (let i = 0; i < 6000; i += 1) {
+        ctx.fillStyle = i % 2 ? "#ffffff" : "#bdbdbd";
         ctx.fillRect(Math.random() * size, Math.random() * size, 1, 1);
       }
       ctx.globalAlpha = 1;
     });
   }
 
-  /** Dark painted retail wall — contrasts with light floor for depth */
-  createWallTexture() {
+  /** Light glass-like store shell walls */
+  createVisualizerWallTexture() {
     return this.createCanvasTexture((ctx, size) => {
-      ctx.fillStyle = "#111111";
+      ctx.fillStyle = "#d8dce2";
       ctx.fillRect(0, 0, size, size);
-      for (let y = 0; y < size; y += 6) {
-        ctx.fillStyle = y % 12 === 0 ? "rgba(255,255,255,0.012)" : "rgba(0,0,0,0.04)";
-        ctx.fillRect(0, y, size, 3);
-      }
-      for (let i = 0; i < 5000; i += 1) {
-        ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.015})`;
+      ctx.strokeStyle = "rgba(255,255,255,0.35)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(8, 8, size - 16, size - 16);
+      for (let i = 0; i < 3000; i += 1) {
+        ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.08})`;
         ctx.fillRect(Math.random() * size, Math.random() * size, 1, 1);
       }
     });
+  }
+
+  /** Planogram-style product blocks for gondola shelf fronts */
+  createProductFaceTexture(variant = "ambient") {
+    const palettes = {
+      ambient: ["#ef4444", "#f59e0b", "#22c55e", "#3b82f6", "#a855f7", "#ec4899", "#14b8a6", "#f97316"],
+      cold: ["#38bdf8", "#0ea5e9", "#22d3ee", "#67e8f9", "#06b6d4", "#7dd3fc", "#0284c7", "#bae6fd"],
+      hot: ["#fbbf24", "#f97316", "#ef4444", "#dc2626", "#fcd34d", "#fb923c", "#ea580c", "#fde68a"]
+    };
+    const colors = palettes[variant] || palettes.ambient;
+
+    return this.createCanvasTexture((ctx, size) => {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, size, size);
+      const cols = 8;
+      const rows = 5;
+      const pad = 4;
+      const cellW = (size - pad * 2) / cols;
+      const cellH = (size - pad * 2) / rows;
+      for (let row = 0; row < rows; row += 1) {
+        for (let col = 0; col < cols; col += 1) {
+          const color = colors[(row * cols + col) % colors.length];
+          const x = pad + col * cellW + 1;
+          const y = pad + row * cellH + 1;
+          const w = cellW - 2;
+          const h = cellH - 2;
+          ctx.fillStyle = color;
+          ctx.fillRect(x, y, w, h * 0.82);
+          ctx.fillStyle = "rgba(255,255,255,0.35)";
+          ctx.fillRect(x, y, w, h * 0.18);
+          ctx.strokeStyle = "rgba(0,0,0,0.08)";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+        }
+      }
+    }, 256);
+  }
+
+  /** Retail vinyl / polished concrete floor tiles */
+  createFloorTexture() {
+    return this.createVisualizerFloorTexture();
+  }
+
+  /** Light store shell walls for semi-transparent enclosure */
+  createWallTexture() {
+    return this.createVisualizerWallTexture();
   }
 
   /** Drop ceiling tiles ( acoustic panel look ) */

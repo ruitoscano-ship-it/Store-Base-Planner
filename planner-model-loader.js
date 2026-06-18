@@ -25,11 +25,8 @@ function setMeshMaterials(mesh, mapper) {
   mesh.material = next.length === 1 ? next[0] : next;
 }
 
-function applyShelfTypeVisuals(modelRoot, kind, spec) {
+function applyShelfTypeVisuals(modelRoot, kind, _spec) {
   if (!kind.startsWith("shelf-")) return;
-
-  const emissive = parseColor(spec?.emissive3d, spec?.color3d || "#d9e57a");
-  const emissiveIntensity = kind === "shelf-cold" ? 0.1 : kind === "shelf-hot" ? 0.08 : 0.04;
 
   modelRoot.traverse((child) => {
     if (!child.isMesh || !child.material) return;
@@ -40,39 +37,20 @@ function applyShelfTypeVisuals(modelRoot, kind, spec) {
         mat.map.colorSpace = THREE.SRGBColorSpace;
         mat.color.set(0xffffff);
       } else {
-        mat.color.copy(parseColor(spec?.color3d));
+        mat.color.set(0xffffff);
       }
-      mat.emissive.copy(emissive);
-      mat.emissiveIntensity = emissiveIntensity;
-      mat.metalness = Math.min(mat.metalness ?? 0, kind === "shelf-cold" ? 0.35 : 0.15);
-      mat.roughness = Math.max(mat.roughness ?? 0.5, 0.45);
+      mat.emissive.set(0x000000);
+      mat.emissiveIntensity = 0;
+      mat.metalness = Math.min(mat.metalness ?? 0, 0.12);
+      mat.roughness = Math.max(mat.roughness ?? 0.5, 0.48);
       mat.needsUpdate = true;
       return mat;
     });
   });
 }
 
-function addShelfTypeMarkers(parent, kind, spec, width, depth, height) {
-  if (!kind.startsWith("shelf-")) return;
-
-  const badge = parseColor(spec?.badge3d, spec?.color3d || "#d9e57a");
-  const emissive = parseColor(spec?.emissive3d, spec?.color3d);
-  const markerMat = new THREE.MeshStandardMaterial({
-    color: badge,
-    emissive,
-    emissiveIntensity: 0.18,
-    roughness: 0.5,
-    metalness: 0.08
-  });
-
-  const plinth = new THREE.Mesh(new THREE.BoxGeometry(width * 0.96, 0.05, depth * 0.92), markerMat);
-  plinth.position.y = 0.025;
-  plinth.receiveShadow = true;
-  parent.add(plinth);
-
-  const header = new THREE.Mesh(new THREE.BoxGeometry(width * 0.92, 0.07, 0.04), markerMat);
-  header.position.set(0, Math.min(height * 0.92, height - 0.08), depth / 2 - 0.02);
-  parent.add(header);
+function addShelfTypeMarkers(_parent, _kind, _spec, _width, _depth, _height) {
+  // Visualizer mode uses neutral fixtures without type badges.
 }
 
 export class PlannerModelLibrary {
