@@ -1,32 +1,15 @@
 /** Shared artifact helpers for planner 2D/3D (browser + Node). */
+
 export const DEFAULT_PLANNER = {
   wallHeightMeters: 2.8,
   wallThicknessMeters: 0.12,
   layoutGapMeters: 0.15
 };
 
+/** Physical store fixtures and zones for assisted-food retail layouts. */
 export const DEFAULT_ARTIFACTS = {
-  server: {
-    label: "Server",
-    type: "rack",
-    widthMeters: 0.6,
-    depthMeters: 0.6,
-    heightMeters: 1.2,
-    shelfLevels: 0,
-    color3d: "#64748b"
-  },
-  aisle: {
-    label: "Aisle",
-    type: "aisle",
-    widthMeters: 1.4,
-    depthMeters: 4,
-    heightMeters: 0.02,
-    shelfLevels: 0,
-    color3d: "#f3f4f6",
-    opacity3d: 0.35
-  },
   "shelf-ambient": {
-    label: "Ambient",
+    label: "Dry grocery gondola",
     type: "gondola",
     widthMeters: 1.2,
     depthMeters: 0.45,
@@ -36,10 +19,10 @@ export const DEFAULT_ARTIFACTS = {
     color3d: "#d9e57a",
     badge3d: "#bef264",
     emissive3d: "#84cc16",
-    tag2d: "AMB"
+    tag2d: "DRY"
   },
   "shelf-cold": {
-    label: "Cold",
+    label: "Refrigerated case",
     type: "gondola",
     widthMeters: 1.2,
     depthMeters: 0.55,
@@ -52,7 +35,7 @@ export const DEFAULT_ARTIFACTS = {
     tag2d: "COLD"
   },
   "shelf-hot": {
-    label: "Hot",
+    label: "Hot food counter",
     type: "gondola",
     widthMeters: 1,
     depthMeters: 0.6,
@@ -64,8 +47,18 @@ export const DEFAULT_ARTIFACTS = {
     emissive3d: "#ea580c",
     tag2d: "HOT"
   },
+  aisle: {
+    label: "Customer aisle",
+    type: "aisle",
+    widthMeters: 1.4,
+    depthMeters: 4,
+    heightMeters: 0.02,
+    shelfLevels: 0,
+    color3d: "#f3f4f6",
+    opacity3d: 0.35
+  },
   "entry-open": {
-    label: "Entry",
+    label: "Open entrance",
     type: "entry-open",
     widthMeters: 1.8,
     depthMeters: 0.12,
@@ -74,7 +67,7 @@ export const DEFAULT_ARTIFACTS = {
     color3d: "#a78bfa"
   },
   "entry-gated": {
-    label: "Gated",
+    label: "Gated entrance",
     type: "entry-gated",
     widthMeters: 1.8,
     depthMeters: 0.18,
@@ -83,7 +76,7 @@ export const DEFAULT_ARTIFACTS = {
     color3d: "#f472b6"
   },
   checkout: {
-    label: "POS",
+    label: "Checkout lane",
     type: "checkout",
     widthMeters: 1.6,
     depthMeters: 0.9,
@@ -91,8 +84,17 @@ export const DEFAULT_ARTIFACTS = {
     shelfLevels: 0,
     color3d: "#fbbf24"
   },
+  "separator-wall": {
+    label: "Interior wall",
+    type: "wall",
+    widthMeters: 4,
+    depthMeters: 0.12,
+    heightMeters: 2.8,
+    shelfLevels: 0,
+    color3d: "#374151"
+  },
   warehouse: {
-    label: "Warehouse",
+    label: "Back of house",
     type: "zone",
     widthMeters: 4,
     depthMeters: 3,
@@ -103,7 +105,7 @@ export const DEFAULT_ARTIFACTS = {
     opacity3d: 0.55
   },
   technical: {
-    label: "Tech",
+    label: "Back office / MEP",
     type: "zone",
     widthMeters: 3,
     depthMeters: 2.5,
@@ -113,37 +115,8 @@ export const DEFAULT_ARTIFACTS = {
     color3d: "#22c55e",
     opacity3d: 0.55
   },
-  "separator-wall": {
-    label: "Wall",
-    type: "wall",
-    widthMeters: 4,
-    depthMeters: 0.12,
-    heightMeters: 2.8,
-    shelfLevels: 0,
-    color3d: "#374151"
-  },
-  "security-cage": {
-    label: "Secure",
-    type: "cage",
-    widthMeters: 3,
-    depthMeters: 3,
-    heightMeters: 2.2,
-    shelfLevels: 0,
-    color3d: "#ef4444",
-    opacity3d: 0.45
-  },
-  "entry-zone": {
-    label: "Entry zone",
-    type: "entry-zone",
-    widthMeters: 3,
-    depthMeters: 2.5,
-    heightMeters: 0.08,
-    shelfLevels: 0,
-    color3d: "#facc15",
-    opacity3d: 0.5
-  },
   "monitor-entrance": {
-    label: "Count entrance",
+    label: "Entrance counting",
     type: "monitor-entrance",
     widthMeters: 2,
     depthMeters: 0.35,
@@ -157,7 +130,7 @@ export const DEFAULT_ARTIFACTS = {
     tag2d: "IN/OUT"
   },
   "monitor-people-zone": {
-    label: "People zone",
+    label: "Traffic zone",
     type: "monitor-zone",
     widthMeters: 4,
     depthMeters: 3,
@@ -171,7 +144,7 @@ export const DEFAULT_ARTIFACTS = {
     tag2d: "TRACK"
   },
   "monitor-shelf-zone": {
-    label: "Shelf monitor",
+    label: "Shelf interaction",
     type: "monitor-zone",
     widthMeters: 1.2,
     depthMeters: 0.85,
@@ -185,7 +158,7 @@ export const DEFAULT_ARTIFACTS = {
     tag2d: "SHELF"
   },
   "monitor-interaction-zone": {
-    label: "Interaction zone",
+    label: "Service counter zone",
     type: "monitor-zone",
     widthMeters: 2.5,
     depthMeters: 2,
@@ -196,11 +169,68 @@ export const DEFAULT_ARTIFACTS = {
     palette: { fill: "#fce7f3", stroke: "#be185d" },
     color3d: "#f472b6",
     opacity3d: 0.42,
-    tag2d: "ENGAGE"
+    tag2d: "SERVICE"
   }
 };
 
-export function artifactsToPlannerMap(artifacts = DEFAULT_ARTIFACTS) {
+/** Deprecated kinds kept so imported legacy plans still render. */
+export const LEGACY_ARTIFACTS = {
+  server: {
+    label: "Server (legacy)",
+    type: "rack",
+    widthMeters: 0.6,
+    depthMeters: 0.6,
+    heightMeters: 1.2,
+    shelfLevels: 0,
+    color3d: "#64748b"
+  },
+  "security-cage": {
+    label: "Security cage (legacy)",
+    type: "cage",
+    widthMeters: 3,
+    depthMeters: 3,
+    heightMeters: 2.2,
+    shelfLevels: 0,
+    color3d: "#ef4444",
+    opacity3d: 0.45
+  },
+  "entry-zone": {
+    label: "Entry zone (legacy)",
+    type: "entry-zone",
+    widthMeters: 3,
+    depthMeters: 2.5,
+    heightMeters: 0.08,
+    shelfLevels: 0,
+    color3d: "#facc15",
+    opacity3d: 0.5
+  }
+};
+
+export const STORE_ARTIFACT_KINDS = [
+  "shelf-ambient",
+  "shelf-cold",
+  "shelf-hot",
+  "aisle",
+  "entry-open",
+  "entry-gated",
+  "checkout",
+  "separator-wall",
+  "warehouse",
+  "technical"
+];
+
+export const MONITOR_ARTIFACT_KINDS = [
+  "monitor-entrance",
+  "monitor-people-zone",
+  "monitor-shelf-zone",
+  "monitor-interaction-zone"
+];
+
+export function getAllArtifacts() {
+  return { ...DEFAULT_ARTIFACTS, ...LEGACY_ARTIFACTS };
+}
+
+export function artifactsToPlannerMap(artifacts = getAllArtifacts()) {
   const map = {};
   Object.entries(artifacts).forEach(([kind, spec]) => {
     map[kind] = {

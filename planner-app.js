@@ -593,9 +593,7 @@
 
   const FIXTURE_TEMPLATE_18x14 = [
     { kind: "entry-gated", x: 7.2, y: 0.25 },
-    { kind: "entry-zone", x: 5.8, y: 1.05 },
     { kind: "checkout", x: 10.2, y: 1 },
-    { kind: "server", x: 0.7, y: 12.2 },
     { kind: "technical", x: 0.7, y: 9.2 },
     { kind: "warehouse", x: 12.8, y: 8.8 },
     { kind: "aisle", x: 7, y: 5, angle: 0 }
@@ -605,10 +603,9 @@
     small: {
       fixtures: [
         { kind: "entry-gated", x: 4.1, y: 0.2 },
-        { kind: "entry-zone", x: 3.1, y: 1 },
         { kind: "checkout", x: 6.2, y: 1 },
-        { kind: "server", x: 0.6, y: 8.6 },
         { kind: "technical", x: 0.6, y: 6.8 },
+        { kind: "warehouse", x: 7.2, y: 7.8 },
         { kind: "aisle", x: 3.8, y: 4.2, angle: 90 }
       ]
     },
@@ -621,7 +618,7 @@
       refH: 14,
       extras: [
         { kind: "checkout", x: 14.5, y: 1 },
-        { kind: "security-cage", x: 23.5, y: 1.2 },
+        { kind: "warehouse", x: 22, y: 18 },
         { kind: "aisle", x: 14, y: 12, angle: 90 }
       ]
     },
@@ -632,7 +629,6 @@
       extras: [
         { kind: "checkout", x: 16, y: 1 },
         { kind: "checkout", x: 22, y: 1 },
-        { kind: "security-cage", x: 34, y: 1.2 },
         { kind: "warehouse", x: 32, y: 22 },
         { kind: "aisle", x: 20, y: 16, angle: 0 },
         { kind: "aisle", x: 28, y: 10, angle: 90 }
@@ -713,7 +709,7 @@
         if (!layoutStepForArtifact) {
           const mod = await import("./planner-artifacts.js");
           layoutStepForArtifact = mod.layoutStepForArtifact;
-          applyArtifactConfigFromProfiles({ planner: mod.DEFAULT_PLANNER, artifacts: mod.DEFAULT_ARTIFACTS });
+          applyArtifactConfigFromProfiles({ planner: mod.DEFAULT_PLANNER, artifacts: mod.getAllArtifacts() });
         }
       } catch (_importError) {
         // Keep empty artifacts if module fails.
@@ -950,7 +946,7 @@
     if (type === "gondola") {
       const { fill, stroke } = spec.palette;
       const bandColor = kind === "shelf-cold" ? "#3b82f6" : kind === "shelf-hot" ? "#f97316" : "#d9f04f";
-      const tag = spec.tag2d || (kind === "shelf-cold" ? "COLD" : kind === "shelf-hot" ? "HOT" : "AMB");
+      const tag = spec.tag2d || (kind === "shelf-cold" ? "COLD" : kind === "shelf-hot" ? "HOT" : "DRY");
       shapes.push(
         new fabric.Rect({
           width,

@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { TransformControls } from "three/addons/controls/TransformControls.js";
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
-import { DEFAULT_ARTIFACTS, DEFAULT_PLANNER } from "./planner-artifacts.js";
+import { DEFAULT_ARTIFACTS, DEFAULT_PLANNER, getAllArtifacts } from "./planner-artifacts.js";
 import {
   buildLayoutObstacles,
   resolveMovement,
@@ -176,7 +176,7 @@ export function createPlanner3D(containerEl, options = {}) {
   let heatmapImageData = null;
   let heatmapCols = 0;
   let heatmapRows = 0;
-  let artifactConfig = structuredClone(options.artifacts || DEFAULT_ARTIFACTS);
+  let artifactConfig = structuredClone(options.artifacts || getAllArtifacts());
   let plannerConfig = structuredClone(options.planner || DEFAULT_PLANNER);
   let interactionMode = "edit";
   let stickFigure = null;

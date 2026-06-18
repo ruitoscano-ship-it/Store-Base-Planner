@@ -533,7 +533,7 @@
       <section class="page-intro">
         <h1>Plan your store footprint</h1>
         <p>
-          Set dimensions in meters, place fixtures and shelf-monitoring zones, preview camera coverage in 3D,
+          Set dimensions in meters, place assisted-food fixtures and vision zones, preview coverage in 3D,
           and export layout JSON for implementation.
         </p>
       </section>
@@ -575,32 +575,32 @@
               </div>
               <p class="offline-note" id="plannerPresetSummary">No baseline loaded.</p>
 
-              <h4 style="margin-top: 14px;">Add Objects</h4>
-              <div class="planner-actions">
-                <button class="action-btn planner-add-btn" data-kind="server">Server</button>
-                <button class="action-btn planner-add-btn" data-kind="aisle">Aisle</button>
-                <button class="action-btn planner-add-btn" data-kind="shelf-ambient">Shelf Ambient</button>
-                <button class="action-btn planner-add-btn" data-kind="shelf-cold">Shelf Cold</button>
-                <button class="action-btn planner-add-btn" data-kind="shelf-hot">Shelf Hot</button>
-                <button class="action-btn planner-add-btn" data-kind="entry-open">Entry (Open)</button>
-                <button class="action-btn planner-add-btn" data-kind="entry-gated">Entry (Gated)</button>
-                <button class="action-btn planner-add-btn" data-kind="checkout">Checkout</button>
-                <button class="action-btn planner-add-btn" data-kind="warehouse">Warehouse Area</button>
-                <button class="action-btn planner-add-btn" data-kind="technical">Technical Area</button>
-                <button class="action-btn planner-add-btn" data-kind="separator-wall">Separator Wall</button>
-                <button class="action-btn planner-add-btn" data-kind="security-cage">Security Cage</button>
-                <button class="action-btn planner-add-btn" data-kind="entry-zone">Entry Zone</button>
-              </div>
-
-              <h4 style="margin-top: 14px;">Shelf monitoring</h4>
+              <h4 style="margin-top: 14px;">Store fixtures</h4>
               <p class="readiness-sub" style="margin: 0 0 8px;">
-                Place entrances and zones to model people counting, tracking, and shelf interactions.
+                Gondolas, entrances, checkout, and back-of-house areas for assisted-food retail layouts.
               </p>
               <div class="planner-actions">
-                <button class="action-btn planner-add-btn" data-kind="monitor-entrance">Count entrance</button>
-                <button class="action-btn planner-add-btn" data-kind="monitor-people-zone">People zone</button>
-                <button class="action-btn planner-add-btn" data-kind="monitor-shelf-zone">Shelf monitor</button>
-                <button class="action-btn planner-add-btn" data-kind="monitor-interaction-zone">Interaction zone</button>
+                <button class="action-btn planner-add-btn" data-kind="shelf-ambient">Dry grocery</button>
+                <button class="action-btn planner-add-btn" data-kind="shelf-cold">Refrigerated</button>
+                <button class="action-btn planner-add-btn" data-kind="shelf-hot">Hot counter</button>
+                <button class="action-btn planner-add-btn" data-kind="aisle">Customer aisle</button>
+                <button class="action-btn planner-add-btn" data-kind="entry-open">Open entrance</button>
+                <button class="action-btn planner-add-btn" data-kind="entry-gated">Gated entrance</button>
+                <button class="action-btn planner-add-btn" data-kind="checkout">Checkout lane</button>
+                <button class="action-btn planner-add-btn" data-kind="separator-wall">Interior wall</button>
+                <button class="action-btn planner-add-btn" data-kind="warehouse">Back of house</button>
+                <button class="action-btn planner-add-btn" data-kind="technical">Back office</button>
+              </div>
+
+              <h4 style="margin-top: 14px;">Vision analytics</h4>
+              <p class="readiness-sub" style="margin: 0 0 8px;">
+                Overlay counting, traffic, and shelf-interaction zones for simulation estimates.
+              </p>
+              <div class="planner-actions">
+                <button class="action-btn planner-add-btn" data-kind="monitor-entrance">Entrance counting</button>
+                <button class="action-btn planner-add-btn" data-kind="monitor-people-zone">Traffic zone</button>
+                <button class="action-btn planner-add-btn" data-kind="monitor-shelf-zone">Shelf interaction</button>
+                <button class="action-btn planner-add-btn" data-kind="monitor-interaction-zone">Service counter</button>
               </div>
               <p class="offline-note" id="plannerMonitoringSummary">No monitoring zones placed.</p>
 
