@@ -479,6 +479,10 @@
         background: var(--accent);
       }
 
+      .planner-sim-camera-actions {
+        margin-top: 6px;
+      }
+
       .planner-3d-toolbar.hidden {
         display: none;
       }
@@ -684,6 +688,12 @@
                     <div class="planner-sim-actions">
                       <button type="button" class="action-btn active" id="simPlayBtn">Pause</button>
                       <button type="button" class="action-btn" id="simRandomizeBtn">Randomize</button>
+                    </div>
+                    <div class="planner-sim-actions planner-sim-camera-actions">
+                      <button type="button" class="action-btn active" id="simIsoBtn">Isometric</button>
+                      <button type="button" class="action-btn" id="simFitBtn">Fit view</button>
+                      <button type="button" class="action-btn" id="simZoomInBtn" title="Zoom in">Zoom +</button>
+                      <button type="button" class="action-btn" id="simZoomOutBtn" title="Zoom out">Zoom −</button>
                     </div>
                     <div class="planner-sim-kpis">
                       <div class="planner-sim-kpis-foot">

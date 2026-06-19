@@ -35,6 +35,10 @@
   const simOccupancyVal = document.getElementById("simOccupancyVal");
   const simPlayBtn = document.getElementById("simPlayBtn");
   const simRandomizeBtn = document.getElementById("simRandomizeBtn");
+  const simIsoBtn = document.getElementById("simIsoBtn");
+  const simFitBtn = document.getElementById("simFitBtn");
+  const simZoomInBtn = document.getElementById("simZoomInBtn");
+  const simZoomOutBtn = document.getElementById("simZoomOutBtn");
   const simSessionCaptures = document.getElementById("simSessionCaptures");
   const simPeopleInside = document.getElementById("simPeopleInside");
   const simPeopleEntering = document.getElementById("simPeopleEntering");
@@ -758,6 +762,13 @@
     return result;
   }
 
+  function syncSimCameraButton() {
+    if (!simIsoBtn || !planner3dView) return;
+    const next = planner3dView.getCameraView() === "isometric" ? "isometric" : "perspective";
+    simIsoBtn.classList.toggle("active", next === "isometric");
+    simIsoBtn.textContent = next === "isometric" ? "Isometric" : "Perspective";
+  }
+
   function syncSimulationUi() {
     const isSim = plannerViewMode === "simulation";
     plannerView2dBtn.classList.toggle("active", plannerViewMode === "2d");
@@ -767,14 +778,15 @@
     planner3dWrap.classList.toggle("hidden", plannerViewMode === "2d");
     planner3dToolbar?.classList.toggle("hidden", isSim);
     plannerSimDashboard?.classList.toggle("hidden", !isSim);
+    if (isSim) syncSimCameraButton();
     if (planner3dHint) {
       if (isSim) {
         const blocked = shopperSim?.getStatusMessage?.();
         planner3dHint.textContent = blocked
           ? blocked
           : simPlaying
-            ? "Live simulation · enter via gate · browse shelves · queue at checkout"
-            : "Simulation paused · press Play or Randomize to continue";
+            ? "Live simulation · drag to orbit · scroll or Zoom ± · Isometric / Fit for all angles"
+            : "Simulation paused · press Play or Randomize · use camera controls to explore";
       } else {
         planner3dHint.textContent = planner3dHumanPlaced
           ? "Stick figure placed · Drop human to reposition · Walk for first-person tour"
@@ -2458,6 +2470,30 @@
       syncSimulationUi();
     }
     startLiveSimulationLoop();
+  });
+
+  simIsoBtn?.addEventListener("click", () => {
+    if (!planner3dView) return;
+    const next = planner3dView.getCameraView() === "isometric" ? "perspective" : "isometric";
+    planner3dView.setCameraView(next);
+    syncSimCameraButton();
+    if (planner3dIsoBtn) {
+      planner3dIsoBtn.classList.toggle("active", next === "isometric");
+      planner3dIsoBtn.textContent = next === "isometric" ? "Isometric" : "Perspective";
+    }
+    planner3dView.fitCamera();
+  });
+
+  simFitBtn?.addEventListener("click", () => {
+    planner3dView?.fitCamera();
+  });
+
+  simZoomInBtn?.addEventListener("click", () => {
+    planner3dView?.zoomIn();
+  });
+
+  simZoomOutBtn?.addEventListener("click", () => {
+    planner3dView?.zoomOut();
   });
 
   planner3dMoveBtn.addEventListener("click", () => setPlanner3dTool("translate"));
