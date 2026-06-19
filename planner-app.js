@@ -259,7 +259,7 @@
         const pose = {
           x: obj.meters.x,
           z: obj.meters.z,
-          angle: obj.angle || 0
+          angle: normalizePlannerAngle(obj.angle)
         };
         addPlannerObject(obj.kind, {
           left: canvasPointFromMeters(pose.x, pose.z).left,
@@ -794,25 +794,30 @@
     return true;
   }
 
+  function normalizePlannerAngle(degrees) {
+    return ((Number(degrees) || 0) % 360 + 360) % 360;
+  }
+
   function readMeterPoseFromFabric(obj) {
     const center = obj.getCenterPoint();
     return {
       x: (center.x - PLANNER_MARGIN) / plannerState.scale,
       z: (center.y - PLANNER_MARGIN) / plannerState.scale,
-      angle: obj.angle || 0
+      angle: normalizePlannerAngle(obj.angle)
     };
   }
 
   function writeMeterPoseToFabric(obj, pose) {
     if (!obj || !pose) return;
-    obj.set({ angle: pose.angle || 0 });
+    const normalizedAngle = normalizePlannerAngle(pose.angle);
+    obj.set({ originX: "center", originY: "center", angle: normalizedAngle });
     obj.setPositionByOrigin(
       new fabric.Point(PLANNER_MARGIN + pose.x * plannerState.scale, PLANNER_MARGIN + pose.z * plannerState.scale),
       "center",
       "center"
     );
     obj.setCoords();
-    obj.plannerPoseMeters = { x: pose.x, z: pose.z, angle: pose.angle || 0 };
+    obj.plannerPoseMeters = { x: pose.x, z: pose.z, angle: normalizedAngle };
   }
 
   function capturePlannerPoseMeters(obj) {
@@ -844,18 +849,12 @@
         const kind = obj.plannerKind;
         const spec = PLANNER_ARTIFACTS[kind] || { w: 1, h: 1 };
         const pose = obj.plannerPoseMeters || capturePlannerPoseMeters(obj);
-        let footprintW = (obj.plannerMeters?.w ?? spec.w) * Math.abs(obj.scaleX ?? 1);
-        let footprintD = (obj.plannerMeters?.h ?? spec.h) * Math.abs(obj.scaleY ?? 1);
-        const swapFootprint = Math.abs(pose.angle % 180) > 45 && Math.abs(pose.angle % 180) < 135;
-        if (swapFootprint) {
-          const tmp = footprintW;
-          footprintW = footprintD;
-          footprintD = tmp;
-        }
+        const footprintW = (obj.plannerMeters?.w ?? spec.w) * Math.abs(obj.scaleX ?? 1);
+        const footprintD = (obj.plannerMeters?.h ?? spec.h) * Math.abs(obj.scaleY ?? 1);
         return {
           id: ensurePlannerObjectId(obj),
           kind,
-          angle: pose.angle,
+          angle: normalizePlannerAngle(pose.angle),
           meters: {
             x: pose.x,
             z: pose.z,
@@ -890,7 +889,7 @@
     const pose = {
       x: change.x,
       z: change.z,
-      angle: change.angle || 0
+      angle: normalizePlannerAngle(change.angle)
     };
     writeMeterPoseToFabric(fabricObj, pose);
     plannerState.canvas.requestRenderAll();
@@ -1765,7 +1764,7 @@
           ? {
               x: obj.plannerPoseMeters.x,
               z: obj.plannerPoseMeters.z,
-              angle: obj.plannerPoseMeters.angle ?? fabricPose.angle
+              angle: normalizePlannerAngle(obj.plannerPoseMeters.angle ?? fabricPose.angle)
             }
           : fabricPose;
         writeMeterPoseToFabric(obj, pose);
@@ -2197,9 +2196,11 @@
     const shapes = buildPlannerArtifactShapes(kind, width, height, spec);
 
     const group = new fabric.Group(shapes, {
+      originX: "center",
+      originY: "center",
       left: options.left ?? placement.left,
       top: options.top ?? placement.top,
-      angle: options.angle ?? 0,
+      angle: normalizePlannerAngle(options.angle ?? 0),
       hasRotatingPoint: true,
       cornerStyle: "rect",
       cornerColor: "#111111",
@@ -2247,6 +2248,14 @@
       if (event?.target && isPlannerFixture(event.target)) capturePlannerPoseMeters(event.target);
       persistState();
       sync3d();
+    });
+    plannerState.canvas.on("object:rotating", (event) => {
+      if (event?.target && isPlannerFixture(event.target)) {
+        capturePlannerPoseMeters(event.target);
+        if (plannerViewMode === "3d" || plannerViewMode === "simulation") {
+          syncPlanner3DView();
+        }
+      }
     });
     plannerState.canvas.on("object:added", () => {
       updatePlannerEstimate();
@@ -2666,6 +2675,7 @@
     initPlanner();
     await ensureLayoutDocumentModule();
     loadPersistedState();
+    syncPlannerMetaFromCanvas();
     refreshCachedLayout();
     updatePlannerEstimate();
     updateMonitoringSummary();
