@@ -108,6 +108,15 @@ export function upsertTemplate(store, template) {
   return next;
 }
 
+export function deleteTemplate(store, id) {
+  const next = {
+    ...store,
+    templates: (store.templates || []).filter((entry) => entry.id !== id)
+  };
+  saveTemplatesStore(next);
+  return next;
+}
+
 export function fixturesToLayoutObjects(fixtures, artifacts, idPrefix = "tpl") {
   return (fixtures || []).map((fixture, index) => {
     const spec = artifacts?.[fixture.kind] || {};

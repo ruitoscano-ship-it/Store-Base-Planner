@@ -73,6 +73,7 @@
   const plannerTemplateSummary = document.getElementById("plannerTemplateSummary");
   const plannerLoadTemplateBtn = document.getElementById("plannerLoadTemplateBtn");
   const plannerSaveTemplateBtn = document.getElementById("plannerSaveTemplateBtn");
+  const plannerDeleteTemplateBtn = document.getElementById("plannerDeleteTemplateBtn");
   const plannerExportTemplateBtn = document.getElementById("plannerExportTemplateBtn");
   const plannerExport3dSnapshotBtn = document.getElementById("plannerExport3dSnapshotBtn");
   const plannerDeleteSelectedBtn = document.getElementById("plannerDeleteSelectedBtn");
@@ -295,20 +296,52 @@
     return true;
   }
 
+  function selectedTemplateEntry(store = null) {
+    const mod = layoutDocModule;
+    if (!mod || !plannerTemplateSelect?.value) return null;
+    const templates = (store || mod.loadTemplatesStore()).templates || [];
+    return templates.find((entry) => entry.id === plannerTemplateSelect.value) || null;
+  }
+
+  function updateTemplateSummary(selected = null) {
+    if (!plannerTemplateSummary) return;
+    if (!selected) {
+      plannerTemplateSummary.textContent = "No saved templates yet.";
+      return;
+    }
+    plannerTemplateSummary.textContent = `${selected.name} · ${selected.document?.store?.widthMeters || "?"}×${selected.document?.store?.heightMeters || "?"} m${
+      selected.builtin ? " · built-in" : ""
+    }`;
+  }
+
+  function updateTemplateActionState(selected = null) {
+    const template = selected ?? selectedTemplateEntry();
+    if (plannerDeleteTemplateBtn) {
+      const canDelete = Boolean(template && !template.builtin);
+      plannerDeleteTemplateBtn.disabled = !canDelete;
+      plannerDeleteTemplateBtn.title = template?.builtin
+        ? "Built-in templates cannot be deleted"
+        : canDelete
+          ? "Remove the selected saved template"
+          : "Select a saved template to delete";
+    }
+  }
+
   function renderTemplateOptions() {
     if (!plannerTemplateSelect) return;
     const mod = layoutDocModule;
     if (!mod) return;
     const store = mod.loadTemplatesStore();
+    const previousId = plannerTemplateSelect.value;
     plannerTemplateSelect.innerHTML = store.templates
       .map((template) => `<option value="${template.id}">${template.name}${template.builtin ? " (built-in)" : ""}</option>`)
       .join("");
-    if (plannerTemplateSummary) {
-      const selected = store.templates.find((entry) => entry.id === plannerTemplateSelect.value);
-      plannerTemplateSummary.textContent = selected
-        ? `${selected.name} · ${selected.document?.store?.widthMeters || "?"}×${selected.document?.store?.heightMeters || "?"} m`
-        : "No saved templates yet.";
+    if (previousId && store.templates.some((entry) => entry.id === previousId)) {
+      plannerTemplateSelect.value = previousId;
     }
+    const selected = selectedTemplateEntry(store);
+    updateTemplateSummary(selected);
+    updateTemplateActionState(selected);
   }
 
   async function seedBuiltinTemplates() {
@@ -392,6 +425,28 @@
       return;
     }
     await applyLayoutDocument(template.document, { sourceLabel: template.name });
+  }
+
+  async function deleteSelectedTemplate() {
+    const mod = await ensureLayoutDocumentModule();
+    const store = mod.loadTemplatesStore();
+    const template = store.templates.find((entry) => entry.id === plannerTemplateSelect?.value);
+    if (!template) {
+      plannerStatus.textContent = "Select a template to delete.";
+      plannerStatus.style.color = "var(--warn)";
+      return;
+    }
+    if (template.builtin) {
+      plannerStatus.textContent = "Built-in templates cannot be deleted.";
+      plannerStatus.style.color = "var(--warn)";
+      return;
+    }
+    const confirmed = window.confirm(`Delete template “${template.name}”? This cannot be undone.`);
+    if (!confirmed) return;
+    mod.deleteTemplate(store, template.id);
+    renderTemplateOptions();
+    plannerStatus.textContent = `Deleted template “${template.name}”.`;
+    plannerStatus.style.color = "var(--ok)";
   }
 
   async function exportSelectedTemplate() {
@@ -2621,12 +2676,9 @@
   });
 
   plannerTemplateSelect?.addEventListener("change", () => {
-    if (!layoutDocModule || !plannerTemplateSummary) return;
-    const store = layoutDocModule.loadTemplatesStore();
-    const selected = store.templates.find((entry) => entry.id === plannerTemplateSelect.value);
-    plannerTemplateSummary.textContent = selected
-      ? `${selected.name} · ${selected.document?.store?.widthMeters || "?"}×${selected.document?.store?.heightMeters || "?"} m`
-      : "No saved templates yet.";
+    if (!layoutDocModule) return;
+    updateTemplateSummary(selectedTemplateEntry());
+    updateTemplateActionState();
   });
 
   plannerLoadTemplateBtn?.addEventListener("click", () => {
@@ -2638,6 +2690,10 @@
     const name = window.prompt("Template name", plannerState.activePresetId ? `${STORE_PRESETS[plannerState.activePresetId]?.label || "Store"} layout` : "My store layout");
     if (!name) return;
     await saveCurrentLayoutTemplate(name);
+  });
+
+  plannerDeleteTemplateBtn?.addEventListener("click", () => {
+    void deleteSelectedTemplate();
   });
 
   plannerExportTemplateBtn?.addEventListener("click", () => {

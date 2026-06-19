@@ -107,6 +107,15 @@
         background: var(--accent);
       }
 
+      .action-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      .action-btn:disabled:hover {
+        background: var(--bg);
+      }
+
       .page-intro {
         margin-bottom: 12px;
         border: 1px solid var(--border);
@@ -606,6 +615,7 @@
               <div class="planner-actions" style="margin-bottom: 12px;">
                 <button type="button" class="action-btn" id="plannerLoadTemplateBtn">Load template</button>
                 <button type="button" class="action-btn" id="plannerSaveTemplateBtn">Save as template</button>
+                <button type="button" class="action-btn" id="plannerDeleteTemplateBtn">Delete template</button>
                 <button type="button" class="action-btn" id="plannerExportTemplateBtn">Export template</button>
                 <button type="button" class="action-btn" id="plannerExport3dSnapshotBtn">Export 3D snapshot</button>
               </div>
