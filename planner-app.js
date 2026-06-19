@@ -39,6 +39,8 @@
   const simPeopleInside = document.getElementById("simPeopleInside");
   const simPeopleEntering = document.getElementById("simPeopleEntering");
   const simPeopleLeaving = document.getElementById("simPeopleLeaving");
+  const simEntriesPerHour = document.getElementById("simEntriesPerHour");
+  const simExitsPerHour = document.getElementById("simExitsPerHour");
   const simLiveRate = document.getElementById("simLiveRate");
   const simCapturedInteractions = document.getElementById("simCapturedInteractions");
   const simRawInteractions = document.getElementById("simRawInteractions");
@@ -590,6 +592,24 @@
     if (clearShoppers && planner3dView) planner3dView.clearShoppers();
   }
 
+  function updateSimulationTrafficKpis(live = null, staticResult = null) {
+    const hasLive = live && live.elapsed > 0.5;
+    if (simEntriesPerHour) {
+      simEntriesPerHour.textContent = hasLive
+        ? `${number.format(live.entriesPerHour)}/hr`
+        : staticResult
+          ? `${number.format(staticResult.entriesPerHour ?? 0)}/hr`
+          : "—";
+    }
+    if (simExitsPerHour) {
+      simExitsPerHour.textContent = hasLive
+        ? `${number.format(live.exitsPerHour ?? live.leavesPerHour)}/hr`
+        : staticResult
+          ? `${number.format(staticResult.exitsPerHour ?? 0)}/hr`
+          : "—";
+    }
+  }
+
   function renderLiveSimulationDashboard(sim, staticResult) {
     const live = sim.getLiveMetrics();
     if (!live.simulationEnabled) {
@@ -600,6 +620,7 @@
       if (simPaymentInteractions) simPaymentInteractions.textContent = "0";
       simSessionCaptures.textContent = "0";
       simLiveRate.textContent = "—";
+      updateSimulationTrafficKpis(null, null);
       if (simFootnote) {
         simFootnote.textContent = live.statusMessage || "Please add an entrance and checkout to run the simulation.";
       }
@@ -610,7 +631,7 @@
     }
     simPeopleInside.textContent = number.format(live.peopleInside);
     simPeopleEntering.textContent = number.format(live.sessionEntries);
-    simPeopleLeaving.textContent = number.format(live.sessionLeaves);
+    simPeopleLeaving.textContent = number.format(live.sessionExits ?? live.sessionLeaves);
     if (simShelfInteractionsLive) {
       simShelfInteractionsLive.textContent = number.format(live.sessionShelfInteractions);
     }
@@ -619,6 +640,7 @@
     }
     simSessionCaptures.textContent = number.format(live.sessionCaptures);
     simLiveRate.textContent = live.elapsed > 0.5 ? `${number.format(live.liveCapturedPerHour)}/hr` : "—";
+    updateSimulationTrafficKpis(live, staticResult);
     if (staticResult) renderSimulationDashboard(staticResult, live);
   }
 
@@ -697,6 +719,7 @@
       live?.shelfInteractionsPerHour > 0 ? live.shelfInteractionsPerHour : result.shelfInteractionsPerHour
     );
     simTrackingEvents.textContent = number.format(result.trackingEventsPerHour);
+    updateSimulationTrafficKpis(live, result);
 
     if (!result.zoneCount) {
       simZoneList.innerHTML = '<p class="offline-note" style="margin:0;">Add monitoring zones on the 2D plan to refine capture estimates.</p>';
