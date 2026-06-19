@@ -11,6 +11,7 @@ import {
   shopperTouchesFixture,
   SHOPPER_BODY_RADIUS
 } from "./planner-collision.js";
+import { findStorePath, pathGoalKey } from "./planner-pathfinding.js";
 
 export const SIM_CELL_SIZE = 1;
 export const CAMERA_GRID_SPACING = 3;
@@ -277,6 +278,64 @@ export class ShopperSim {
     return checkoutOutsidePosition(checkout, this.w, this.d);
   }
 
+  pathContext(excludeIds = null) {
+    return {
+      widthMeters: this.w,
+      depthMeters: this.d,
+      margin: this.margin,
+      obstacles: this.obstacles,
+      excludeIds: excludeIds || new Set()
+    };
+  }
+
+  pathExcludeIds(shopper) {
+    const ids = new Set();
+    if ((shopper.state === "checking_out" || shopper.state === "exiting") && shopper.assignedCheckoutId) {
+      ids.add(shopper.assignedCheckoutId);
+    }
+    return ids;
+  }
+
+  clearShopperPath(shopper) {
+    shopper.pathWaypoints = null;
+    shopper.pathIndex = 0;
+    shopper.pathGoalKey = null;
+    shopper.pathStuckTime = 0;
+  }
+
+  ensureShopperPath(shopper, goalX, goalZ, excludeIds) {
+    const key = pathGoalKey(goalX, goalZ);
+    if (shopper.pathGoalKey === key && shopper.pathWaypoints?.length) return true;
+    const path = findStorePath(this.pathContext(excludeIds), shopper.x, shopper.z, goalX, goalZ);
+    if (!path?.length) {
+      shopper.pathWaypoints = null;
+      shopper.pathGoalKey = null;
+      return false;
+    }
+    shopper.pathWaypoints = path;
+    shopper.pathIndex = 0;
+    shopper.pathGoalKey = key;
+    shopper.pathStuckTime = 0;
+    return true;
+  }
+
+  navigateShopperPath(shopper, goalX, goalZ, excludeIds, minSpeed) {
+    const hasPath = this.ensureShopperPath(shopper, goalX, goalZ, excludeIds);
+    if (!hasPath || !shopper.pathWaypoints?.length) {
+      return navigateToward(shopper, { x: goalX, z: goalZ }, minSpeed);
+    }
+
+    while (shopper.pathIndex < shopper.pathWaypoints.length - 1) {
+      const waypoint = shopper.pathWaypoints[shopper.pathIndex];
+      const waypointDist = Math.hypot(shopper.x - waypoint.x, shopper.z - waypoint.z);
+      if (waypointDist < 0.42) shopper.pathIndex += 1;
+      else break;
+    }
+
+    const target = shopper.pathWaypoints[shopper.pathIndex];
+    return navigateToward(shopper, target, minSpeed);
+  }
+
   checkoutLaneBusy(checkoutId) {
     return this.shoppers.some(
       (shopper) =>
@@ -402,6 +461,7 @@ export class ShopperSim {
     shopper.state = "queuing";
     shopper.seekTarget = null;
     shopper.browsingShelfId = null;
+    this.clearShopperPath(shopper);
     const queue = this.checkoutQueues.get(checkout.id) || [];
     queue.push(shopper.id);
     this.checkoutQueues.set(checkout.id, queue);
@@ -454,6 +514,10 @@ export class ShopperSim {
       checkoutWaitRemaining: 0,
       checkoutReady: false,
       shelfCooldowns: {},
+      pathWaypoints: null,
+      pathIndex: 0,
+      pathGoalKey: null,
+      pathStuckTime: 0,
       entryCounted: !countEntry
     };
   }
@@ -515,6 +579,7 @@ export class ShopperSim {
       shopper.vz = 0;
       shopper.shelfCooldowns[shelf.id] = SHELF_TOUCH_COOLDOWN + Math.random() * 2;
       this.sessionShelfInteractions += 1;
+      this.clearShopperPath(shopper);
       return true;
     }
     return false;
@@ -527,6 +592,7 @@ export class ShopperSim {
         shopper.state = "shopping";
         shopper.enterTarget = null;
         shopper.visitRemaining = this.randomVisitDuration();
+        this.clearShopperPath(shopper);
         if (!shopper.entryCounted) {
           shopper.entryCounted = true;
           this.sessionEntries += 1;
@@ -542,6 +608,7 @@ export class ShopperSim {
         shopper.state = "shopping";
         shopper.browsingShelfId = null;
         shopper.wander = 0.4 + Math.random() * 1.2;
+        this.clearShopperPath(shopper);
       }
       return;
     }
@@ -554,9 +621,16 @@ export class ShopperSim {
       }
 
       if (shopper.seekTarget) {
-        const dist = navigateToward(shopper, shopper.seekTarget, 0.7);
+        const dist = this.navigateShopperPath(
+          shopper,
+          shopper.seekTarget.x,
+          shopper.seekTarget.z,
+          new Set(),
+          0.7
+        );
         if (dist < 0.55) {
           shopper.seekTarget = null;
+          this.clearShopperPath(shopper);
           this.tryBeginBrowsing(shopper);
         }
       } else {
@@ -566,6 +640,7 @@ export class ShopperSim {
           if (shelf) {
             shopper.seekTarget = { x: shelf.cx, z: shelf.cz };
             shopper.wander = 2 + Math.random() * 3;
+            this.clearShopperPath(shopper);
           } else {
             const speed = Math.hypot(shopper.vx, shopper.vz) || 0.9;
             const angle = Math.random() * Math.PI * 2;
@@ -585,7 +660,7 @@ export class ShopperSim {
     if (shopper.state === "queuing") {
       const slot = this.queuePositionFor(shopper);
       if (slot) {
-        const dist = navigateToward(shopper, slot, 0.65);
+        const dist = this.navigateShopperPath(shopper, slot.x, slot.z, new Set(), 0.65);
         if (dist < 0.35) {
           shopper.vx *= 0.2;
           shopper.vz *= 0.2;
@@ -596,8 +671,9 @@ export class ShopperSim {
 
     if (shopper.state === "checking_out") {
       const checkout = this.checkoutById(shopper.assignedCheckoutId);
+      const excludeIds = this.pathExcludeIds(shopper);
       if (checkout) {
-        const dist = navigateToward(shopper, { x: checkout.cx, z: checkout.cz }, 0.55);
+        const dist = this.navigateShopperPath(shopper, checkout.cx, checkout.cz, excludeIds, 0.55);
         if (dist < CHECKOUT_ARRIVAL_RADIUS) {
           shopper.vx = 0;
           shopper.vz = 0;
@@ -621,6 +697,7 @@ export class ShopperSim {
         this.sessionPaymentInteractions += 1;
         shopper.state = "exiting";
         shopper.exitTarget = this.checkoutExitTarget(checkout);
+        this.clearShopperPath(shopper);
         shopper.vx = 0;
         shopper.vz = 0;
         if (shopper.assignedCheckoutId) {
@@ -632,9 +709,10 @@ export class ShopperSim {
 
     if (shopper.state === "exiting") {
       const checkout = this.checkoutById(shopper.assignedCheckoutId);
+      const excludeIds = this.pathExcludeIds(shopper);
       const exitTarget =
         shopper.exitTarget || this.checkoutExitTarget(checkout) || { x: this.w / 2, z: Math.max(this.margin, this.d * 0.08) };
-      const dist = navigateToward(shopper, exitTarget, 0.95);
+      const dist = this.navigateShopperPath(shopper, exitTarget.x, exitTarget.z, excludeIds, 0.95);
       const passedGate = hasPassedThroughCheckoutGate(shopper, checkout, this.w, this.d);
       if (dist < CHECKOUT_PASS_RADIUS || passedGate) {
         this.sessionLeaves += 1;
@@ -689,6 +767,19 @@ export class ShopperSim {
         );
         shopper.x = resolved.x;
         shopper.z = resolved.z;
+
+        if (shopper.pathWaypoints?.length) {
+          const movedDist = Math.hypot(shopper.x - prevX, shopper.z - prevZ);
+          if (movedDist < 0.012) {
+            shopper.pathStuckTime = (shopper.pathStuckTime || 0) + stepDt;
+            if (shopper.pathStuckTime > 0.75) {
+              shopper.pathGoalKey = null;
+              shopper.pathStuckTime = 0;
+            }
+          } else {
+            shopper.pathStuckTime = 0;
+          }
+        }
       }
 
       if (shopper.state === "shopping" || shopper.state === "browsing" || shopper.state === "queuing") {
