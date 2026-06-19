@@ -123,7 +123,8 @@
       layoutGapMeters: config.planner?.layoutGapMeters ?? 0.15
     };
     PLANNER_ARTIFACTS = {};
-    Object.entries(config.artifacts).forEach(([kind, spec]) => {
+    const mergedArtifacts = { ...(config.artifactDefaults || {}), ...config.artifacts };
+    Object.entries(mergedArtifacts).forEach(([kind, spec]) => {
       PLANNER_ARTIFACTS[kind] = {
         label: spec.label,
         w: spec.widthMeters,
@@ -668,7 +669,9 @@
       if (!response.ok) throw new Error("profile fetch failed");
       storeProfileConfig = await response.json();
       if (!layoutStepForArtifact) {
-        ({ layoutStepForArtifact } = await import("./planner-artifacts.js"));
+        const mod = await import("./planner-artifacts.js");
+        layoutStepForArtifact = mod.layoutStepForArtifact;
+        storeProfileConfig.artifactDefaults = mod.getAllArtifacts();
       }
       applyArtifactConfigFromProfiles(storeProfileConfig);
       if (planner3dView) {
@@ -868,10 +871,13 @@
     const strokeW = plannerStroke();
     const type = spec.type;
 
-    if (type === "gondola") {
+    if (type === "gondola" || type === "gondola-island") {
       const { fill, stroke } = spec.palette;
-      const bandColor = kind === "shelf-cold" ? "#3b82f6" : kind === "shelf-hot" ? "#f97316" : "#d9f04f";
-      const tag = spec.tag2d || (kind === "shelf-cold" ? "COLD" : kind === "shelf-hot" ? "HOT" : "DRY");
+      const bandColor =
+        kind === "shelf-cold" ? "#3b82f6" : kind === "shelf-hot" ? "#f97316" : kind === "shelf-island" ? "#9ca3af" : "#d9f04f";
+      const tag =
+        spec.tag2d ||
+        (kind === "shelf-cold" ? "COLD" : kind === "shelf-hot" ? "HOT" : kind === "shelf-island" ? "ISL" : "DRY");
       shapes.push(
         new fabric.Rect({
           width,
@@ -910,6 +916,17 @@
           new fabric.Line([-width / 2 + 4, y, width / 2 - 4, y], {
             stroke,
             strokeWidth: Math.max(0.6, strokeW * 0.7),
+            originX: "center",
+            originY: "center"
+          })
+        );
+      }
+      if (type === "gondola-island") {
+        shapes.push(
+          new fabric.Line([0, -height / 2 + 4, 0, height / 2 - 4], {
+            stroke,
+            strokeWidth: Math.max(0.6, strokeW * 0.6),
+            strokeDashArray: [5, 4],
             originX: "center",
             originY: "center"
           })
