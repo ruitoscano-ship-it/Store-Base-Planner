@@ -128,7 +128,16 @@
     return cachedLayoutSnapshot;
   }
 
+  function captureAllFixturePoses() {
+    if (!plannerState.canvas) return;
+    plannerState.canvas.getObjects().forEach((obj) => {
+      if (isPlannerFixture(obj)) capturePlannerPoseMeters(obj);
+    });
+  }
+
   function buildCurrentLayoutDocument(templateMeta = null) {
+    flushPlanner3DTransforms();
+    captureAllFixturePoses();
     const layout = refreshCachedLayout();
     return layoutDocModule?.buildLayoutDocument({
       widthMeters: plannerState.widthMeters,
@@ -247,14 +256,20 @@
     } else if (doc.layout?.objects?.length) {
       plannerBatchAdding = true;
       doc.layout.objects.forEach((obj) => {
-        const point = canvasPointFromMeters(obj.meters.x, obj.meters.z);
+        const pose = {
+          x: obj.meters.x,
+          z: obj.meters.z,
+          angle: obj.angle || 0
+        };
         addPlannerObject(obj.kind, {
-          left: point.left,
-          top: point.top,
-          angle: obj.angle || 0,
+          left: canvasPointFromMeters(pose.x, pose.z).left,
+          top: canvasPointFromMeters(pose.x, pose.z).top,
+          angle: pose.angle,
           objectId: obj.id,
           silent: true
         });
+        const fabricObj = findFabricObjectByPlannerId(obj.id);
+        if (fabricObj) writeMeterPoseToFabric(fabricObj, pose);
       });
       plannerBatchAdding = false;
       plannerState.canvas.requestRenderAll();
@@ -1745,7 +1760,15 @@
       }
       if (obj.plannerKind) {
         ensurePlannerObjectId(obj);
-        if (!obj.plannerPoseMeters) capturePlannerPoseMeters(obj);
+        const fabricPose = readMeterPoseFromFabric(obj);
+        const pose = obj.plannerPoseMeters
+          ? {
+              x: obj.plannerPoseMeters.x,
+              z: obj.plannerPoseMeters.z,
+              angle: obj.plannerPoseMeters.angle ?? fabricPose.angle
+            }
+          : fabricPose;
+        writeMeterPoseToFabric(obj, pose);
       }
     });
   }
