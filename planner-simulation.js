@@ -19,8 +19,8 @@ const INTERACTIONS_PER_VISIT = 4.2;
 const TRACK_EVENTS_PER_VISIT = 18;
 const SHELF_TOUCH_COOLDOWN = 4.5;
 const CHECKOUT_PASS_RADIUS = 0.58;
-const CHECKOUT_SERVICE_MIN = 3.5;
-const CHECKOUT_SERVICE_MAX = 7.5;
+const CHECKOUT_SERVICE_MIN = 0.5;
+const CHECKOUT_SERVICE_MAX = 1;
 const QUEUE_SPACING = 0.92;
 const BROWSE_MIN_SECONDS = 1;
 const BROWSE_MAX_SECONDS = 90;
@@ -288,6 +288,12 @@ export class ShopperSim {
     }
   }
 
+  checkoutExitTarget(checkout) {
+    if (!checkout) return null;
+    const outsideDist = checkout.hd + 0.65;
+    return queueSlotPosition(checkout, -outsideDist / QUEUE_SPACING);
+  }
+
   pickGate() {
     if (!this.gates.length) return null;
     return this.gates[Math.floor(Math.random() * this.gates.length)];
@@ -400,6 +406,7 @@ export class ShopperSim {
       gate,
       assignedCheckoutId: null,
       seekTarget: null,
+      exitTarget: null,
       browsingShelfId: null,
       browseRemaining: 0,
       visitRemaining: this.randomVisitDuration(),
@@ -564,16 +571,18 @@ export class ShopperSim {
       if (shopper.checkoutReady && shopper.checkoutServiceRemaining <= 0) {
         this.sessionPaymentInteractions += 1;
         shopper.state = "exiting";
+        shopper.exitTarget = this.checkoutExitTarget(checkout);
+        shopper.vx = 0;
+        shopper.vz = 0;
       }
       return;
     }
 
     if (shopper.state === "exiting") {
       const checkout = this.checkoutById(shopper.assignedCheckoutId);
-      const exitTarget = checkout
-        ? queueSlotPosition(checkout, -0.85)
-        : { x: this.w / 2, z: Math.max(this.margin, this.d * 0.08) };
-      const dist = navigateToward(shopper, exitTarget, 0.8);
+      const exitTarget =
+        shopper.exitTarget || this.checkoutExitTarget(checkout) || { x: this.w / 2, z: Math.max(this.margin, this.d * 0.08) };
+      const dist = navigateToward(shopper, exitTarget, 0.9);
       if (dist < CHECKOUT_PASS_RADIUS) {
         this.sessionLeaves += 1;
         this.removeFromCheckoutQueues(shopper.id);
