@@ -18,7 +18,9 @@ const AVG_DWELL_MINUTES = 12;
 const INTERACTIONS_PER_VISIT = 4.2;
 const TRACK_EVENTS_PER_VISIT = 18;
 const SHELF_TOUCH_COOLDOWN = 4.5;
-const CHECKOUT_PASS_RADIUS = 0.58;
+const CHECKOUT_PASS_RADIUS = 0.45;
+const CHECKOUT_ARRIVAL_RADIUS = 0.95;
+const CHECKOUT_OUTSIDE_DISTANCE = 1.05;
 const CHECKOUT_SERVICE_MIN = 0.5;
 const CHECKOUT_SERVICE_MAX = 1;
 const QUEUE_SPACING = 0.92;
@@ -144,14 +146,41 @@ function layoutSignature(layout) {
   return `${layout?.widthMeters || 0}x${layout?.heightMeters || 0}:${objects.map((o) => `${o.id}:${o.kind}`).join("|")}:${zones.map((z) => `${z.id}:${z.meters?.x},${z.meters?.z}`).join("|")}`;
 }
 
-function queueSlotPosition(checkout, slotIndex) {
-  const spacing = QUEUE_SPACING;
-  const dist = slotIndex * spacing;
-  const rad = (-(checkout.angle || 0) * Math.PI) / 180;
+function outwardFromStoreCenter(checkout, widthMeters, depthMeters) {
+  const dx = checkout.cx - widthMeters * 0.5;
+  const dz = checkout.cz - depthMeters * 0.5;
+  const len = Math.hypot(dx, dz);
+  if (len < 0.08) {
+    return { x: 0, z: -1 };
+  }
+  return { x: dx / len, z: dz / len };
+}
+
+function queueSlotPosition(checkout, slotIndex, widthMeters, depthMeters) {
+  const outward = outwardFromStoreCenter(checkout, widthMeters, depthMeters);
+  const dist = slotIndex * QUEUE_SPACING;
   return {
-    x: checkout.cx + Math.sin(rad) * dist,
-    z: checkout.cz + Math.cos(rad) * dist
+    x: checkout.cx - outward.x * dist,
+    z: checkout.cz - outward.z * dist
   };
+}
+
+function checkoutOutsidePosition(checkout, widthMeters, depthMeters) {
+  const outward = outwardFromStoreCenter(checkout, widthMeters, depthMeters);
+  const dist = (checkout.hd || 0.09) + CHECKOUT_OUTSIDE_DISTANCE;
+  return {
+    x: checkout.cx + outward.x * dist,
+    z: checkout.cz + outward.z * dist
+  };
+}
+
+function hasPassedThroughCheckoutGate(shopper, checkout, widthMeters, depthMeters) {
+  if (!checkout) return false;
+  const outward = outwardFromStoreCenter(checkout, widthMeters, depthMeters);
+  const relX = shopper.x - checkout.cx;
+  const relZ = shopper.z - checkout.cz;
+  const along = relX * outward.x + relZ * outward.z;
+  return along >= checkout.hd + 0.25;
 }
 
 function navigateToward(shopper, target, minSpeed = 0.75) {
@@ -240,23 +269,40 @@ export class ShopperSim {
     const queue = this.checkoutQueues.get(checkout.id) || [];
     const index = queue.indexOf(shopper.id);
     if (index < 0) return { x: checkout.cx, z: checkout.cz };
-    return queueSlotPosition(checkout, index);
+    return queueSlotPosition(checkout, index, this.w, this.d);
+  }
+
+  checkoutExitTarget(checkout) {
+    if (!checkout) return null;
+    return checkoutOutsidePosition(checkout, this.w, this.d);
+  }
+
+  checkoutLaneBusy(checkoutId) {
+    return this.shoppers.some(
+      (shopper) =>
+        shopper.assignedCheckoutId === checkoutId &&
+        (shopper.state === "checking_out" || shopper.state === "exiting")
+    );
+  }
+
+  dequeueShopper(shopperId, checkoutId) {
+    const queue = this.checkoutQueues.get(checkoutId) || [];
+    const index = queue.indexOf(shopperId);
+    if (index >= 0) queue.splice(index, 1);
+    this.checkoutQueues.set(checkoutId, queue);
   }
 
   promoteCheckoutIfReady() {
     for (const checkout of this.checkouts) {
       const queue = this.checkoutQueues.get(checkout.id) || [];
-      if (!queue.length) continue;
-      const busy = this.shoppers.some(
-        (shopper) => shopper.state === "checking_out" && shopper.assignedCheckoutId === checkout.id
-      );
-      if (busy) continue;
+      if (!queue.length || this.checkoutLaneBusy(checkout.id)) continue;
       const nextId = queue[0];
       const shopper = this.shoppers.find((entry) => entry.id === nextId);
       if (!shopper || shopper.state !== "queuing") continue;
       shopper.state = "checking_out";
       shopper.checkoutReady = false;
       shopper.checkoutServiceRemaining = 0;
+      shopper.checkoutWaitRemaining = 6;
       shopper.seekTarget = null;
     }
   }
@@ -286,12 +332,6 @@ export class ShopperSim {
         this.sessionLeaves += 1;
       }
     }
-  }
-
-  checkoutExitTarget(checkout) {
-    if (!checkout) return null;
-    const outsideDist = checkout.hd + 0.65;
-    return queueSlotPosition(checkout, -outsideDist / QUEUE_SPACING);
   }
 
   pickGate() {
@@ -411,6 +451,7 @@ export class ShopperSim {
       browseRemaining: 0,
       visitRemaining: this.randomVisitDuration(),
       checkoutServiceRemaining: 0,
+      checkoutWaitRemaining: 0,
       checkoutReady: false,
       shelfCooldowns: {},
       entryCounted: !countEntry
@@ -557,7 +598,7 @@ export class ShopperSim {
       const checkout = this.checkoutById(shopper.assignedCheckoutId);
       if (checkout) {
         const dist = navigateToward(shopper, { x: checkout.cx, z: checkout.cz }, 0.55);
-        if (dist < 0.35) {
+        if (dist < CHECKOUT_ARRIVAL_RADIUS) {
           shopper.vx = 0;
           shopper.vz = 0;
           if (!shopper.checkoutReady) {
@@ -566,6 +607,14 @@ export class ShopperSim {
               CHECKOUT_SERVICE_MIN + Math.random() * (CHECKOUT_SERVICE_MAX - CHECKOUT_SERVICE_MIN);
           }
           shopper.checkoutServiceRemaining -= stepDt;
+        } else {
+          shopper.checkoutWaitRemaining = Math.max(0, (shopper.checkoutWaitRemaining || 0) - stepDt);
+          if (shopper.checkoutWaitRemaining <= 0) {
+            shopper.checkoutReady = true;
+            shopper.checkoutServiceRemaining =
+              CHECKOUT_SERVICE_MIN + Math.random() * (CHECKOUT_SERVICE_MAX - CHECKOUT_SERVICE_MIN);
+            shopper.checkoutServiceRemaining -= stepDt;
+          }
         }
       }
       if (shopper.checkoutReady && shopper.checkoutServiceRemaining <= 0) {
@@ -574,6 +623,9 @@ export class ShopperSim {
         shopper.exitTarget = this.checkoutExitTarget(checkout);
         shopper.vx = 0;
         shopper.vz = 0;
+        if (shopper.assignedCheckoutId) {
+          this.dequeueShopper(shopper.id, shopper.assignedCheckoutId);
+        }
       }
       return;
     }
@@ -582,8 +634,9 @@ export class ShopperSim {
       const checkout = this.checkoutById(shopper.assignedCheckoutId);
       const exitTarget =
         shopper.exitTarget || this.checkoutExitTarget(checkout) || { x: this.w / 2, z: Math.max(this.margin, this.d * 0.08) };
-      const dist = navigateToward(shopper, exitTarget, 0.9);
-      if (dist < CHECKOUT_PASS_RADIUS) {
+      const dist = navigateToward(shopper, exitTarget, 0.95);
+      const passedGate = hasPassedThroughCheckoutGate(shopper, checkout, this.w, this.d);
+      if (dist < CHECKOUT_PASS_RADIUS || passedGate) {
         this.sessionLeaves += 1;
         this.removeFromCheckoutQueues(shopper.id);
         shopper.remove = true;
