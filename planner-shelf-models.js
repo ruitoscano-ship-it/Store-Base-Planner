@@ -134,17 +134,35 @@ export function buildProceduralShelf(group, kind, spec, footprintW, footprintD, 
   });
 }
 
-export function buildProceduralEntry(group, kind, _spec, width, depth, height) {
-  const metalMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.55, roughness: 0.38 });
-  const frameMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, metalness: 0.08 });
+export function buildProceduralEntry(group, kind, _spec, width, depth, height, { palette = "entry" } = {}) {
+  const palettes = {
+    entry: {
+      post: 0xd1d5db,
+      frame: 0xffffff,
+      glass: 0xf8fafc,
+      accent: 0x22c55e,
+      rail: 0xd1d5db
+    },
+    checkout: {
+      post: 0xd97706,
+      frame: 0xfffbeb,
+      glass: 0xfef3c7,
+      accent: 0xf59e0b,
+      rail: 0xb45309
+    }
+  };
+  const colors = palettes[palette] || palettes.entry;
+  const metalMat = new THREE.MeshStandardMaterial({ color: colors.post, metalness: 0.55, roughness: 0.38 });
+  const frameMat = new THREE.MeshStandardMaterial({ color: colors.frame, roughness: 0.55, metalness: 0.08 });
   const glassMat = new THREE.MeshPhysicalMaterial({
-    color: 0xf8fafc,
+    color: colors.glass,
     transparent: true,
     opacity: 0.35,
     roughness: 0.05,
     metalness: 0.04,
     transmission: 0.25
   });
+  const accentMat = new THREE.MeshStandardMaterial({ color: colors.accent, roughness: 0.55 });
   const postW = 0.06;
   const gateH = height * 0.92;
 
@@ -154,16 +172,9 @@ export function buildProceduralEntry(group, kind, _spec, width, depth, height) {
 
   addMesh(group, new THREE.BoxGeometry(width * 0.88, 0.05, depth * 0.75), frameMat, 0, gateH * 0.55, 0);
 
-  if (kind === "entry-gated") {
+  if (kind === "entry-gated" || palette === "checkout") {
     addMesh(group, new THREE.BoxGeometry(width * 0.72, 0.04, 0.04), metalMat, 0, gateH * 0.42, depth / 2 - 0.04);
-    addMesh(
-      group,
-      new THREE.BoxGeometry(0.1, 0.1, 0.07),
-      new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.55 }),
-      -width / 2 + 0.18,
-      gateH * 0.75,
-      depth / 2
-    );
+    addMesh(group, new THREE.BoxGeometry(0.1, 0.1, 0.07), accentMat, -width / 2 + 0.18, gateH * 0.75, depth / 2);
     addMesh(group, new THREE.BoxGeometry(width * 0.15, gateH * 0.7, 0.02), glassMat, width / 2 - 0.12, gateH * 0.45, 0);
   } else {
     addMesh(group, new THREE.BoxGeometry(width * 0.78, gateH * 0.75, 0.02), glassMat, 0, gateH * 0.45, depth / 2 - 0.02);
@@ -171,19 +182,8 @@ export function buildProceduralEntry(group, kind, _spec, width, depth, height) {
   }
 }
 
-export function buildProceduralCheckout(group, _spec, width, depth, height) {
-  const counterMat = new THREE.MeshStandardMaterial({ color: 0xf3f4f6, roughness: 0.58, metalness: 0.06 });
-  const accentMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.52, metalness: 0.08 });
-  const screenMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.35, metalness: 0.2 });
-  const beltMat = new THREE.MeshStandardMaterial({ color: 0x6b7280, roughness: 0.72, metalness: 0.12 });
-  const metalMat = new THREE.MeshStandardMaterial({ color: 0x9ca3af, metalness: 0.65, roughness: 0.32 });
-
-  addMesh(group, new THREE.BoxGeometry(width * 0.92, height * 0.72, depth * 0.88), counterMat, 0, height * 0.36, 0);
-  addMesh(group, new THREE.BoxGeometry(width * 0.94, height * 0.08, depth * 0.9), accentMat, 0, height * 0.08, 0);
-  addMesh(group, new THREE.BoxGeometry(width * 0.22, height * 0.38, 0.05), screenMat, -width * 0.22, height * 0.78, depth * 0.2);
-  addMesh(group, new THREE.BoxGeometry(width * 0.18, height * 0.12, 0.07), screenMat, width * 0.18, height * 0.62, depth * 0.18);
-  addMesh(group, new THREE.BoxGeometry(width * 0.55, 0.04, depth * 0.35), beltMat, width * 0.08, height * 0.76, -depth * 0.18);
-  addMesh(group, new THREE.BoxGeometry(width * 0.14, height * 0.55, depth * 0.14), metalMat, width * 0.32, height * 0.42, depth * 0.28);
+export function buildProceduralCheckout(group, spec, width, depth, height) {
+  buildProceduralEntry(group, "entry-gated", spec, width, depth, height, { palette: "checkout" });
 }
 
 export function buildProceduralFixture(group, kind, spec, footprintW, footprintD, height, textures = null) {

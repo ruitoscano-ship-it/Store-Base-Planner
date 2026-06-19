@@ -93,9 +93,10 @@ export const DEFAULT_ARTIFACTS = {
     type: "checkout",
     widthMeters: 1.6,
     depthMeters: 0.9,
-    heightMeters: 1.05,
+    heightMeters: 2.4,
     shelfLevels: 0,
-    color3d: "#fbbf24"
+    color3d: "#f59e0b",
+    tag2d: "EXIT"
   },
   "separator-wall": {
     label: "Interior wall",

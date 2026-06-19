@@ -165,6 +165,7 @@
   let plannerViewMode = "2d";
   let planner3dView = null;
   let planner3dSyncLock = false;
+  let plannerBatchAdding = false;
   let showMonitoringVizPref = true;
   let simOccupancyPref = 24;
   let computeStoreSimulationFn = null;
@@ -404,6 +405,53 @@
     summaryEl.textContent = `${plan.zoneCount} zones · ${plan.entrances} count entrances · ${plan.tracking} people tracking · ${plan.interaction} interaction`;
   }
 
+  function isPlannerFixture(obj) {
+    if (!obj?.plannerKind) return false;
+    if (obj === plannerState.boundary || obj === plannerState.blueprintObject) return false;
+    if (plannerState.gridObjects.includes(obj)) return false;
+    return true;
+  }
+
+  function readMeterPoseFromFabric(obj) {
+    const center = obj.getCenterPoint();
+    return {
+      x: (center.x - PLANNER_MARGIN) / plannerState.scale,
+      z: (center.y - PLANNER_MARGIN) / plannerState.scale,
+      angle: obj.angle || 0
+    };
+  }
+
+  function writeMeterPoseToFabric(obj, pose) {
+    if (!obj || !pose) return;
+    obj.set({ angle: pose.angle || 0 });
+    obj.setPositionByOrigin(
+      new fabric.Point(PLANNER_MARGIN + pose.x * plannerState.scale, PLANNER_MARGIN + pose.z * plannerState.scale),
+      "center",
+      "center"
+    );
+    obj.setCoords();
+    obj.plannerPoseMeters = { x: pose.x, z: pose.z, angle: pose.angle || 0 };
+  }
+
+  function capturePlannerPoseMeters(obj) {
+    const pose = readMeterPoseFromFabric(obj);
+    obj.plannerPoseMeters = pose;
+    return pose;
+  }
+
+  function repositionFixturesFromMeterPoses() {
+    if (!plannerState.canvas) return;
+    plannerState.canvas.getObjects().forEach((obj) => {
+      if (!isPlannerFixture(obj)) return;
+      const pose = obj.plannerPoseMeters || readMeterPoseFromFabric(obj);
+      writeMeterPoseToFabric(obj, pose);
+    });
+  }
+
+  function flushPlanner3DTransforms() {
+    planner3dView?.flushActiveTransform?.();
+  }
+
   function getPlannerLayoutSnapshot() {
     if (!plannerState.canvas) return null;
     const skip = new Set([plannerState.boundary, plannerState.blueprintObject, ...plannerState.gridObjects]);
@@ -413,11 +461,10 @@
       .map((obj) => {
         const kind = obj.plannerKind;
         const spec = PLANNER_ARTIFACTS[kind] || { w: 1, h: 1 };
-        const center = obj.getCenterPoint();
+        const pose = obj.plannerPoseMeters || capturePlannerPoseMeters(obj);
         let footprintW = (obj.plannerMeters?.w ?? spec.w) * Math.abs(obj.scaleX ?? 1);
         let footprintD = (obj.plannerMeters?.h ?? spec.h) * Math.abs(obj.scaleY ?? 1);
-        const angle = obj.angle || 0;
-        const swapFootprint = Math.abs(angle % 180) > 45 && Math.abs(angle % 180) < 135;
+        const swapFootprint = Math.abs(pose.angle % 180) > 45 && Math.abs(pose.angle % 180) < 135;
         if (swapFootprint) {
           const tmp = footprintW;
           footprintW = footprintD;
@@ -426,10 +473,10 @@
         return {
           id: ensurePlannerObjectId(obj),
           kind,
-          angle: obj.angle || 0,
+          angle: pose.angle,
           meters: {
-            x: (center.x - PLANNER_MARGIN) / plannerState.scale,
-            z: (center.y - PLANNER_MARGIN) / plannerState.scale,
+            x: pose.x,
+            z: pose.z,
             w: footprintW,
             h: footprintD
           },
@@ -458,18 +505,12 @@
     if (!fabricObj) return;
 
     planner3dSyncLock = true;
-    fabricObj.set({
-      angle: change.angle
-    });
-    fabricObj.setPositionByOrigin(
-      new fabric.Point(
-        PLANNER_MARGIN + change.x * plannerState.scale,
-        PLANNER_MARGIN + change.z * plannerState.scale
-      ),
-      "center",
-      "center"
-    );
-    fabricObj.setCoords();
+    const pose = {
+      x: change.x,
+      z: change.z,
+      angle: change.angle || 0
+    };
+    writeMeterPoseToFabric(fabricObj, pose);
     plannerState.canvas.requestRenderAll();
     updatePlannerEstimate();
     persistState();
@@ -556,11 +597,14 @@
   }
 
   function syncPlanner3DView(options = {}) {
-    if (planner3dSyncLock || plannerViewMode !== "3d" || !planner3dView) return;
+    if (planner3dSyncLock || !planner3dView) return;
+    if (plannerViewMode !== "3d" && plannerViewMode !== "simulation") return;
+    flushPlanner3DTransforms();
     const layout = getPlannerLayoutSnapshot();
     if (layout) {
       planner3dView.sync(layout, {
         ...options,
+        refitCamera: options.refitCamera ?? false,
         artifacts: storeProfileConfig?.artifacts,
         planner: storeProfileConfig?.planner
       });
@@ -807,6 +851,7 @@
       contingencyPercent: preset.contingencyPercent ?? defaultPlannerCostModel.contingencyPercent
     });
 
+    plannerBatchAdding = true;
     fixtures.forEach((fixture) => {
       const point = canvasPointFromMeters(fixture.x, fixture.y);
       addPlannerObject(fixture.kind, {
@@ -816,6 +861,7 @@
         silent: true
       });
     });
+    plannerBatchAdding = false;
 
     plannerState.activePresetId = presetId;
     highlightActivePresetButton();
@@ -857,7 +903,10 @@
     const innerW = Math.max(320, canvasW - PLANNER_MARGIN * 2 - 8);
     const innerH = Math.max(280, canvasH - PLANNER_MARGIN * 2 - 8);
     const fitScale = Math.min(innerW / plannerState.widthMeters, innerH / plannerState.heightMeters);
-    plannerState.scale = clamp(fitScale * 0.9, PLANNER_MIN_PX_PER_M, PLANNER_MAX_PX_PER_M);
+    const nextScale = clamp(fitScale * 0.9, PLANNER_MIN_PX_PER_M, PLANNER_MAX_PX_PER_M);
+    const scaleChanged = plannerState.scale && Math.abs(nextScale - plannerState.scale) > 0.001;
+    plannerState.scale = nextScale;
+    if (scaleChanged) repositionFixturesFromMeterPoses();
   }
 
   function updatePlannerGridScaleLabel(zoom = 1) {
@@ -1026,20 +1075,45 @@
       shapes.push(
         new fabric.Rect({
           width,
-          height,
-          fill: "#fef3c7",
-          stroke: "#92400e",
+          height: Math.max(5, height),
+          fill: "#fffbeb",
+          stroke: "#b45309",
           strokeWidth: strokeW,
-          rx: 4,
-          ry: 4,
+          originX: "center",
+          originY: "center"
+        })
+      );
+      [-0.28, 0, 0.28].forEach((offset) => {
+        shapes.push(
+          new fabric.Rect({
+            width: Math.max(2, width * 0.04),
+            height: Math.max(8, height * 2.2),
+            left: width * offset,
+            fill: "#b45309",
+            originX: "center",
+            originY: "center"
+          })
+        );
+      });
+      shapes.push(
+        new fabric.Rect({
+          width: width * 0.72,
+          height: Math.max(3, height * 0.35),
+          fill: "#f59e0b",
+          stroke: "#92400e",
+          strokeWidth: Math.max(0.6, strokeW * 0.5),
+          left: 0,
+          top: -height * 0.08,
           originX: "center",
           originY: "center"
         }),
-        new fabric.Rect({
-          width: width * 0.22,
-          height: height * 0.42,
-          left: width * 0.22,
+        new fabric.Text(spec.tag2d || "EXIT", {
+          fontSize: Math.max(8, plannerFontSize(0.5)),
+          fontFamily: "Inter, Arial, sans-serif",
+          fontWeight: "700",
           fill: "#78350f",
+          left: 0,
+          top: -height * 0.08,
           originX: "center",
           originY: "center"
         })
@@ -1313,7 +1387,10 @@
       if (!obj.plannerKind && obj.type === "group" && obj._objects && obj._objects[1] && obj._objects[1].text) {
         obj.plannerKind = obj._objects[1].text;
       }
-      if (obj.plannerKind) ensurePlannerObjectId(obj);
+      if (obj.plannerKind) {
+        ensurePlannerObjectId(obj);
+        if (!obj.plannerPoseMeters) capturePlannerPoseMeters(obj);
+      }
     });
   }
 
@@ -1729,6 +1806,7 @@
 
   function addPlannerObject(kind, options = {}) {
     if (!plannerState.canvas) return;
+    flushPlanner3DTransforms();
     const spec = PLANNER_ARTIFACTS[kind];
     if (!spec) return;
     const width = metersToPx(spec.w);
@@ -1750,6 +1828,7 @@
     group.plannerKind = kind;
     group.plannerMeters = { w: spec.w, h: spec.h };
     ensurePlannerObjectId(group);
+    capturePlannerPoseMeters(group);
     plannerState.canvas.add(group);
     if (!options.silent) {
       plannerState.canvas.setActiveObject(group);
@@ -1778,19 +1857,20 @@
     resizePlannerCanvasToContainer();
     updatePlannerEstimate();
     const sync3d = () => requestPlanner3DSync();
-    plannerState.canvas.on("object:modified", () => {
+    plannerState.canvas.on("object:modified", (event) => {
+      if (event?.target && isPlannerFixture(event.target)) capturePlannerPoseMeters(event.target);
       persistState();
       sync3d();
     });
     plannerState.canvas.on("object:added", () => {
       updatePlannerEstimate();
       persistState();
-      sync3d();
+      if (!plannerBatchAdding) sync3d();
     });
     plannerState.canvas.on("object:removed", () => {
       updatePlannerEstimate();
       persistState();
-      sync3d();
+      if (!plannerBatchAdding) sync3d();
     });
     plannerStatus.textContent = "Planner ready. Add objects and drag them on the canvas.";
     plannerStatus.style.color = "var(--ok)";
@@ -1804,7 +1884,7 @@
       activePresetId: plannerState.activePresetId,
       costModel: getPlannerCostModel(),
       canvasJson: plannerState.canvas
-        ? plannerState.canvas.toDatalessJSON(["plannerKind", "plannerObjectId", "plannerMeters"])
+        ? plannerState.canvas.toDatalessJSON(["plannerKind", "plannerObjectId", "plannerMeters", "plannerPoseMeters"])
         : null
     };
   }

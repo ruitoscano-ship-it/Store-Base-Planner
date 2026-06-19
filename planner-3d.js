@@ -154,6 +154,9 @@ export function createPlanner3D(containerEl, options = {}) {
   const modelLibrary = new PlannerModelLibrary();
   const textureKit = new StoreTextureKit();
   let modelsLoaded = false;
+  let layoutSyncToken = 0;
+  let fixturesBuiltForToken = -1;
+  let transformEmitTimer = null;
 
   const clock = new THREE.Clock();
   let animationId = null;
@@ -317,6 +320,23 @@ export function createPlanner3D(containerEl, options = {}) {
       z: group.position.z,
       angle: ((angleDeg % 360) + 360) % 360
     });
+  }
+
+  function scheduleEmitTransform(group) {
+    if (!group) return;
+    if (transformEmitTimer) clearTimeout(transformEmitTimer);
+    transformEmitTimer = setTimeout(() => {
+      transformEmitTimer = null;
+      emitTransform(group);
+    }, 80);
+  }
+
+  function flushActiveTransform() {
+    if (transformEmitTimer) {
+      clearTimeout(transformEmitTimer);
+      transformEmitTimer = null;
+    }
+    if (selectedGroup) emitTransform(selectedGroup);
   }
 
   function selectFixture(group) {
@@ -940,6 +960,7 @@ export function createPlanner3D(containerEl, options = {}) {
     });
 
     refreshLayoutObstacles(layout);
+    fixturesBuiltForToken = layoutSyncToken;
 
     if (previousSelection && fixtureGroups.has(previousSelection) && interactionMode === "edit") {
       selectFixture(fixtureGroups.get(previousSelection));
@@ -986,6 +1007,7 @@ export function createPlanner3D(containerEl, options = {}) {
 
   function refreshFixturesIfReady() {
     if (!active || !lastLayout || !modelsLoaded) return;
+    if (fixturesBuiltForToken === layoutSyncToken) return;
     rebuildFixtures(lastLayout, selectedGroup?.userData?.objectId || null);
   }
 
@@ -1003,6 +1025,7 @@ export function createPlanner3D(containerEl, options = {}) {
   }
 
   function rebuildStore(layout, { refitCamera = false, preserveSelectionId = null } = {}) {
+    layoutSyncToken += 1;
     lastLayout = layout;
     rebuildShell(layout);
     rebuildFixtures(layout, preserveSelectionId);
@@ -1044,10 +1067,11 @@ export function createPlanner3D(containerEl, options = {}) {
   transformControls.addEventListener("objectChange", () => {
     if (!selectedGroup) return;
     clampGroupPosition(selectedGroup);
+    scheduleEmitTransform(selectedGroup);
   });
 
   transformControls.addEventListener("mouseUp", () => {
-    if (selectedGroup) emitTransform(selectedGroup);
+    flushActiveTransform();
   });
 
   renderer.domElement.addEventListener("pointerdown", (event) => {
@@ -1146,6 +1170,10 @@ export function createPlanner3D(containerEl, options = {}) {
 
     getInteractionMode() {
       return interactionMode;
+    },
+
+    flushActiveTransform() {
+      flushActiveTransform();
     },
 
     fitCamera() {
