@@ -1152,10 +1152,29 @@ export function createPlanner3D(containerEl, options = {}) {
       if (syncOptions.artifacts) artifactConfig = structuredClone(syncOptions.artifacts);
       if (syncOptions.planner) plannerConfig = structuredClone(syncOptions.planner);
       if (!layout) return;
+      lastLayout = layout;
+      if (!active) return;
       rebuildStore(layout, {
         refitCamera: syncOptions.refitCamera ?? false,
         preserveSelectionId: syncOptions.preserveSelectionId ?? null
       });
+    },
+
+    cacheLayout(layout, syncOptions = {}) {
+      if (syncOptions.artifacts) artifactConfig = structuredClone(syncOptions.artifacts);
+      if (syncOptions.planner) plannerConfig = structuredClone(syncOptions.planner);
+      if (!layout) return;
+      lastLayout = layout;
+      if (!active) return;
+      rebuildStore(layout, {
+        refitCamera: syncOptions.refitCamera ?? false,
+        preserveSelectionId: syncOptions.preserveSelectionId ?? selectedGroup?.userData?.objectId || null
+      });
+    },
+
+    captureSnapshot() {
+      renderer.render(scene, camera);
+      return renderer.domElement.toDataURL("image/png");
     },
 
     resize(width, height) {

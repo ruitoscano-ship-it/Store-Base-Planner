@@ -63,6 +63,12 @@
   const plannerClearBlueprintBtn = document.getElementById("plannerClearBlueprintBtn");
   const plannerBlueprintInput = document.getElementById("plannerBlueprintInput");
   const plannerClearBtn = document.getElementById("plannerClearBtn");
+  const plannerTemplateSelect = document.getElementById("plannerTemplateSelect");
+  const plannerTemplateSummary = document.getElementById("plannerTemplateSummary");
+  const plannerLoadTemplateBtn = document.getElementById("plannerLoadTemplateBtn");
+  const plannerSaveTemplateBtn = document.getElementById("plannerSaveTemplateBtn");
+  const plannerExportTemplateBtn = document.getElementById("plannerExportTemplateBtn");
+  const plannerExport3dSnapshotBtn = document.getElementById("plannerExport3dSnapshotBtn");
   const plannerDeleteSelectedBtn = document.getElementById("plannerDeleteSelectedBtn");
   const plannerStatus = document.getElementById("plannerStatus");
   const costAmbientShelfInput = document.getElementById("costAmbientShelf");
@@ -97,6 +103,327 @@
   let buildStorePresetLayoutFn = null;
   let storeArtifactKinds = [];
   let monitorArtifactKinds = [];
+  let layoutDocModule = null;
+  let cachedLayoutSnapshot = null;
+  let cachedLayoutSignature = "";
+  let lastSyncedLayoutSignature = "";
+  let layoutApplying = false;
+
+  async function ensureLayoutDocumentModule() {
+    if (layoutDocModule) return layoutDocModule;
+    layoutDocModule = await import("./planner-layout-document.js");
+    return layoutDocModule;
+  }
+
+  function refreshCachedLayout() {
+    cachedLayoutSnapshot = getPlannerLayoutSnapshot();
+    cachedLayoutSignature = layoutDocModule
+      ? layoutDocModule.layoutSnapshotSignature(cachedLayoutSnapshot)
+      : `${cachedLayoutSnapshot?.widthMeters || 0}x${cachedLayoutSnapshot?.heightMeters || 0}`;
+    return cachedLayoutSnapshot;
+  }
+
+  function getCachedLayoutSnapshot() {
+    if (!cachedLayoutSnapshot) refreshCachedLayout();
+    return cachedLayoutSnapshot;
+  }
+
+  function buildCurrentLayoutDocument(templateMeta = null) {
+    const layout = refreshCachedLayout();
+    return layoutDocModule?.buildLayoutDocument({
+      widthMeters: plannerState.widthMeters,
+      heightMeters: plannerState.heightMeters,
+      activePresetId: plannerState.activePresetId,
+      costModel: getPlannerCostModel(),
+      layout,
+      canvasJson: plannerState.canvas
+        ? plannerState.canvas.toDatalessJSON(layoutDocModule?.CANVAS_CUSTOM_PROPS || [
+            "plannerKind",
+            "plannerObjectId",
+            "plannerMeters",
+            "plannerPoseMeters"
+          ])
+        : null,
+      preferences: {
+        showMonitoringViz: showMonitoringVizPref,
+        simOccupancy: simOccupancyPref,
+        simPlaying: simPlaying
+      },
+      templateMeta
+    });
+  }
+
+  async function syncLayoutAcrossViews(options = {}) {
+    await ensureLayoutDocumentModule();
+    const layout = refreshCachedLayout();
+    if (!layout) return;
+
+    const layoutChanged = cachedLayoutSignature !== lastSyncedLayoutSignature;
+
+    if (planner3dView) {
+      if (plannerViewMode === "3d" || plannerViewMode === "simulation") {
+        flushPlanner3DTransforms();
+      }
+      const syncOpts = {
+        artifacts: storeProfileConfig?.artifacts,
+        planner: storeProfileConfig?.planner,
+        refitCamera: Boolean(options.refitCamera)
+      };
+      if (plannerViewMode === "3d" || plannerViewMode === "simulation") {
+        planner3dView.sync(layout, syncOpts);
+      } else {
+        planner3dView.cacheLayout(layout, syncOpts);
+      }
+    }
+
+    if (plannerViewMode === "simulation") {
+      if (options.forceSimulationReset || (options.resetSimulation && layoutChanged)) {
+        await resetLiveSimulation({ randomize: Boolean(options.randomizeSimulation) });
+      } else {
+        await ensureShopperSim();
+        if (shopperSim) {
+          shopperSim.applyLayout(layout);
+          if (planner3dView) {
+            planner3dView.updateShoppers(shopperSim.getShopperPositions());
+            planner3dView.updateHeatmap(shopperSim.getHeatmap());
+          }
+        }
+      }
+    }
+
+    lastSyncedLayoutSignature = cachedLayoutSignature;
+
+    if (options.persist !== false) persistState();
+  }
+
+  async function applyLayoutDocument(docInput, { sourceLabel = "layout" } = {}) {
+    const mod = await ensureLayoutDocumentModule();
+    const doc = mod.normalizeLayoutDocument(docInput);
+    if (!doc || !plannerState.canvas) return false;
+
+    layoutApplying = true;
+    clearPlannerBlueprint();
+    clearPlannerObjects();
+
+    plannerWidthInput.value = String(doc.store.widthMeters);
+    plannerHeightInput.value = String(doc.store.heightMeters);
+    plannerState.activePresetId = doc.activePresetId || null;
+    applyPlannerCostModel(doc.costModel || defaultPlannerCostModel);
+    plannerState.widthMeters = doc.store.widthMeters;
+    plannerState.heightMeters = doc.store.heightMeters;
+    syncPlannerMeterScale();
+    drawPlannerBoundary();
+    fitPlannerViewport();
+
+    if (doc.preferences) {
+      showMonitoringVizPref = doc.preferences.showMonitoringViz !== false;
+      simOccupancyPref = Number(doc.preferences.simOccupancy) || 24;
+      simPlaying = doc.preferences.simPlaying !== false;
+      syncMonitoringGridButton();
+      if (simOccupancySlider) simOccupancySlider.value = String(simOccupancyPref);
+      if (simOccupancyVal) simOccupancyVal.textContent = String(simOccupancyPref);
+      syncSimPlayButton();
+      if (planner3dView) planner3dView.setShowMonitoringViz(showMonitoringVizPref);
+    }
+
+    highlightActivePresetButton();
+    if (plannerState.activePresetId && STORE_PRESETS[plannerState.activePresetId]) {
+      const preset = STORE_PRESETS[plannerState.activePresetId];
+      plannerPresetSummary.textContent = `${preset.label}: ${doc.store.widthMeters}×${doc.store.heightMeters} m (${number.format(doc.store.widthMeters * doc.store.heightMeters)} m²)`;
+    }
+
+    const restoreFromCanvas = () =>
+      new Promise((resolve) => {
+        plannerState.canvas.loadFromJSON(doc.canvasJson, () => {
+          plannerState.canvas.renderAll();
+          syncPlannerMetaFromCanvas();
+          resolve();
+        });
+      });
+
+    if (doc.canvasJson) {
+      await restoreFromCanvas();
+    } else if (doc.layout?.objects?.length) {
+      plannerBatchAdding = true;
+      doc.layout.objects.forEach((obj) => {
+        const point = canvasPointFromMeters(obj.meters.x, obj.meters.z);
+        addPlannerObject(obj.kind, {
+          left: point.left,
+          top: point.top,
+          angle: obj.angle || 0,
+          objectId: obj.id,
+          silent: true
+        });
+      });
+      plannerBatchAdding = false;
+      plannerState.canvas.requestRenderAll();
+    }
+
+    updatePlannerEstimate();
+    updateMonitoringSummary();
+    layoutApplying = false;
+    await syncLayoutAcrossViews({ refitCamera: true, forceSimulationReset: true, randomizeSimulation: plannerViewMode === "simulation" });
+    plannerStatus.textContent = `${sourceLabel} loaded — layout synced across 2D, 3D, and simulation.`;
+    plannerStatus.style.color = "var(--ok)";
+    return true;
+  }
+
+  function renderTemplateOptions() {
+    if (!plannerTemplateSelect) return;
+    const mod = layoutDocModule;
+    if (!mod) return;
+    const store = mod.loadTemplatesStore();
+    plannerTemplateSelect.innerHTML = store.templates
+      .map((template) => `<option value="${template.id}">${template.name}${template.builtin ? " (built-in)" : ""}</option>`)
+      .join("");
+    if (plannerTemplateSummary) {
+      const selected = store.templates.find((entry) => entry.id === plannerTemplateSelect.value);
+      plannerTemplateSummary.textContent = selected
+        ? `${selected.name} · ${selected.document?.store?.widthMeters || "?"}×${selected.document?.store?.heightMeters || "?"} m`
+        : "No saved templates yet.";
+    }
+  }
+
+  async function seedBuiltinTemplates() {
+    const mod = await ensureLayoutDocumentModule();
+    await ensureLayoutBuilder();
+    let store = mod.loadTemplatesStore();
+    if (store.seeded) {
+      renderTemplateOptions();
+      return;
+    }
+
+    for (const presetId of ["small", "medium", "large", "xlarge"]) {
+      const preset = STORE_PRESETS[presetId];
+      if (!preset || preset.dynamicSize) continue;
+      const built = resolvePresetLayout(presetId);
+      if (!built) continue;
+      const objects = mod.fixturesToLayoutObjects(built.fixtures, artifactCatalogForBuilder(), `builtin-${presetId}`);
+      const layout = {
+        widthMeters: built.widthMeters,
+        heightMeters: built.heightMeters,
+        objects,
+        monitoring: mod.buildMonitoringFromObjects(objects, getArtifactSpec)
+      };
+      const document = mod.buildLayoutDocument({
+        widthMeters: built.widthMeters,
+        heightMeters: built.heightMeters,
+        activePresetId: presetId,
+        costModel: {
+          ...defaultPlannerCostModel,
+          integrationFixed: preset.integrationFixed,
+          setupPercent: preset.setupPercent ?? defaultPlannerCostModel.setupPercent,
+          contingencyPercent: preset.contingencyPercent ?? defaultPlannerCostModel.contingencyPercent
+        },
+        layout,
+        preferences: { showMonitoringViz: true, simOccupancy: 24, simPlaying: true },
+        templateMeta: { presetId, builtin: true }
+      });
+      store = mod.upsertTemplate(store, {
+        id: `builtin-${presetId}`,
+        name: `${preset.label} store template`,
+        builtin: true,
+        updatedAt: new Date().toISOString(),
+        document
+      });
+    }
+
+    store.seeded = true;
+    mod.saveTemplatesStore(store);
+    renderTemplateOptions();
+  }
+
+  async function saveCurrentLayoutTemplate(name) {
+    const mod = await ensureLayoutDocumentModule();
+    const trimmed = String(name || "").trim();
+    if (!trimmed) return;
+    const document = buildCurrentLayoutDocument({ savedAt: new Date().toISOString(), name: trimmed });
+    const previewImage = await captureLayoutPreviewImage();
+    const id = `user-${Date.now()}`;
+    const store = mod.loadTemplatesStore();
+    mod.upsertTemplate(store, {
+      id,
+      name: trimmed,
+      builtin: false,
+      updatedAt: new Date().toISOString(),
+      previewImage,
+      document
+    });
+    renderTemplateOptions();
+    if (plannerTemplateSelect) plannerTemplateSelect.value = id;
+    plannerStatus.textContent = `Saved template “${trimmed}”.`;
+    plannerStatus.style.color = "var(--ok)";
+  }
+
+  async function loadSelectedTemplate() {
+    const mod = await ensureLayoutDocumentModule();
+    const store = mod.loadTemplatesStore();
+    const template = store.templates.find((entry) => entry.id === plannerTemplateSelect?.value);
+    if (!template?.document) {
+      plannerStatus.textContent = "Select a template to load.";
+      plannerStatus.style.color = "var(--warn)";
+      return;
+    }
+    await applyLayoutDocument(template.document, { sourceLabel: template.name });
+  }
+
+  async function exportSelectedTemplate() {
+    const mod = await ensureLayoutDocumentModule();
+    const store = mod.loadTemplatesStore();
+    const template = store.templates.find((entry) => entry.id === plannerTemplateSelect?.value);
+    const document = template?.document || buildCurrentLayoutDocument({ exportedManually: true });
+    const name = template?.name || "store-layout-template";
+    let previewImage = template?.previewImage || null;
+    if (!previewImage) previewImage = await captureLayoutPreviewImage();
+    const payload = {
+      type: "store-layout-template",
+      name,
+      exportedAt: new Date().toISOString(),
+      previewImage,
+      document
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function captureLayoutPreviewImage() {
+    if (!plannerState.canvas) return null;
+    await ensurePlanner3D();
+    const prevActive = plannerViewMode !== "2d";
+    if (!prevActive) {
+      planner3dView.setActive(true);
+      resizePlanner3DView();
+    }
+    const layout = refreshCachedLayout();
+    planner3dView.sync(layout, {
+      artifacts: storeProfileConfig?.artifacts,
+      planner: storeProfileConfig?.planner,
+      refitCamera: true
+    });
+    let previewImage = null;
+    try {
+      previewImage = planner3dView.captureSnapshot();
+    } catch (_error) {
+      previewImage = null;
+    }
+    if (!prevActive) planner3dView.setActive(false);
+    return previewImage;
+  }
+
+  async function export3dSnapshotPng() {
+    if (!plannerState.canvas) initPlanner();
+    const dataUrl = await captureLayoutPreviewImage();
+    if (!dataUrl) return;
+    const anchor = document.createElement("a");
+    anchor.href = dataUrl;
+    anchor.download = "store-planner-3d-snapshot.png";
+    anchor.click();
+  }
 
   async function ensureLayoutBuilder() {
     if (buildStorePresetLayoutFn) return buildStorePresetLayoutFn;
@@ -221,7 +548,7 @@
   }
 
   async function ensureShopperSim() {
-    const layout = getPlannerLayoutSnapshot();
+    const layout = getCachedLayoutSnapshot();
     if (!layout) return null;
     await loadSimulationEngine();
     const count = Number(simOccupancySlider?.value || simOccupancyPref);
@@ -279,7 +606,7 @@
 
       if (now - lastDashboardUpdate > 350) {
         lastDashboardUpdate = now;
-        const layout = getPlannerLayoutSnapshot();
+        const layout = getCachedLayoutSnapshot();
         const staticResult = layout && computeStoreSimulationFn
           ? computeStoreSimulationFn(layout, shopperSim.shoppers.length)
           : null;
@@ -650,18 +977,53 @@
   }
 
   function syncPlanner3DView(options = {}) {
-    if (planner3dSyncLock || !planner3dView) return;
-    if (plannerViewMode !== "3d" && plannerViewMode !== "simulation") return;
-    flushPlanner3DTransforms();
-    const layout = getPlannerLayoutSnapshot();
-    if (layout) {
-      planner3dView.sync(layout, {
-        ...options,
-        refitCamera: options.refitCamera ?? false,
-        artifacts: storeProfileConfig?.artifacts,
-        planner: storeProfileConfig?.planner
-      });
+    void syncLayoutAcrossViews({ ...options, resetSimulation: false });
+  }
+
+  async function setPlannerViewMode(mode) {
+    if (mode !== "simulation") stopLiveSimulation({ clearShoppers: true });
+
+    plannerViewMode = mode;
+    syncSimulationUi();
+
+    if (mode === "2d") {
+      if (planner3dView) {
+        flushPlanner3DTransforms();
+        refreshCachedLayout();
+        planner3dView.setSimulationMode(false);
+        planner3dView.setActive(false);
+      }
+      if (plannerState.canvas) resizePlannerCanvasToContainer();
+      return;
     }
+
+    if (!plannerState.canvas) initPlanner();
+    const view = await ensurePlanner3D();
+    view.setActive(true);
+    resizePlanner3DView();
+
+    if (mode === "simulation") {
+      view.setSimulationMode(true);
+      if (simOccupancySlider) simOccupancySlider.value = String(simOccupancyPref);
+      simPlaying = true;
+      syncSimPlayButton();
+      await syncLayoutAcrossViews({ refitCamera: true, forceSimulationReset: true, randomizeSimulation: true });
+      return;
+    }
+
+    view.setSimulationMode(false);
+    setPlanner3dTool("translate");
+    await syncLayoutAcrossViews({ refitCamera: true, resetSimulation: false });
+  }
+
+  function requestPlanner3DSync(options = {}) {
+    if (layoutApplying) return;
+    refreshCachedLayout();
+    const layoutChanged = cachedLayoutSignature !== lastSyncedLayoutSignature;
+    void syncLayoutAcrossViews({
+      resetSimulation: layoutChanged,
+      ...options
+    });
   }
 
   function setPlanner3dTool(mode) {
@@ -675,47 +1037,6 @@
     planner3dView.setTransformMode(mode);
     planner3dMoveBtn.classList.toggle("active", mode === "translate");
     planner3dRotateBtn.classList.toggle("active", mode === "rotate");
-  }
-
-  async function setPlannerViewMode(mode) {
-    if (mode !== "simulation") stopLiveSimulation({ clearShoppers: true });
-
-    plannerViewMode = mode;
-    syncSimulationUi();
-
-    if (mode === "2d") {
-      if (planner3dView) {
-        planner3dView.setSimulationMode(false);
-        planner3dView.setActive(false);
-      }
-      if (plannerState.canvas) resizePlannerCanvasToContainer();
-      return;
-    }
-
-    if (!plannerState.canvas) initPlanner();
-    const view = await ensurePlanner3D();
-    view.setActive(true);
-    resizePlanner3DView();
-    syncPlanner3DView({ refitCamera: mode === "3d" || mode === "simulation" });
-
-    if (mode === "simulation") {
-      view.setSimulationMode(true);
-      if (simOccupancySlider) simOccupancySlider.value = String(simOccupancyPref);
-      simPlaying = true;
-      syncSimPlayButton();
-      await resetLiveSimulation({ randomize: true });
-      return;
-    }
-
-    view.setSimulationMode(false);
-    setPlanner3dTool("translate");
-  }
-
-  function requestPlanner3DSync() {
-    syncPlanner3DView();
-    if (plannerViewMode === "simulation") {
-      resetLiveSimulation();
-    }
   }
 
   let storeProfileConfig = null;
@@ -1853,7 +2174,11 @@
     });
     group.plannerKind = kind;
     group.plannerMeters = { w: spec.w, h: spec.h };
-    ensurePlannerObjectId(group);
+    if (options.objectId) {
+      group.plannerObjectId = options.objectId;
+    } else {
+      ensurePlannerObjectId(group);
+    }
     capturePlannerPoseMeters(group);
     plannerState.canvas.add(group);
     if (!options.silent) {
@@ -1905,10 +2230,16 @@
 
   function serializePlannerState() {
     return {
+      version: 2,
       widthMeters: plannerState.widthMeters,
       heightMeters: plannerState.heightMeters,
       activePresetId: plannerState.activePresetId,
       costModel: getPlannerCostModel(),
+      preferences: {
+        showMonitoringViz: showMonitoringVizPref,
+        simOccupancy: simOccupancyPref,
+        simPlaying: simPlaying
+      },
       canvasJson: plannerState.canvas
         ? plannerState.canvas.toDatalessJSON(["plannerKind", "plannerObjectId", "plannerMeters", "plannerPoseMeters"])
         : null
@@ -1921,20 +2252,32 @@
     if (state.heightMeters) plannerHeightInput.value = state.heightMeters;
     plannerState.activePresetId = state.activePresetId || null;
     applyPlannerCostModel(state.costModel || defaultPlannerCostModel);
+    if (state.preferences) {
+      showMonitoringVizPref = state.preferences.showMonitoringViz !== false;
+      simOccupancyPref = Number(state.preferences.simOccupancy) || 24;
+      simPlaying = state.preferences.simPlaying !== false;
+      syncMonitoringGridButton();
+      if (simOccupancySlider) simOccupancySlider.value = String(simOccupancyPref);
+      if (simOccupancyVal) simOccupancyVal.textContent = String(simOccupancyPref);
+      syncSimPlayButton();
+      if (planner3dView) planner3dView.setShowMonitoringViz(showMonitoringVizPref);
+    }
     applyStoreDimensions();
     highlightActivePresetButton();
     if (plannerState.activePresetId && STORE_PRESETS[plannerState.activePresetId]) {
       const p = STORE_PRESETS[plannerState.activePresetId];
-      const area = plannerState.widthMeters * plannerState.heightMeters;
       plannerPresetSummary.textContent = `${p.label}: ${plannerState.widthMeters}×${plannerState.heightMeters} m (${number.format(plannerState.widthMeters * plannerState.heightMeters)} m²)`;
     }
     if (state.canvasJson && plannerState.canvas) {
+      layoutApplying = true;
       plannerState.canvas.loadFromJSON(state.canvasJson, () => {
         plannerState.canvas.renderAll();
         syncPlannerMetaFromCanvas();
         updatePlannerEstimate();
         updateMonitoringSummary();
-        requestPlanner3DSync();
+        layoutApplying = false;
+        refreshCachedLayout();
+        requestPlanner3DSync({ resetSimulation: false });
       });
     }
   }
@@ -1982,6 +2325,7 @@
   simOccupancySlider?.addEventListener("input", async () => {
     simOccupancyPref = Number(simOccupancySlider.value);
     if (simOccupancyVal) simOccupancyVal.textContent = String(simOccupancyPref);
+    persistState();
     if (plannerViewMode === "simulation") {
       await ensureShopperSim();
       if (shopperSim) {
@@ -1997,6 +2341,7 @@
     simPlaying = !simPlaying;
     syncSimPlayButton();
     syncSimulationUi();
+    persistState();
     if (simPlaying) startLiveSimulationLoop();
     else stopLiveSimulation();
   });
@@ -2052,6 +2397,7 @@
     if (planner3dView) {
       planner3dView.setShowMonitoringViz(showMonitoringVizPref);
     }
+    persistState();
   });
 
   planner3dDeleteBtn?.addEventListener("click", () => {
@@ -2074,7 +2420,8 @@
     clearPlannerObjects();
     if (plannerState.canvas) plannerState.canvas.renderAll();
     updatePlannerEstimate();
-    persistState();
+    updateMonitoringSummary();
+    requestPlanner3DSync();
   });
   plannerDeleteSelectedBtn.addEventListener("click", () => {
     if (!plannerState.canvas) initPlanner();
@@ -2104,21 +2451,12 @@
     URL.revokeObjectURL(url);
   });
 
-  plannerExportJsonBtn.addEventListener("click", () => {
+  plannerExportJsonBtn.addEventListener("click", async () => {
     if (!plannerState.canvas) initPlanner();
     if (!plannerState.canvas) return;
-    const layout = getPlannerLayoutSnapshot();
-    const plannerPayload = {
-      exportedAt: new Date().toISOString(),
-      widthMeters: plannerState.widthMeters,
-      heightMeters: plannerState.heightMeters,
-      activePresetId: plannerState.activePresetId,
-      costModel: getPlannerCostModel(),
-      monitoring: layout?.monitoring || null,
-      layout,
-      canvasJson: plannerState.canvas.toDatalessJSON(["plannerKind", "plannerObjectId", "plannerMeters"])
-    };
-    const blob = new Blob([JSON.stringify(plannerPayload, null, 2)], { type: "application/json" });
+    await ensureLayoutDocumentModule();
+    const document = buildCurrentLayoutDocument();
+    const blob = new Blob([JSON.stringify(document, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -2135,22 +2473,45 @@
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
-      if (parsed.widthMeters) plannerWidthInput.value = parsed.widthMeters;
-      if (parsed.heightMeters) plannerHeightInput.value = parsed.heightMeters;
-      applyPlannerCostModel(parsed.costModel || defaultPlannerCostModel);
-      applyStoreDimensions();
-      if (parsed.canvasJson) {
-        plannerState.canvas.loadFromJSON(parsed.canvasJson, () => {
-          plannerState.canvas.renderAll();
-          syncPlannerMetaFromCanvas();
-          updatePlannerEstimate();
-          persistState();
-        });
+      if (parsed.type === "store-layout-template" && parsed.document) {
+        await applyLayoutDocument(parsed.document, { sourceLabel: parsed.name || "Template" });
+        event.target.value = "";
+        return;
       }
+      const doc = parsed.document || parsed;
+      await applyLayoutDocument(doc, { sourceLabel: "Imported plan" });
     } catch (_err) {
       alert("Could not import planner JSON file.");
     }
     event.target.value = "";
+  });
+
+  plannerTemplateSelect?.addEventListener("change", () => {
+    if (!layoutDocModule || !plannerTemplateSummary) return;
+    const store = layoutDocModule.loadTemplatesStore();
+    const selected = store.templates.find((entry) => entry.id === plannerTemplateSelect.value);
+    plannerTemplateSummary.textContent = selected
+      ? `${selected.name} · ${selected.document?.store?.widthMeters || "?"}×${selected.document?.store?.heightMeters || "?"} m`
+      : "No saved templates yet.";
+  });
+
+  plannerLoadTemplateBtn?.addEventListener("click", () => {
+    void loadSelectedTemplate();
+  });
+
+  plannerSaveTemplateBtn?.addEventListener("click", async () => {
+    if (!plannerState.canvas) initPlanner();
+    const name = window.prompt("Template name", plannerState.activePresetId ? `${STORE_PRESETS[plannerState.activePresetId]?.label || "Store"} layout` : "My store layout");
+    if (!name) return;
+    await saveCurrentLayoutTemplate(name);
+  });
+
+  plannerExportTemplateBtn?.addEventListener("click", () => {
+    void exportSelectedTemplate();
+  });
+
+  plannerExport3dSnapshotBtn?.addEventListener("click", () => {
+    void export3dSnapshotPng();
   });
 
   window.addEventListener("keydown", (event) => {
@@ -2268,8 +2629,14 @@
     bindPlannerAddButtonContainers();
     await loadStoreProfilesFromApi();
     initPlanner();
+    await ensureLayoutDocumentModule();
     loadPersistedState();
+    refreshCachedLayout();
     updatePlannerEstimate();
     updateMonitoringSummary();
+    await seedBuiltinTemplates();
+    ensurePlanner3D().then(() => {
+      syncLayoutAcrossViews({ persist: false, resetSimulation: false });
+    });
   })();
 })();

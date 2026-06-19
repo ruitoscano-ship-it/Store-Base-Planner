@@ -592,6 +592,20 @@
                 <button class="action-btn" id="plannerDeleteSelectedBtn">Delete Selected</button>
               </div>
 
+              <h4 style="margin-top: 14px;">Layout templates</h4>
+              <p class="readiness-sub" style="margin: 0 0 8px;">
+                Save and reload complete layouts — fixtures, monitoring zones, and view preferences stay in sync across 2D, 3D, and simulation.
+              </p>
+              <label for="plannerTemplateSelect">Saved templates</label>
+              <select id="plannerTemplateSelect" style="width: 100%; margin: 6px 0 8px; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: inherit;"></select>
+              <p class="offline-note" id="plannerTemplateSummary">No saved templates yet.</p>
+              <div class="planner-actions" style="margin-bottom: 12px;">
+                <button type="button" class="action-btn" id="plannerLoadTemplateBtn">Load template</button>
+                <button type="button" class="action-btn" id="plannerSaveTemplateBtn">Save as template</button>
+                <button type="button" class="action-btn" id="plannerExportTemplateBtn">Export template</button>
+                <button type="button" class="action-btn" id="plannerExport3dSnapshotBtn">Export 3D snapshot</button>
+              </div>
+
               <h4>Export / Import</h4>
               <div class="planner-actions">
                 <button class="action-btn" id="plannerLoadBlueprintBtn">Load Blueprint PDF</button>
