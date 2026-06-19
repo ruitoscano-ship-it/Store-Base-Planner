@@ -154,6 +154,7 @@
   }
 
   async function syncLayoutAcrossViews(options = {}) {
+    if (planner3dSyncLock && !options.force) return;
     await ensureLayoutDocumentModule();
     const layout = refreshCachedLayout();
     if (!layout) return;
@@ -262,7 +263,12 @@
     updatePlannerEstimate();
     updateMonitoringSummary();
     layoutApplying = false;
-    await syncLayoutAcrossViews({ refitCamera: true, forceSimulationReset: true, randomizeSimulation: plannerViewMode === "simulation" });
+    await syncLayoutAcrossViews({
+      refitCamera: true,
+      forceSimulationReset: true,
+      randomizeSimulation: plannerViewMode === "simulation",
+      force: true
+    });
     plannerStatus.textContent = `${sourceLabel} loaded — layout synced across 2D, 3D, and simulation.`;
     plannerStatus.style.color = "var(--ok)";
     return true;
@@ -977,6 +983,7 @@
   }
 
   function syncPlanner3DView(options = {}) {
+    if (planner3dSyncLock || !planner3dView) return;
     void syncLayoutAcrossViews({ ...options, resetSimulation: false });
   }
 
@@ -1007,17 +1014,22 @@
       if (simOccupancySlider) simOccupancySlider.value = String(simOccupancyPref);
       simPlaying = true;
       syncSimPlayButton();
-      await syncLayoutAcrossViews({ refitCamera: true, forceSimulationReset: true, randomizeSimulation: true });
+      await syncLayoutAcrossViews({
+        refitCamera: true,
+        forceSimulationReset: true,
+        randomizeSimulation: true,
+        force: true
+      });
       return;
     }
 
     view.setSimulationMode(false);
     setPlanner3dTool("translate");
-    await syncLayoutAcrossViews({ refitCamera: true, resetSimulation: false });
+    await syncLayoutAcrossViews({ refitCamera: true, resetSimulation: false, force: true });
   }
 
   function requestPlanner3DSync(options = {}) {
-    if (layoutApplying) return;
+    if (layoutApplying || planner3dSyncLock) return;
     refreshCachedLayout();
     const layoutChanged = cachedLayoutSignature !== lastSyncedLayoutSignature;
     void syncLayoutAcrossViews({
