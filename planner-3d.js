@@ -339,6 +339,15 @@ export function createPlanner3D(containerEl, options = {}) {
     if (selectedGroup) emitTransform(selectedGroup);
   }
 
+  function deleteSelectedFixture() {
+    if (!selectedGroup || !options.onObjectDelete) return false;
+    const objectId = selectedGroup.userData?.objectId;
+    if (!objectId) return false;
+    const removed = options.onObjectDelete(objectId);
+    if (removed) selectFixture(null);
+    return removed;
+  }
+
   function selectFixture(group) {
     if (interactionMode !== "edit") return;
     selectedGroup = group || null;
@@ -466,6 +475,17 @@ export function createPlanner3D(containerEl, options = {}) {
   }
 
   function onKeyDown(event) {
+    if (interactionMode === "edit" && !simulationMode && (event.key === "Delete" || event.key === "Backspace")) {
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.tagName === "SELECT")) {
+        return;
+      }
+      if (selectedGroup && deleteSelectedFixture()) {
+        event.preventDefault();
+      }
+      return;
+    }
+
     if (interactionMode !== "walk") return;
     switch (event.code) {
       case "ArrowUp":
@@ -1174,6 +1194,10 @@ export function createPlanner3D(containerEl, options = {}) {
 
     flushActiveTransform() {
       flushActiveTransform();
+    },
+
+    deleteSelectedFixture() {
+      return deleteSelectedFixture();
     },
 
     fitCamera() {

@@ -48,7 +48,7 @@ export const DEFAULT_ARTIFACTS = {
     tag2d: "COLD"
   },
   "shelf-hot": {
-    label: "Hot food counter",
+    label: "Hot counter",
     type: "gondola",
     widthMeters: 1,
     depthMeters: 0.6,
@@ -89,14 +89,14 @@ export const DEFAULT_ARTIFACTS = {
     color3d: "#f472b6"
   },
   checkout: {
-    label: "Checkout lane",
-    type: "checkout",
-    widthMeters: 1.6,
-    depthMeters: 0.9,
+    label: "Gated exit",
+    type: "entry-gated",
+    widthMeters: 1.8,
+    depthMeters: 0.18,
     heightMeters: 2.4,
     shelfLevels: 0,
     color3d: "#f59e0b",
-    tag2d: "EXIT"
+    gatePalette: "checkout"
   },
   "separator-wall": {
     label: "Interior wall",
@@ -119,7 +119,7 @@ export const DEFAULT_ARTIFACTS = {
     opacity3d: 0.55
   },
   technical: {
-    label: "Back office / MEP",
+    label: "Back office",
     type: "zone",
     widthMeters: 3,
     depthMeters: 2.5,
@@ -172,7 +172,7 @@ export const DEFAULT_ARTIFACTS = {
     tag2d: "SHELF"
   },
   "monitor-interaction-zone": {
-    label: "Service counter zone",
+    label: "Service counter",
     type: "monitor-zone",
     widthMeters: 2.5,
     depthMeters: 2,

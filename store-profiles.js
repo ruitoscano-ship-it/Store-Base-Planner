@@ -91,13 +91,14 @@ const DEFAULT_ARTIFACTS = {
     color3d: "#f472b6"
   },
   checkout: {
-    label: "Checkout lane",
-    type: "checkout",
-    widthMeters: 1.6,
-    depthMeters: 0.9,
-    heightMeters: 1.05,
+    label: "Gated exit",
+    type: "entry-gated",
+    widthMeters: 1.8,
+    depthMeters: 0.18,
+    heightMeters: 2.4,
     shelfLevels: 0,
-    color3d: "#fbbf24"
+    color3d: "#f59e0b",
+    gatePalette: "checkout"
   },
   "separator-wall": {
     label: "Interior wall",
@@ -350,6 +351,7 @@ function normalizeArtifact(kind, input, fallback) {
     emissive3d: input.emissive3d ?? base.emissive3d,
     tag2d: input.tag2d ?? base.tag2d,
     opacity3d: input.opacity3d != null ? clamp(Number(input.opacity3d), 0.05, 1) : base.opacity3d,
+    gatePalette: input.gatePalette ?? base.gatePalette,
     monitorCapability: input.monitorCapability ?? base.monitorCapability,
     monitorMetrics: Array.isArray(input.monitorMetrics) ? [...input.monitorMetrics] : base.monitorMetrics
   };

@@ -24,6 +24,7 @@
   const planner3dZoomInBtn = document.getElementById("planner3dZoomInBtn");
   const planner3dZoomOutBtn = document.getElementById("planner3dZoomOutBtn");
   const planner3dGridBtn = document.getElementById("planner3dGridBtn");
+  const planner3dDeleteBtn = document.getElementById("planner3dDeleteBtn");
   const planner3dHint = document.getElementById("planner3dHint");
   const plannerView2dBtn = document.getElementById("plannerView2dBtn");
   const plannerView3dBtn = document.getElementById("plannerView3dBtn");
@@ -51,6 +52,8 @@
   const simFootnote = document.getElementById("simFootnote");
   const applyStoreSizeBtn = document.getElementById("applyStoreSizeBtn");
   const plannerAddButtons = Array.from(document.querySelectorAll(".planner-add-btn"));
+  const plannerFixtureButtons = document.getElementById("plannerFixtureButtons");
+  const plannerMonitorButtons = document.getElementById("plannerMonitorButtons");
   const plannerExportPngBtn = document.getElementById("plannerExportPngBtn");
   const plannerExportSvgBtn = document.getElementById("plannerExportSvgBtn");
   const plannerExportJsonBtn = document.getElementById("plannerExportJsonBtn");
@@ -92,6 +95,8 @@
   };
   let layoutStepForArtifact = null;
   let buildStorePresetLayoutFn = null;
+  let storeArtifactKinds = [];
+  let monitorArtifactKinds = [];
 
   async function ensureLayoutBuilder() {
     if (buildStorePresetLayoutFn) return buildStorePresetLayoutFn;
@@ -138,9 +143,38 @@
         emissive3d: spec.emissive3d,
         tag2d: spec.tag2d,
         opacity3d: spec.opacity3d,
+        gatePalette: spec.gatePalette,
         monitorCapability: spec.monitorCapability,
         monitorMetrics: spec.monitorMetrics
       };
+    });
+    renderPlannerAddButtons();
+  }
+
+  function renderPlannerAddButtons() {
+    const renderGroup = (container, kinds) => {
+      if (!container) return;
+      container.innerHTML = kinds
+        .map((kind) => {
+          const label = PLANNER_ARTIFACTS[kind]?.label || kind;
+          return `<button type="button" class="action-btn planner-add-btn" data-kind="${kind}">${label}</button>`;
+        })
+        .join("");
+    };
+    renderGroup(plannerFixtureButtons, storeArtifactKinds);
+    renderGroup(plannerMonitorButtons, monitorArtifactKinds);
+  }
+
+  function bindPlannerAddButtonContainers() {
+    [plannerFixtureButtons, plannerMonitorButtons].forEach((container) => {
+      if (!container || container.dataset.bound === "1") return;
+      container.dataset.bound = "1";
+      container.addEventListener("click", (event) => {
+        const button = event.target.closest(".planner-add-btn");
+        if (!button?.dataset.kind) return;
+        if (!plannerState.canvas) initPlanner();
+        addPlannerObject(button.dataset.kind);
+      });
     });
   }
 
@@ -535,7 +569,23 @@
     }
     planner3dHint.textContent = planner3dHumanPlaced
       ? "Stick figure placed · Drop human to reposition · Walk for first-person tour"
-      : "Click a fixture to select · Drop human for scale · Walk to explore the store";
+      : "Click a fixture to select · Move/rotate gizmo · Delete or Backspace to remove";
+  }
+
+  function deletePlannerObjectById(objectId) {
+    if (!objectId || !plannerState.canvas) return false;
+    const fabricObj = findFabricObjectByPlannerId(objectId);
+    if (!fabricObj || !isPlannerFixture(fabricObj)) return false;
+    plannerState.canvas.remove(fabricObj);
+    plannerState.canvas.discardActiveObject();
+    plannerState.canvas.requestRenderAll();
+    updatePlannerEstimate();
+    updateMonitoringSummary();
+    persistState();
+    requestPlanner3DSync();
+    plannerStatus.textContent = "Selected fixture removed from layout.";
+    plannerStatus.style.color = "var(--ok)";
+    return true;
   }
 
   function syncPlanner3dToolbar(mode) {
@@ -551,6 +601,7 @@
     if (planner3dIsoBtn) planner3dIsoBtn.disabled = isWalk || isPlace;
     planner3dHumanBtn.disabled = isWalk;
     planner3dWalkBtn.textContent = isWalk ? "Exit walk" : "Walk";
+    if (planner3dDeleteBtn) planner3dDeleteBtn.disabled = isWalk || isPlace;
     if (isWalk || isPlace) {
       planner3dMoveBtn.classList.remove("active");
       planner3dRotateBtn.classList.remove("active");
@@ -566,6 +617,7 @@
       artifacts: storeProfileConfig?.artifacts,
       planner: storeProfileConfig?.planner,
       onObjectTransform: applyPlannerTransformFrom3D,
+      onObjectDelete: deletePlannerObjectById,
       onInteractionModeChange: (mode, meta) => {
         planner3dHumanPlaced = !!meta.humanPlaced;
         syncPlanner3dToolbar(mode);
@@ -578,8 +630,9 @@
           return;
         }
         const fabricObj = findFabricObjectByPlannerId(objectId);
+        const spec = fabricObj ? getArtifactSpec(fabricObj.plannerKind) : null;
         planner3dHint.textContent = fabricObj
-          ? `Selected: ${fabricObj.plannerKind} · drag gizmo to rearrange`
+          ? `Selected: ${spec?.label || fabricObj.plannerKind} · drag to move · Delete to remove`
           : "Fixture selected";
       }
     });
@@ -707,16 +760,22 @@
 
   let defaultPlannerCostModel = legacyDefaultPlannerCostModel;
 
+  async function ensureArtifactKindLists() {
+    if (storeArtifactKinds.length && monitorArtifactKinds.length) return null;
+    const mod = await import("./planner-artifacts.js");
+    storeArtifactKinds = mod.STORE_ARTIFACT_KINDS;
+    monitorArtifactKinds = mod.MONITOR_ARTIFACT_KINDS;
+    if (!layoutStepForArtifact) layoutStepForArtifact = mod.layoutStepForArtifact;
+    return mod;
+  }
+
   async function loadStoreProfilesFromApi() {
     try {
       const response = await fetch("/api/store-profiles");
       if (!response.ok) throw new Error("profile fetch failed");
       storeProfileConfig = await response.json();
-      if (!layoutStepForArtifact) {
-        const mod = await import("./planner-artifacts.js");
-        layoutStepForArtifact = mod.layoutStepForArtifact;
-        storeProfileConfig.artifactDefaults = mod.getAllArtifacts();
-      }
+      const mod = await ensureArtifactKindLists();
+      if (mod) storeProfileConfig.artifactDefaults = mod.getAllArtifacts();
       applyArtifactConfigFromProfiles(storeProfileConfig);
       if (planner3dView) {
         planner3dView.setConfig({
@@ -731,9 +790,8 @@
       return true;
     } catch (_error) {
       try {
-        if (!layoutStepForArtifact) {
-          const mod = await import("./planner-artifacts.js");
-          layoutStepForArtifact = mod.layoutStepForArtifact;
+        const mod = await ensureArtifactKindLists();
+        if (mod) {
           applyArtifactConfigFromProfiles({ planner: mod.DEFAULT_PLANNER, artifacts: mod.getAllArtifacts() });
         }
         await ensureLayoutBuilder();
@@ -915,6 +973,33 @@
     plannerGridScaleLabel.textContent = `1 m ≈ ${onScreen.toFixed(0)} px on screen`;
   }
 
+  function buildGatePanelShapes(width, height, strokeW, { fill, stroke, postFill }) {
+    const shapes = [
+      new fabric.Rect({
+        width,
+        height: Math.max(5, height),
+        fill,
+        stroke,
+        strokeWidth: strokeW,
+        originX: "center",
+        originY: "center"
+      })
+    ];
+    [-0.28, 0, 0.28].forEach((offset) => {
+      shapes.push(
+        new fabric.Rect({
+          width: Math.max(2, width * 0.04),
+          height: Math.max(8, height * 2.2),
+          left: width * offset,
+          fill: postFill,
+          originX: "center",
+          originY: "center"
+        })
+      );
+    });
+    return shapes;
+  }
+
   function buildPlannerArtifactShapes(kind, width, height, spec) {
     const shapes = [];
     const strokeW = plannerStroke();
@@ -1047,75 +1132,13 @@
           originY: "center"
         })
       );
-    } else if (type === "entry-gated") {
+    } else if (type === "entry-gated" || kind === "checkout") {
+      const isExit = kind === "checkout" || spec.gatePalette === "checkout";
       shapes.push(
-        new fabric.Rect({
-          width,
-          height: Math.max(5, height),
-          fill: "#fce7f3",
-          stroke: "#9d174d",
-          strokeWidth: strokeW,
-          originX: "center",
-          originY: "center"
-        })
-      );
-      [-0.28, 0, 0.28].forEach((offset) => {
-        shapes.push(
-          new fabric.Rect({
-            width: Math.max(2, width * 0.04),
-            height: Math.max(8, height * 2.2),
-            left: width * offset,
-            fill: "#9d174d",
-            originX: "center",
-            originY: "center"
-          })
-        );
-      });
-    } else if (type === "checkout") {
-      shapes.push(
-        new fabric.Rect({
-          width,
-          height: Math.max(5, height),
-          fill: "#fffbeb",
-          stroke: "#b45309",
-          strokeWidth: strokeW,
-          originX: "center",
-          originY: "center"
-        })
-      );
-      [-0.28, 0, 0.28].forEach((offset) => {
-        shapes.push(
-          new fabric.Rect({
-            width: Math.max(2, width * 0.04),
-            height: Math.max(8, height * 2.2),
-            left: width * offset,
-            fill: "#b45309",
-            originX: "center",
-            originY: "center"
-          })
-        );
-      });
-      shapes.push(
-        new fabric.Rect({
-          width: width * 0.72,
-          height: Math.max(3, height * 0.35),
-          fill: "#f59e0b",
-          stroke: "#92400e",
-          strokeWidth: Math.max(0.6, strokeW * 0.5),
-          left: 0,
-          top: -height * 0.08,
-          originX: "center",
-          originY: "center"
-        }),
-        new fabric.Text(spec.tag2d || "EXIT", {
-          fontSize: Math.max(8, plannerFontSize(0.5)),
-          fontFamily: "Inter, Arial, sans-serif",
-          fontWeight: "700",
-          fill: "#78350f",
-          left: 0,
-          top: -height * 0.08,
-          originX: "center",
-          originY: "center"
+        ...buildGatePanelShapes(width, height, strokeW, {
+          fill: isExit ? "#fffbeb" : "#fce7f3",
+          stroke: isExit ? "#b45309" : "#9d174d",
+          postFill: isExit ? "#b45309" : "#9d174d"
         })
       );
     } else if (type === "zone") {
@@ -1750,9 +1773,12 @@
     });
     plannerState.canvas.discardActiveObject();
     plannerState.canvas.requestRenderAll();
+    updatePlannerEstimate();
+    updateMonitoringSummary();
     plannerStatus.textContent = "Selected object deleted.";
     plannerStatus.style.color = "var(--ok)";
     persistState();
+    requestPlanner3DSync();
   }
 
   function drawPlannerBoundary() {
@@ -2028,6 +2054,10 @@
     }
   });
 
+  planner3dDeleteBtn?.addEventListener("click", () => {
+    planner3dView?.deleteSelectedFixture?.();
+  });
+
   applyStoreSizeBtn.addEventListener("click", () => {
     if (!plannerState.canvas) initPlanner();
     applyStoreDimensions();
@@ -2038,12 +2068,7 @@
       applyStorePreset(button.dataset.preset);
     });
   });
-  plannerAddButtons.forEach((button) =>
-    button.addEventListener("click", () => {
-      if (!plannerState.canvas) initPlanner();
-      addPlannerObject(button.dataset.kind);
-    })
-  );
+  bindPlannerAddButtonContainers();
   plannerClearBtn.addEventListener("click", () => {
     if (!plannerState.canvas) initPlanner();
     clearPlannerObjects();
@@ -2129,7 +2154,6 @@
   });
 
   window.addEventListener("keydown", (event) => {
-    if (!plannerState.canvas) return;
     if (event.key !== "Delete" && event.key !== "Backspace") return;
 
     const activeEl = document.activeElement;
@@ -2137,6 +2161,12 @@
       return;
     }
 
+    if (plannerViewMode === "3d" && planner3dView?.deleteSelectedFixture?.()) {
+      event.preventDefault();
+      return;
+    }
+
+    if (!plannerState.canvas) return;
     event.preventDefault();
     deleteSelectedPlannerObjects();
   });
@@ -2235,6 +2265,7 @@
   });
 
   (async () => {
+    bindPlannerAddButtonContainers();
     await loadStoreProfilesFromApi();
     initPlanner();
     loadPersistedState();

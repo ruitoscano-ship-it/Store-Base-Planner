@@ -196,6 +196,8 @@ export function buildProceduralFixture(group, kind, spec, footprintW, footprintD
     return;
   }
   if (kind === "checkout") {
-    buildProceduralCheckout(group, spec, footprintW, footprintD, height);
+    const palette = spec?.gatePalette || "checkout";
+    buildProceduralEntry(group, "entry-gated", spec, footprintW, footprintD, height, { palette });
+    return;
   }
 }
