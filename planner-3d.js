@@ -1168,7 +1168,7 @@ export function createPlanner3D(containerEl, options = {}) {
       if (!active) return;
       rebuildStore(layout, {
         refitCamera: syncOptions.refitCamera ?? false,
-        preserveSelectionId: syncOptions.preserveSelectionId ?? selectedGroup?.userData?.objectId || null
+        preserveSelectionId: syncOptions.preserveSelectionId ?? (selectedGroup?.userData?.objectId || null)
       });
     },
 
