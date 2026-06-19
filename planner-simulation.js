@@ -1,13 +1,24 @@
 /** Occupancy → interaction capture estimates for store monitoring layouts. */
 
 import { DEFAULT_PLANNER } from "./planner-artifacts.js";
-import { buildLayoutObstacles, resolveMovement, SHOPPER_BODY_RADIUS } from "./planner-collision.js";
+import {
+  buildFixtureZones,
+  buildLayoutObstacles,
+  CHECKOUT_KINDS,
+  GATE_KINDS,
+  resolveMovement,
+  SHELF_KINDS,
+  shopperTouchesFixture,
+  SHOPPER_BODY_RADIUS
+} from "./planner-collision.js";
 
 export const SIM_CELL_SIZE = 1;
 export const CAMERA_GRID_SPACING = 3;
 const AVG_DWELL_MINUTES = 12;
 const INTERACTIONS_PER_VISIT = 4.2;
 const TRACK_EVENTS_PER_VISIT = 18;
+const SHELF_TOUCH_COOLDOWN = 4.5;
+const CHECKOUT_PASS_RADIUS = 0.58;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -108,7 +119,8 @@ function buildCaptureGrid(w, d, cameras) {
 
 function layoutSignature(layout) {
   const zones = layout?.monitoring?.zones || [];
-  return `${layout?.widthMeters || 0}x${layout?.heightMeters || 0}:${zones.map((z) => `${z.id}:${z.meters?.x},${z.meters?.z}`).join("|")}`;
+  const objects = layout?.objects || [];
+  return `${layout?.widthMeters || 0}x${layout?.heightMeters || 0}:${objects.map((o) => `${o.id}:${o.kind}`).join("|")}:${zones.map((z) => `${z.id}:${z.meters?.x},${z.meters?.z}`).join("|")}`;
 }
 
 /** Animated shoppers with decaying floor heatmap for live simulation. */
@@ -122,6 +134,8 @@ export class ShopperSim {
     this.sessionRaw = 0;
     this.sessionEntries = 0;
     this.sessionLeaves = 0;
+    this.sessionShelfInteractions = 0;
+    this.sessionPaymentInteractions = 0;
     this.targetOccupancy = 0;
     this.elapsed = 0;
     this.setCount(count, { trackEntries: false });
@@ -133,9 +147,13 @@ export class ShopperSim {
     this.d = layout?.heightMeters || 20;
     this.margin = 0.55;
     this.zones = layout?.monitoring?.zones || [];
-    this.obstacles = buildLayoutObstacles(layout?.objects || [], {
-      wallThickness: layout?.planner?.wallThicknessMeters ?? DEFAULT_PLANNER.wallThicknessMeters
-    });
+    const objects = layout?.objects || [];
+    const wallThickness = layout?.planner?.wallThicknessMeters ?? DEFAULT_PLANNER.wallThicknessMeters;
+    this.obstacles = buildLayoutObstacles(objects, { wallThickness });
+    this.gates = buildFixtureZones(objects, GATE_KINDS);
+    this.checkouts = buildFixtureZones(objects, CHECKOUT_KINDS);
+    this.checkoutIds = new Set(this.checkouts.map((checkout) => checkout.id));
+    this.shelves = buildFixtureZones(objects, SHELF_KINDS);
     this.cameras = listCeilingCameras(this.w, this.d);
     this.cols = Math.max(1, Math.ceil(this.w / SIM_CELL_SIZE));
     this.rows = Math.max(1, Math.ceil(this.d / SIM_CELL_SIZE));
@@ -161,52 +179,92 @@ export class ShopperSim {
     }
     while (this.shoppers.length > target) {
       const shopper = this.shoppers.pop();
-      if (trackEntries && shopper && shopper.state === "inside") this.sessionLeaves += 1;
+      if (trackEntries && shopper && (shopper.state === "inside" || shopper.state === "leaving")) {
+        this.sessionLeaves += 1;
+      }
     }
   }
 
-  entranceZones() {
-    const entrances = this.zones.filter((zone) => zone.capability === "count" || zone.kind === "monitor-entrance");
-    if (entrances.length) return entrances;
-    return [
-      {
-        meters: {
-          x: this.w / 2,
-          z: Math.min(1.4, this.d * 0.12),
-          w: Math.min(4.5, this.w * 0.45),
-          h: 1.2
-        },
-        angle: 0
-      }
-    ];
+  pickGate() {
+    if (this.gates.length) {
+      return this.gates[Math.floor(Math.random() * this.gates.length)];
+    }
+    return {
+      id: "default-gate",
+      cx: this.w / 2,
+      cz: Math.min(1.4, this.d * 0.12),
+      hw: Math.min(2.25, this.w * 0.22),
+      hd: 0.6,
+      angle: 0
+    };
   }
 
-  pickEntrancePoint() {
-    const zone = this.entranceZones()[Math.floor(Math.random() * this.entranceZones().length)];
-    const hw = zone.meters.w / 2;
-    const hd = zone.meters.h / 2;
-    const angle = ((zone.angle || 0) * Math.PI) / 180;
-    const lx = (Math.random() * 2 - 1) * hw * 0.75;
-    const lz = (Math.random() * 2 - 1) * hd * 0.75;
+  pickGateSpawn(gate) {
+    const offsetX = (Math.random() * 2 - 1) * gate.hw * 0.55;
+    const spawnZ = Math.max(0.15, gate.cz - gate.hd - 0.55);
     return {
-      x: zone.meters.x + lx * Math.cos(angle) - lz * Math.sin(angle),
-      z: zone.meters.z + lx * Math.sin(angle) + lz * Math.cos(angle)
+      x: clamp(gate.cx + offsetX, this.margin, this.w - this.margin),
+      z: spawnZ
     };
+  }
+
+  pickGateEntryTarget(gate) {
+    const pastCheckout = this.checkouts.length
+      ? Math.max(...this.checkouts.map((checkout) => checkout.cz)) + 0.35
+      : gate.cz + gate.hd + 1.0;
+    return {
+      x: gate.cx,
+      z: clamp(pastCheckout, this.margin + 0.9, this.d - this.margin)
+    };
+  }
+
+  obstaclesForShopper(shopper) {
+    if (shopper.state === "entering") {
+      return this.obstacles.filter((obs) => !this.checkoutIds.has(obs.id));
+    }
+    if (shopper.state === "leaving" && shopper.exitCheckoutId) {
+      return this.obstacles.filter((obs) => obs.id !== shopper.exitCheckoutId);
+    }
+    return this.obstacles;
+  }
+
+  pickCheckoutTarget() {
+    if (!this.checkouts.length) {
+      return {
+        id: null,
+        x: this.w / 2,
+        z: Math.min(2.2, this.d * 0.18)
+      };
+    }
+    const checkout = this.checkouts[Math.floor(Math.random() * this.checkouts.length)];
+    return { id: checkout.id, x: checkout.cx, z: checkout.cz };
   }
 
   pickInsidePoint() {
     return {
       x: this.margin + Math.random() * Math.max(0.5, this.w - this.margin * 2),
-      z: this.margin + Math.random() * Math.max(0.5, this.d - this.margin * 2)
+      z: this.margin + 1.8 + Math.random() * Math.max(0.5, this.d - this.margin * 2 - 1.8)
     };
   }
 
   spawnShopper({ atEntrance = false, countEntry = false } = {}) {
     const speed = 0.65 + Math.random() * 0.85;
-    const point = atEntrance ? this.pickEntrancePoint() : this.pickInsidePoint();
-    const inside = atEntrance ? this.pickInsidePoint() : null;
-    const angle = inside ? Math.atan2(inside.x - point.x, inside.z - point.z) : Math.random() * Math.PI * 2;
-    if (countEntry) this.sessionEntries += 1;
+    let point;
+    let enterTarget = null;
+    let gate = null;
+
+    if (atEntrance) {
+      gate = this.pickGate();
+      point = this.pickGateSpawn(gate);
+      enterTarget = this.pickGateEntryTarget(gate);
+    } else {
+      point = this.pickInsidePoint();
+    }
+
+    const angle = enterTarget
+      ? Math.atan2(enterTarget.x - point.x, enterTarget.z - point.z)
+      : Math.random() * Math.PI * 2;
+
     return {
       x: point.x,
       z: point.z,
@@ -214,9 +272,13 @@ export class ShopperSim {
       vz: Math.cos(angle) * speed,
       wander: 1 + Math.random() * 2.5,
       state: atEntrance ? "entering" : "inside",
-      enterTarget: inside,
+      enterTarget,
+      gate,
       exitTarget: null,
-      remainingDwell: 25 + Math.random() * 55
+      exitCheckoutId: null,
+      remainingDwell: 25 + Math.random() * 55,
+      shelfCooldowns: {},
+      entryCounted: !countEntry
     };
   }
 
@@ -226,6 +288,8 @@ export class ShopperSim {
     this.sessionRaw = 0;
     this.sessionEntries = 0;
     this.sessionLeaves = 0;
+    this.sessionShelfInteractions = 0;
+    this.sessionPaymentInteractions = 0;
     this.elapsed = 0;
     const count = this.targetOccupancy || this.shoppers.length;
     this.shoppers = [];
@@ -248,6 +312,21 @@ export class ShopperSim {
     }
   }
 
+  trackShelfTouches(shopper, stepDt) {
+    if (shopper.state !== "inside") return;
+
+    for (const shelf of this.shelves) {
+      const remaining = shopper.shelfCooldowns[shelf.id] || 0;
+      if (remaining > 0) {
+        shopper.shelfCooldowns[shelf.id] = remaining - stepDt;
+        continue;
+      }
+      if (!shopperTouchesFixture(shopper.x, shopper.z, SHOPPER_BODY_RADIUS, shelf)) continue;
+      shopper.shelfCooldowns[shelf.id] = SHELF_TOUCH_COOLDOWN + Math.random() * 2;
+      this.sessionShelfInteractions += 1;
+    }
+  }
+
   step(dt) {
     const stepDt = clamp(dt, 0.001, 0.05);
     this.elapsed += stepDt;
@@ -261,10 +340,14 @@ export class ShopperSim {
         const dx = shopper.enterTarget.x - shopper.x;
         const dz = shopper.enterTarget.z - shopper.z;
         const dist = Math.hypot(dx, dz);
-        if (dist < 0.45) {
+        if (dist < 0.5 || shopper.z >= shopper.enterTarget.z - 0.12) {
           shopper.state = "inside";
           shopper.enterTarget = null;
           shopper.remainingDwell = 25 + Math.random() * 55;
+          if (!shopper.entryCounted) {
+            shopper.entryCounted = true;
+            this.sessionEntries += 1;
+          }
         } else {
           const speed = Math.max(0.75, Math.hypot(shopper.vx, shopper.vz));
           shopper.vx = (dx / dist) * speed;
@@ -274,18 +357,21 @@ export class ShopperSim {
         const dx = shopper.exitTarget.x - shopper.x;
         const dz = shopper.exitTarget.z - shopper.z;
         const dist = Math.hypot(dx, dz);
-        if (dist < 0.45) {
+        if (dist < CHECKOUT_PASS_RADIUS) {
+          this.sessionPaymentInteractions += 1;
           this.sessionLeaves += 1;
           return;
         }
-        const speed = Math.max(0.75, Math.hypot(shopper.vx, shopper.vz));
+        const speed = Math.max(0.85, Math.hypot(shopper.vx, shopper.vz));
         shopper.vx = (dx / dist) * speed;
         shopper.vz = (dz / dist) * speed;
       } else if (shopper.state === "inside") {
         shopper.remainingDwell -= stepDt;
         if (shopper.remainingDwell <= 0) {
+          const checkout = this.pickCheckoutTarget();
           shopper.state = "leaving";
-          shopper.exitTarget = this.pickEntrancePoint();
+          shopper.exitTarget = { x: checkout.x, z: checkout.z };
+          shopper.exitCheckoutId = checkout.id;
         } else {
           shopper.wander -= stepDt;
           if (shopper.wander <= 0) {
@@ -303,11 +389,21 @@ export class ShopperSim {
       shopper.x += shopper.vx * stepDt;
       shopper.z += shopper.vz * stepDt;
 
-      const resolved = resolveMovement(prevX, prevZ, shopper.x, shopper.z, SHOPPER_BODY_RADIUS, this.obstacles);
+      const collisionOpts =
+        shopper.state === "leaving" && shopper.exitCheckoutId ? { excludeId: shopper.exitCheckoutId } : {};
+      const resolved = resolveMovement(
+        prevX,
+        prevZ,
+        shopper.x,
+        shopper.z,
+        SHOPPER_BODY_RADIUS,
+        this.obstaclesForShopper(shopper),
+        collisionOpts
+      );
       shopper.x = resolved.x;
       shopper.z = resolved.z;
 
-      if (shopper.state === "inside") {
+      if (shopper.state === "inside" || shopper.state === "leaving") {
         if (shopper.x < this.margin) {
           shopper.x = this.margin;
           shopper.vx = Math.abs(shopper.vx);
@@ -315,14 +411,16 @@ export class ShopperSim {
           shopper.x = this.w - this.margin;
           shopper.vx = -Math.abs(shopper.vx);
         }
-        if (shopper.z < this.margin) {
-          shopper.z = this.margin;
+        if (shopper.z < this.margin + 0.3 && shopper.state === "inside") {
+          shopper.z = this.margin + 0.3;
           shopper.vz = Math.abs(shopper.vz);
         } else if (shopper.z > this.d - this.margin) {
           shopper.z = this.d - this.margin;
           shopper.vz = -Math.abs(shopper.vz);
         }
       }
+
+      this.trackShelfTouches(shopper, stepDt);
 
       const zoneW = zoneWeightAt(shopper.x, shopper.z, this.zones);
       const capture = cameraCoverageAt(shopper.x, shopper.z, this.cameras);
@@ -385,11 +483,15 @@ export class ShopperSim {
     return {
       elapsed: this.elapsed,
       shopperCount: this.shoppers.length,
-      peopleInside: this.shoppers.filter((shopper) => shopper.state === "inside").length,
+      peopleInside: this.shoppers.filter((shopper) => shopper.state === "inside" || shopper.state === "leaving").length,
       sessionEntries: this.sessionEntries,
       sessionLeaves: this.sessionLeaves,
+      sessionShelfInteractions: this.sessionShelfInteractions,
+      sessionPaymentInteractions: this.sessionPaymentInteractions,
       entriesPerHour: Math.round(this.sessionEntries * hourly),
       leavesPerHour: Math.round(this.sessionLeaves * hourly),
+      shelfInteractionsPerHour: Math.round(this.sessionShelfInteractions * hourly),
+      paymentInteractionsPerHour: Math.round(this.sessionPaymentInteractions * hourly),
       sessionCaptures: Math.round(this.sessionCaptures),
       sessionRaw: Math.round(this.sessionRaw),
       liveCapturedPerHour: Math.round(this.sessionCaptures * hourly),

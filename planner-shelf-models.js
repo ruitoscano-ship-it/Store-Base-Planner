@@ -77,10 +77,53 @@ export function buildProceduralGondola(group, { width, depth, height, levels, ki
   }
 }
 
+export function buildProceduralIslandGondola(group, { width, depth, height, levels, productTexture = null }) {
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.58, metalness: 0.06 });
+  const metalMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.45, roughness: 0.42 });
+  const boardMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.68, metalness: 0.03 });
+  const endMat = new THREE.MeshStandardMaterial({ color: 0xe5e7eb, roughness: 0.62, metalness: 0.05 });
+  const productMat = productTexture
+    ? new THREE.MeshStandardMaterial({ map: productTexture, roughness: 0.72, metalness: 0.02 })
+    : null;
+
+  const postW = 0.04;
+  const kickH = 0.1;
+  [[-width / 2 + postW, -depth / 2 + postW], [width / 2 - postW, -depth / 2 + postW], [-width / 2 + postW, depth / 2 - postW], [width / 2 - postW, depth / 2 - postW]].forEach(
+    ([x, z]) => addMesh(group, new THREE.BoxGeometry(postW, height, postW), metalMat, x, height / 2, z)
+  );
+
+  addMesh(group, new THREE.BoxGeometry(width * 0.98, kickH, depth * 0.98), metalMat, 0, kickH / 2, 0);
+  addMesh(group, new THREE.BoxGeometry(width * 0.96, 0.04, depth * 0.92), frameMat, 0, 0.02, 0);
+  addMesh(group, new THREE.BoxGeometry(0.04, height - kickH, depth * 0.88), endMat, -width / 2 + 0.02, (height - kickH) / 2 + kickH, 0);
+  addMesh(group, new THREE.BoxGeometry(0.04, height - kickH, depth * 0.88), endMat, width / 2 - 0.02, (height - kickH) / 2 + kickH, 0);
+
+  const shelfCount = Math.max(1, levels || 4);
+  const shelfFaceH = 0.28;
+  for (let i = 1; i <= shelfCount; i += 1) {
+    const y = kickH + ((height - kickH - 0.08) * i) / (shelfCount + 1);
+    addMesh(group, new THREE.BoxGeometry(width * 0.94, 0.03, depth * 0.86), boardMat, 0, y, 0);
+    if (productMat) {
+      const front = new THREE.Mesh(new THREE.PlaneGeometry(width * 0.9, shelfFaceH), productMat);
+      front.position.set(0, y + shelfFaceH * 0.45, depth / 2 - 0.012);
+      front.castShadow = false;
+      group.add(front);
+      const back = new THREE.Mesh(new THREE.PlaneGeometry(width * 0.9, shelfFaceH), productMat);
+      back.rotation.y = Math.PI;
+      back.position.set(0, y + shelfFaceH * 0.45, -depth / 2 + 0.012);
+      back.castShadow = false;
+      group.add(back);
+    }
+  }
+}
+
 export function buildProceduralShelf(group, kind, spec, footprintW, footprintD, height, textures = null) {
   const levels = spec?.shelfLevels ?? 4;
   const variant = productVariant(kind);
   const productTexture = textures?.getProductFace?.(variant) || null;
+  if (kind === "shelf-island") {
+    buildProceduralIslandGondola(group, { width: footprintW, depth: footprintD, height, levels, productTexture });
+    return;
+  }
   buildProceduralGondola(group, {
     width: footprintW,
     depth: footprintD,

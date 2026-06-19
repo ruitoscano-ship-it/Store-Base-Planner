@@ -2,15 +2,19 @@
 
 export const SHOPPER_BODY_RADIUS = 0.35;
 export const WALK_BODY_RADIUS = 0.32;
+export const SHELF_TOUCH_RADIUS = 0.42;
+
+export const SHELF_KINDS = new Set(["shelf-ambient", "shelf-island", "shelf-cold", "shelf-hot"]);
+export const GATE_KINDS = new Set(["entry-gated", "entry-open"]);
+export const CHECKOUT_KINDS = new Set(["checkout"]);
 
 export const COLLISION_KINDS = new Set([
   "shelf-ambient",
+  "shelf-island",
   "shelf-cold",
   "shelf-hot",
   "checkout",
-  "separator-wall",
-  "entry-open",
-  "entry-gated"
+  "separator-wall"
 ]);
 
 function degToRad(degrees) {
@@ -47,6 +51,25 @@ export function buildLayoutObstacles(objects, options = {}) {
   return (objects || [])
     .filter((obj) => COLLISION_KINDS.has(obj.kind))
     .map((obj) => obstacleFromObject(obj, { ...options, padding }));
+}
+
+export function buildFixtureZones(objects, kinds, options = {}) {
+  const padding = options.padding ?? 0;
+  return (objects || [])
+    .filter((obj) => kinds.has(obj.kind))
+    .map((obj) => ({
+      kind: obj.kind,
+      ...obstacleFromObject(obj, { ...options, padding })
+    }));
+}
+
+export function shopperTouchesFixture(x, z, radius, fixture) {
+  const touchPad = radius + SHELF_TOUCH_RADIUS * 0.55;
+  return pointInObstacle(x, z, {
+    ...fixture,
+    hw: fixture.hw + touchPad,
+    hd: fixture.hd + touchPad
+  });
 }
 
 function toLocal(x, z, obs) {

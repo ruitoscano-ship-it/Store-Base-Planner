@@ -876,7 +876,6 @@ export function createPlanner3D(containerEl, options = {}) {
     }
 
     const useGlb = modelLibrary.hasModel(obj.kind) && modelLibrary.isModelReady(obj.kind);
-    if (useGlb) {
       const model = modelLibrary.createFixtureModelSync(obj.kind, {
         width: footprintW,
         depth: footprintD,

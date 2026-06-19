@@ -23,6 +23,19 @@ const DEFAULT_ARTIFACTS = {
     emissive3d: "#84cc16",
     tag2d: "DRY"
   },
+  "shelf-island": {
+    label: "Island gondola",
+    type: "gondola-island",
+    widthMeters: 2.4,
+    depthMeters: 0.9,
+    heightMeters: 1.85,
+    shelfLevels: 4,
+    palette: { fill: "#f5f0d8", stroke: "#78716c" },
+    color3d: "#e5e7eb",
+    badge3d: "#d1d5db",
+    emissive3d: "#9ca3af",
+    tag2d: "ISL"
+  },
   "shelf-cold": {
     label: "Refrigerated case",
     type: "gondola",

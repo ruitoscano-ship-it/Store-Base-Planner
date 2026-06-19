@@ -125,6 +125,36 @@ function placeGondolaRuns(placements, count, width, depth, margin, gap, runStart
   return placed;
 }
 
+function placeIslandGondolas(placements, count, width, depth, margin, gap, runStartY, runEndY, leftX, rightX, artifacts) {
+  const island = specSize(artifacts, "shelf-island");
+  const aisleCentreX = leftX + (rightX - leftX) / 2;
+  let placed = 0;
+  let row = 0;
+
+  while (placed < count) {
+    const runY = runStartY + row * (island.d + AISLE_WIDTH * 1.35);
+    if (runY + island.d / 2 > runEndY) break;
+    if (
+      tryPlace(
+        placements,
+        "shelf-island",
+        aisleCentreX,
+        runY + island.d / 2,
+        0,
+        width,
+        depth,
+        margin,
+        artifacts
+      )
+    ) {
+      placed += 1;
+    }
+    row += 1;
+  }
+
+  return placed;
+}
+
 /**
  * @param {object} options
  * @param {number} options.widthMeters
@@ -156,7 +186,8 @@ export function buildStorePresetLayout({
   const runStartY = FRONT_CLEARANCE + margin * 0.5;
 
   // --- Front: entrance + checkout (decompression zone kept clear) ---
-  tryPlace(placements, "entry-gated", W / 2, margin + 0.08, 0, W, D, margin, artifacts);
+  const entryDepth = specSize(artifacts, "entry-gated").d;
+  tryPlace(placements, "entry-gated", W / 2, margin + entryDepth / 2 + 0.02, 0, W, D, margin, artifacts);
 
   if (includeMonitoring) {
     tryPlace(placements, "monitor-entrance", W / 2, margin + 0.42, 0, W, D, margin, artifacts);
@@ -228,17 +259,32 @@ export function buildStorePresetLayout({
     hotX += hot.w + gap;
   }
 
-  // --- Centre: parallel ambient gondola runs with racetrack aisles ---
+  // --- Centre: parallel ambient gondola runs + island gondolas in main aisle ---
   const leftRunX = margin + cold.d + AISLE_WIDTH;
   const rightRunX = W - margin - AISLE_WIDTH;
+  const islandTarget = Math.max(0, Math.floor(shelves.ambient * 0.25));
+  const wallAmbientTarget = Math.max(0, shelves.ambient - islandTarget);
   const ambientPlaced = placeGondolaRuns(
     placements,
-    shelves.ambient,
+    wallAmbientTarget,
     W,
     D,
     margin,
     gap,
     runStartY,
+    runEndY,
+    leftRunX,
+    rightRunX,
+    artifacts
+  );
+  const islandPlaced = placeIslandGondolas(
+    placements,
+    islandTarget,
+    W,
+    D,
+    margin,
+    gap,
+    runStartY + AISLE_WIDTH * 0.6,
     runEndY,
     leftRunX,
     rightRunX,
@@ -258,6 +304,7 @@ export function buildStorePresetLayout({
     fixtures: placements,
     placed: {
       ambient: ambientPlaced,
+      island: islandPlaced,
       cold: coldPlaced,
       hot: hotPlaced,
       checkout: checkoutsPlaced

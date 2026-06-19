@@ -23,6 +23,22 @@
       "emissive3d": "#84cc16",
       "tag2d": "AMB"
     },
+    "shelf-island": {
+      "label": "Island",
+      "type": "gondola-island",
+      "widthMeters": 2.4,
+      "depthMeters": 0.9,
+      "heightMeters": 1.85,
+      "shelfLevels": 4,
+      "palette": {
+        "fill": "#f4eed8",
+        "stroke": "#5c4a1f"
+      },
+      "color3d": "#e5e7eb",
+      "badge3d": "#d1d5db",
+      "emissive3d": "#9ca3af",
+      "tag2d": "ISL"
+    },
     "shelf-cold": {
       "label": "Cold",
       "type": "gondola",

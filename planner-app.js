@@ -44,6 +44,8 @@
   const simCaptureRate = document.getElementById("simCaptureRate");
   const simCoveragePct = document.getElementById("simCoveragePct");
   const simShelfInteractions = document.getElementById("simShelfInteractions");
+  const simShelfInteractionsLive = document.getElementById("simShelfInteractionsLive");
+  const simPaymentInteractions = document.getElementById("simPaymentInteractions");
   const simTrackingEvents = document.getElementById("simTrackingEvents");
   const simZoneList = document.getElementById("simZoneList");
   const simFootnote = document.getElementById("simFootnote");
@@ -209,6 +211,12 @@
     simPeopleInside.textContent = number.format(live.peopleInside);
     simPeopleEntering.textContent = number.format(live.sessionEntries);
     simPeopleLeaving.textContent = number.format(live.sessionLeaves);
+    if (simShelfInteractionsLive) {
+      simShelfInteractionsLive.textContent = number.format(live.sessionShelfInteractions);
+    }
+    if (simPaymentInteractions) {
+      simPaymentInteractions.textContent = number.format(live.sessionPaymentInteractions);
+    }
     simSessionCaptures.textContent = number.format(live.sessionCaptures);
     simLiveRate.textContent = live.elapsed > 0.5 ? `${number.format(live.liveCapturedPerHour)}/hr` : "—";
     if (staticResult) renderSimulationDashboard(staticResult, live);
@@ -277,7 +285,9 @@
     simRawInteractions.textContent = number.format(result.rawInteractionsPerHour);
     simCaptureRate.textContent = `${result.captureRatePct}%`;
     simCoveragePct.textContent = `${result.coveragePct}%`;
-    simShelfInteractions.textContent = number.format(result.shelfInteractionsPerHour);
+    simShelfInteractions.textContent = number.format(
+      live?.shelfInteractionsPerHour > 0 ? live.shelfInteractionsPerHour : result.shelfInteractionsPerHour
+    );
     simTrackingEvents.textContent = number.format(result.trackingEventsPerHour);
 
     if (!result.zoneCount) {
@@ -810,13 +820,14 @@
     const area = widthMeters * heightMeters;
     const placed = layout.placed || {};
     const requested = layout.requested || shelves;
-    const shelfTotal = (placed.ambient ?? 0) + (placed.cold ?? 0) + (placed.hot ?? 0);
+    const shelfTotal = (placed.ambient ?? 0) + (placed.island ?? 0) + (placed.cold ?? 0) + (placed.hot ?? 0);
     const requestedTotal = (requested.ambient ?? 0) + (requested.cold ?? 0) + (requested.hot ?? 0);
     const fitNote =
       shelfTotal < requestedTotal
         ? ` · ${shelfTotal}/${requestedTotal} shelves fit without overlap`
         : "";
-    plannerPresetSummary.textContent = `${preset.label}: ${widthMeters}×${heightMeters} m (${number.format(area)} m²) · ${shelfTotal} shelves (${placed.ambient ?? 0} dry / ${placed.cold ?? 0} cold / ${placed.hot ?? 0} hot)${fitNote}`;
+    const islandNote = placed.island ? ` / ${placed.island} island` : "";
+    plannerPresetSummary.textContent = `${preset.label}: ${widthMeters}×${heightMeters} m (${number.format(area)} m²) · ${shelfTotal} shelves (${placed.ambient ?? 0} dry${islandNote} / ${placed.cold ?? 0} cold / ${placed.hot ?? 0} hot)${fitNote}`;
     plannerStatus.textContent = `${preset.label} baseline loaded — ${preset.blurb}. Adjust layout and costs as needed.`;
     plannerStatus.style.color = "var(--ok)";
 
@@ -886,7 +897,7 @@
           fontSize: Math.max(8, plannerFontSize(0.55)),
           fontFamily: "Inter, Arial, sans-serif",
           fontWeight: "700",
-          fill: kind === "shelf-ambient" ? "#111111" : "#ffffff",
+          fill: kind === "shelf-ambient" || kind === "shelf-island" ? "#111111" : "#ffffff",
           left: 0,
           top: -height / 2 + Math.max(8, height * 0.24) / 2 + 2,
           originX: "center",
@@ -1325,7 +1336,7 @@
     const counts = { ambient: 0, cold: 0, hot: 0 };
     if (plannerState.canvas) {
       plannerState.canvas.getObjects().forEach((obj) => {
-        if (obj.plannerKind === "shelf-ambient") counts.ambient += 1;
+        if (obj.plannerKind === "shelf-ambient" || obj.plannerKind === "shelf-island") counts.ambient += 1;
         if (obj.plannerKind === "shelf-cold") counts.cold += 1;
         if (obj.plannerKind === "shelf-hot") counts.hot += 1;
       });
@@ -1472,7 +1483,7 @@
 
   function clearAutoShelfObjects() {
     if (!plannerState.canvas) return;
-    const kinds = new Set(["shelf-ambient", "shelf-cold", "shelf-hot"]);
+    const kinds = new Set(["shelf-ambient", "shelf-island", "shelf-cold", "shelf-hot"]);
     const toRemove = plannerState.canvas.getObjects().filter((obj) => kinds.has(obj.plannerKind));
     toRemove.forEach((obj) => plannerState.canvas.remove(obj));
   }
