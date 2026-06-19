@@ -592,6 +592,22 @@
 
   function renderLiveSimulationDashboard(sim, staticResult) {
     const live = sim.getLiveMetrics();
+    if (!live.simulationEnabled) {
+      simPeopleInside.textContent = "0";
+      simPeopleEntering.textContent = "0";
+      simPeopleLeaving.textContent = "0";
+      if (simShelfInteractionsLive) simShelfInteractionsLive.textContent = "0";
+      if (simPaymentInteractions) simPaymentInteractions.textContent = "0";
+      simSessionCaptures.textContent = "0";
+      simLiveRate.textContent = "—";
+      if (simFootnote) {
+        simFootnote.textContent = live.statusMessage || "Please add an entrance and checkout to run the simulation.";
+      }
+      if (planner3dHint) {
+        planner3dHint.textContent = live.statusMessage || "Please add an entrance and checkout to run the simulation.";
+      }
+      return;
+    }
     simPeopleInside.textContent = number.format(live.peopleInside);
     simPeopleEntering.textContent = number.format(live.sessionEntries);
     simPeopleLeaving.textContent = number.format(live.sessionLeaves);
@@ -622,8 +638,12 @@
       lastSimFrame = now;
 
       shopperSim.step(dt);
-      planner3dView.updateShoppers(shopperSim.getShopperPositions());
-      planner3dView.updateHeatmap(shopperSim.getHeatmap());
+      if (shopperSim.getLiveMetrics().simulationEnabled) {
+        planner3dView.updateShoppers(shopperSim.getShopperPositions());
+        planner3dView.updateHeatmap(shopperSim.getHeatmap());
+      } else {
+        planner3dView.clearShoppers();
+      }
 
       if (now - lastDashboardUpdate > 350) {
         lastDashboardUpdate = now;
@@ -643,8 +663,12 @@
     if (!shopperSim) return;
     if (randomize) shopperSim.randomize();
     if (planner3dView) {
-      planner3dView.updateShoppers(shopperSim.getShopperPositions());
-      planner3dView.updateHeatmap(shopperSim.getHeatmap());
+      if (shopperSim.getLiveMetrics().simulationEnabled) {
+        planner3dView.updateShoppers(shopperSim.getShopperPositions());
+        planner3dView.updateHeatmap(shopperSim.getHeatmap());
+      } else {
+        planner3dView.clearShoppers();
+      }
     }
     const layout = getPlannerLayoutSnapshot();
     const staticResult = layout && computeStoreSimulationFn
@@ -688,7 +712,9 @@
         .join("");
     }
 
-    simFootnote.textContent = `${result.cameraCount} ceiling cameras · ${result.zoneCount} monitoring zones · ${number.format(result.storeAreaSqm)} m² selling area. Yellow figures wander the floor; heatmap trails update live.`;
+    simFootnote.textContent = live?.statusMessage
+      ? live.statusMessage
+      : `${result.cameraCount} ceiling cameras · ${result.zoneCount} monitoring zones · ${number.format(result.storeAreaSqm)} m² selling area. Shoppers enter via the gate, browse shelves (1–90 s per stop), then queue at checkout one by one.`;
   }
 
   async function runStoreSimulation() {
@@ -719,13 +745,18 @@
     planner3dToolbar?.classList.toggle("hidden", isSim);
     plannerSimDashboard?.classList.toggle("hidden", !isSim);
     if (planner3dHint) {
-      planner3dHint.textContent = isSim
-        ? simPlaying
-          ? "Live simulation · shoppers wander · heatmap updates in real time"
-          : "Simulation paused · press Play or Randomize to continue"
-        : planner3dHumanPlaced
+      if (isSim) {
+        const blocked = shopperSim?.getStatusMessage?.();
+        planner3dHint.textContent = blocked
+          ? blocked
+          : simPlaying
+            ? "Live simulation · enter via gate · browse shelves · queue at checkout"
+            : "Simulation paused · press Play or Randomize to continue";
+      } else {
+        planner3dHint.textContent = planner3dHumanPlaced
           ? "Stick figure placed · Drop human to reposition · Walk for first-person tour"
           : "Click a fixture to select · Drop human for scale · Walk to explore the store";
+      }
     }
   }
 
