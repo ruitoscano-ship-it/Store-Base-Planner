@@ -290,7 +290,10 @@ export class ShopperSim {
 
   pathExcludeIds(shopper) {
     const ids = new Set();
-    if ((shopper.state === "checking_out" || shopper.state === "exiting") && shopper.assignedCheckoutId) {
+    if (
+      (shopper.state === "queuing" || shopper.state === "checking_out" || shopper.state === "exiting") &&
+      shopper.assignedCheckoutId
+    ) {
       ids.add(shopper.assignedCheckoutId);
     }
     return ids;
@@ -660,7 +663,8 @@ export class ShopperSim {
     if (shopper.state === "queuing") {
       const slot = this.queuePositionFor(shopper);
       if (slot) {
-        const dist = this.navigateShopperPath(shopper, slot.x, slot.z, new Set(), 0.65);
+        const excludeIds = this.pathExcludeIds(shopper);
+        const dist = this.navigateShopperPath(shopper, slot.x, slot.z, excludeIds, 0.65);
         if (dist < 0.35) {
           shopper.vx *= 0.2;
           shopper.vz *= 0.2;
@@ -753,7 +757,8 @@ export class ShopperSim {
         shopper.z += shopper.vz * stepDt;
 
         const collisionOpts =
-          (shopper.state === "exiting" || shopper.state === "checking_out") && shopper.assignedCheckoutId
+          (shopper.state === "queuing" || shopper.state === "exiting" || shopper.state === "checking_out") &&
+          shopper.assignedCheckoutId
             ? { excludeId: shopper.assignedCheckoutId }
             : {};
         const resolved = resolveMovement(
