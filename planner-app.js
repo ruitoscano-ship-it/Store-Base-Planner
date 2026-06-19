@@ -714,7 +714,7 @@
 
     simFootnote.textContent = live?.statusMessage
       ? live.statusMessage
-      : `${result.cameraCount} ceiling cameras · ${result.zoneCount} monitoring zones · ${number.format(result.storeAreaSqm)} m² selling area. Shoppers enter via the gate, browse shelves, queue at checkout (0.5–1 s), then leave through the checkout gate.`;
+      : `${result.cameraCount} ceiling cameras · ${result.zoneCount} monitoring zones · ${number.format(result.storeAreaSqm)} m² selling area. Shoppers enter via the gate, shop for 5–35 s, queue at checkout (0.5–1 s), then leave through the checkout gate.`;
   }
 
   async function runStoreSimulation() {

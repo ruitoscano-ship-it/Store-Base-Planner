@@ -24,8 +24,8 @@ const CHECKOUT_SERVICE_MAX = 1;
 const QUEUE_SPACING = 0.92;
 const BROWSE_MIN_SECONDS = 1;
 const BROWSE_MAX_SECONDS = 90;
-const VISIT_MIN_SECONDS = 1;
-const VISIT_MAX_SECONDS = 90;
+const VISIT_MIN_SECONDS = 5;
+const VISIT_MAX_SECONDS = 35;
 export const SIM_REQUIREMENTS_MESSAGE = "Please add an entrance and checkout to run the simulation.";
 
 export function getSimulationRequirements(layout) {
