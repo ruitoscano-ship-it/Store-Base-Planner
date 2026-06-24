@@ -4,8 +4,11 @@ const path = require("path");
 const {
   loadStoreProfiles,
   saveStoreProfiles,
-  buildSourcingPayload
+  buildSourcingPayload,
+  loadSenseiAssumptions,
+  buildSenseiPricingOptions
 } = require("./store-profiles");
+const { estimateStoreCapex } = require("./planner-sensei-cost");
 const {
   loadVerticals,
   saveVerticals,
@@ -119,6 +122,50 @@ const server = http.createServer(async (req, res) => {
       const body = await parseJsonBody(req);
       const saved = saveVerticals(body);
       sendJson(res, 200, saved);
+    } catch (error) {
+      sendJson(res, 400, { error: error.message });
+    }
+    return;
+  }
+
+  if (req.method === "GET" && pathname === "/api/sensei-assumptions") {
+    const config = loadStoreProfiles();
+    const assumptions = loadSenseiAssumptions(config);
+    if (!assumptions) {
+      sendJson(res, 404, { error: "Sensei assumptions file not found" });
+      return;
+    }
+    sendJson(res, 200, {
+      version: assumptions.version,
+      exportedAt: assumptions.exportedAt,
+      assumptions,
+      defaults: config.senseiDefaults,
+      pricingOverrides: config.senseiPricingOverrides
+    });
+    return;
+  }
+
+  if (req.method === "POST" && pathname === "/api/planner/estimate") {
+    try {
+      const body = await parseJsonBody(req);
+      const config = loadStoreProfiles();
+      const assumptions = loadSenseiAssumptions(config);
+      if (!assumptions) {
+        sendJson(res, 404, { error: "Sensei assumptions file not found" });
+        return;
+      }
+      const pricingOptions = buildSenseiPricingOptions(config, body);
+      const estimate = estimateStoreCapex(
+        assumptions,
+        {
+          widthMeters: body.widthMeters,
+          heightMeters: body.heightMeters,
+          counts: body.counts || {},
+          doors: body.doors
+        },
+        pricingOptions
+      );
+      sendJson(res, 200, estimate);
     } catch (error) {
       sendJson(res, 400, { error: error.message });
     }

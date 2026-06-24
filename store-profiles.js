@@ -1,7 +1,12 @@
 const fs = require("fs");
 const path = require("path");
+const {
+  estimateStoreCapex,
+  mergeAssumptionsWithOverrides
+} = require("./planner-sensei-cost");
 
 const DATA_PATH = path.join(__dirname, "data", "store-profiles.json");
+const SENSEI_ASSUMPTIONS_PATH = path.join(__dirname, "data", "sensei-setup-assumptions.json");
 
 const DEFAULT_PLANNER = {
   wallHeightMeters: 2.8,
@@ -230,24 +235,36 @@ function getAllArtifacts() {
   return { ...DEFAULT_ARTIFACTS, ...LEGACY_ARTIFACTS };
 }
 
+const DEFAULT_SENSEI_DEFAULTS = {
+  projectType: "full",
+  format: "auto",
+  country: "PT",
+  uplink: "Wired + 5G",
+  useRefurbished: false,
+  addSpare: false,
+  scaleDiscount: 0,
+  hasExternalTeam: false,
+  pctRef: null
+};
+
+const DEFAULT_SENSEI_PRICING_OVERRIDES = {
+  cameraUnitPrice: 47.54,
+  bridgeUnitPrice: 66.97,
+  camerasSpare: 0.05,
+  scalesSpare: 0.05
+};
+
 const DEFAULT_STORE_PROFILES = {
-  version: 1,
+  version: 2,
   updatedAt: new Date().toISOString(),
   planner: structuredClone(DEFAULT_PLANNER),
   artifacts: structuredClone(DEFAULT_ARTIFACTS),
-  costs: {
-    ambientShelf: 1500,
-    coldShelf: 4200,
-    hotShelf: 3600,
-    installPerShelf: 280
-  },
+  senseiDefaults: structuredClone(DEFAULT_SENSEI_DEFAULTS),
+  senseiPricingOverrides: structuredClone(DEFAULT_SENSEI_PRICING_OVERRIDES),
   bespoke: {
     areaDivisors: { ambient: 13, cold: 32, hot: 45 },
     mins: { ambient: 12, cold: 4, hot: 2 },
-    maxs: { ambient: 80, cold: 28, hot: 16 },
-    integrationFixed: 30000,
-    setupPercent: 18,
-    contingencyPercent: 12
+    maxs: { ambient: 80, cold: 28, hot: 16 }
   },
   profiles: {
     small: {
@@ -256,10 +273,7 @@ const DEFAULT_STORE_PROFILES = {
       blurb: "~100 m² convenience / kiosk",
       widthMeters: 10,
       heightMeters: 10,
-      shelves: { ambient: 10, cold: 4, hot: 2 },
-      integrationFixed: 8500,
-      setupPercent: 12,
-      contingencyPercent: 8
+      shelves: { ambient: 10, cold: 4, hot: 2 }
     },
     medium: {
       id: "medium",
@@ -267,10 +281,7 @@ const DEFAULT_STORE_PROFILES = {
       blurb: "~250 m² neighbourhood store",
       widthMeters: 18,
       heightMeters: 14,
-      shelves: { ambient: 18, cold: 8, hot: 4 },
-      integrationFixed: 12000,
-      setupPercent: 15,
-      contingencyPercent: 10
+      shelves: { ambient: 18, cold: 8, hot: 4 }
     },
     large: {
       id: "large",
@@ -278,10 +289,7 @@ const DEFAULT_STORE_PROFILES = {
       blurb: "~620 m² supermarket format",
       widthMeters: 28,
       heightMeters: 22,
-      shelves: { ambient: 34, cold: 16, hot: 8 },
-      integrationFixed: 22000,
-      setupPercent: 15,
-      contingencyPercent: 10
+      shelves: { ambient: 34, cold: 16, hot: 8 }
     },
     xlarge: {
       id: "xlarge",
@@ -289,19 +297,13 @@ const DEFAULT_STORE_PROFILES = {
       blurb: "~1,200 m² hypermarket / flagship",
       widthMeters: 40,
       heightMeters: 30,
-      shelves: { ambient: 52, cold: 24, hot: 14 },
-      integrationFixed: 40000,
-      setupPercent: 16,
-      contingencyPercent: 12
+      shelves: { ambient: 52, cold: 24, hot: 14 }
     },
     bespoke: {
       id: "bespoke",
       label: "Bespoke",
-      blurb: "Uses custom width/depth · custom engineering",
-      dynamicSize: true,
-      integrationFixed: 30000,
-      setupPercent: 18,
-      contingencyPercent: 12
+      blurb: "Uses custom width/depth · layout derived from area divisors",
+      dynamicSize: true
     }
   }
 };
@@ -366,7 +368,7 @@ function normalizeStoreProfiles(input) {
   const base = structuredClone(DEFAULT_STORE_PROFILES);
   if (!input || typeof input !== "object") return base;
 
-  base.version = input.version || 1;
+  base.version = 2;
   base.updatedAt = input.updatedAt || new Date().toISOString();
   base.planner = {
     ...base.planner,
@@ -381,7 +383,17 @@ function normalizeStoreProfiles(input) {
     base.artifacts[kind] = normalizeArtifact(kind, input.artifacts?.[kind], getAllArtifacts()[kind]);
   });
 
-  base.costs = { ...base.costs, ...(input.costs || {}) };
+  base.senseiDefaults = {
+    ...DEFAULT_SENSEI_DEFAULTS,
+    ...(input.senseiDefaults || {})
+  };
+  delete base.senseiDefaults.setupPercent;
+  delete base.senseiDefaults.contingencyPercent;
+  base.senseiPricingOverrides = {
+    ...DEFAULT_SENSEI_PRICING_OVERRIDES,
+    ...(base.senseiPricingOverrides || {}),
+    ...(input.senseiPricingOverrides || {})
+  };
   base.bespoke = {
     ...base.bespoke,
     ...(input.bespoke || {}),
@@ -392,9 +404,10 @@ function normalizeStoreProfiles(input) {
 
   Object.keys(base.profiles).forEach((id) => {
     if (input.profiles?.[id]) {
+      const { integrationFixed, setupPercent, contingencyPercent, ...profileRest } = input.profiles[id];
       base.profiles[id] = {
         ...base.profiles[id],
-        ...input.profiles[id],
+        ...profileRest,
         id,
         shelves: {
           ...(base.profiles[id].shelves || {}),
@@ -402,7 +415,17 @@ function normalizeStoreProfiles(input) {
         }
       };
     }
+    delete base.profiles[id].integrationFixed;
+    delete base.profiles[id].setupPercent;
+    delete base.profiles[id].contingencyPercent;
   });
+
+  delete base.costs;
+  if (base.bespoke) {
+    delete base.bespoke.integrationFixed;
+    delete base.bespoke.setupPercent;
+    delete base.bespoke.contingencyPercent;
+  }
 
   return base;
 }
@@ -442,69 +465,82 @@ function resolveProfile(config, profileId, options = {}) {
   };
 }
 
+function loadSenseiAssumptions(config) {
+  ensureDataDir();
+  if (!fs.existsSync(SENSEI_ASSUMPTIONS_PATH)) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(fs.readFileSync(SENSEI_ASSUMPTIONS_PATH, "utf8"));
+    return mergeAssumptionsWithOverrides(parsed, config?.senseiPricingOverrides || {});
+  } catch (_error) {
+    return null;
+  }
+}
+
+function buildSenseiPricingOptions(config, options = {}) {
+  const defaults = { ...DEFAULT_SENSEI_DEFAULTS, ...(config.senseiDefaults || {}) };
+  return {
+    format: options.format || defaults.format || "auto",
+    projectType: options.projectType || defaults.projectType || "full",
+    country: options.country || defaults.country || "PT",
+    uplink: options.uplink || defaults.uplink || "Wired + 5G",
+    useRefurbished: options.useRefurbished != null ? Boolean(options.useRefurbished) : Boolean(defaults.useRefurbished),
+    addSpare: options.addSpare != null ? Boolean(options.addSpare) : Boolean(defaults.addSpare),
+    scaleDiscount: Number(options.scaleDiscount ?? defaults.scaleDiscount) || 0,
+    hasExternalTeam:
+      options.hasExternalTeam != null ? Boolean(options.hasExternalTeam) : Boolean(defaults.hasExternalTeam),
+    pctRef: options.pctRef != null ? options.pctRef : defaults.pctRef
+  };
+}
+
 function buildSourcingPayload(config, profileId, options = {}) {
   const resolved = resolveProfile(config, profileId, options);
   if (!resolved) return null;
 
   const { profile, widthMeters, heightMeters, areaSqm, shelves } = resolved;
-  const costs = config.costs;
-  const shelfCount = shelves.ambient + shelves.cold + shelves.hot;
+  const assumptions = loadSenseiAssumptions(config);
+  if (!assumptions) return null;
 
-  const elements = [
-    {
-      sku: "SHELF-AMBIENT",
-      type: "ambient",
-      category: "shelf",
-      label: "Ambient gondola shelf",
-      quantity: shelves.ambient,
-      unitCostEur: costs.ambientShelf,
-      lineTotalEur: shelves.ambient * costs.ambientShelf
-    },
-    {
-      sku: "SHELF-COLD",
-      type: "cold",
-      category: "shelf",
-      label: "Cold refrigerated shelf",
-      quantity: shelves.cold,
-      unitCostEur: costs.coldShelf,
-      lineTotalEur: shelves.cold * costs.coldShelf
-    },
-    {
-      sku: "SHELF-HOT",
-      type: "hot",
-      category: "shelf",
-      label: "Hot prepared-food shelf",
-      quantity: shelves.hot,
-      unitCostEur: costs.hotShelf,
-      lineTotalEur: shelves.hot * costs.hotShelf
-    },
-    {
-      sku: "INSTALL-SHELF",
-      type: "service",
-      category: "installation",
-      label: "Shelf installation",
-      quantity: shelfCount,
-      unitCostEur: costs.installPerShelf,
-      lineTotalEur: shelfCount * costs.installPerShelf
-    },
-    {
-      sku: "INTEGRATION-FIXED",
-      type: "service",
-      category: "integration",
-      label: "Fixed store integration",
-      quantity: 1,
-      unitCostEur: profile.integrationFixed,
-      lineTotalEur: profile.integrationFixed
-    }
-  ];
+  const pricingOptions = buildSenseiPricingOptions(config, options);
+  const coldTotal = shelves.cold || 0;
+  const moduleTotal = (shelves.ambient || 0) + coldTotal + (shelves.hot || 0);
+  if (pricingOptions.pctRef == null && moduleTotal > 0) {
+    pricingOptions.pctRef = coldTotal / moduleTotal;
+  }
 
-  const shelfSubtotal = elements.slice(0, 3).reduce((sum, item) => sum + item.lineTotalEur, 0);
-  const installSubtotal = elements[3].lineTotalEur;
-  const integrationSubtotal = elements[4].lineTotalEur;
-  const baseSubtotal = shelfSubtotal + installSubtotal + integrationSubtotal;
-  const setupEur = baseSubtotal * (profile.setupPercent / 100);
-  const contingencyEur = (baseSubtotal + setupEur) * (profile.contingencyPercent / 100);
-  const capexEur = baseSubtotal + setupEur + contingencyEur;
+  const sensei = estimateStoreCapex(
+    assumptions,
+    {
+      widthMeters,
+      heightMeters,
+      counts: {
+        ambient: shelves.ambient || 0,
+        cold: shelves.cold || 0,
+        hot: shelves.hot || 0,
+        island: 0
+      },
+      doors: Math.max(1, Number(options.doors) || 1)
+    },
+    pricingOptions
+  );
+
+  if (sensei.error) return null;
+
+  const flatElements = [];
+  Object.entries(sensei.bom || {}).forEach(([group, items]) => {
+    (items || []).forEach((item) => {
+      flatElements.push({
+        sku: item.sku,
+        type: group,
+        category: group,
+        label: item.label,
+        quantity: item.qty,
+        unitCostEur: item.price,
+        lineTotalEur: item.total
+      });
+    });
+  });
 
   return {
     profileId,
@@ -512,19 +548,13 @@ function buildSourcingPayload(config, profileId, options = {}) {
     profileBlurb: profile.blurb,
     footprint: { widthMeters, heightMeters, areaSqm },
     shelves,
-    costs: { ...costs },
-    elements,
+    estimator: "sensei",
+    format: sensei.format,
+    quantities: sensei.quantities,
+    elements: flatElements,
     summary: {
-      shelfSubtotalEur: shelfSubtotal,
-      installSubtotalEur: installSubtotal,
-      integrationSubtotalEur: integrationSubtotal,
-      baseSubtotalEur: baseSubtotal,
-      setupPercent: profile.setupPercent,
-      setupEur,
-      contingencyPercent: profile.contingencyPercent,
-      contingencyEur,
-      capexEur,
-      capexPerSqmEur: capexEur / Math.max(1, areaSqm)
+      ...sensei.summary,
+      capexPerSqmEur: sensei.summary.capexEur / Math.max(1, areaSqm)
     },
     generatedAt: new Date().toISOString()
   };
@@ -532,14 +562,19 @@ function buildSourcingPayload(config, profileId, options = {}) {
 
 module.exports = {
   DATA_PATH,
+  SENSEI_ASSUMPTIONS_PATH,
   DEFAULT_STORE_PROFILES,
   DEFAULT_PLANNER,
   DEFAULT_ARTIFACTS,
+  DEFAULT_SENSEI_DEFAULTS,
+  DEFAULT_SENSEI_PRICING_OVERRIDES,
   LEGACY_ARTIFACTS,
   getAllArtifacts,
   loadStoreProfiles,
   saveStoreProfiles,
   normalizeStoreProfiles,
   resolveProfile,
+  loadSenseiAssumptions,
+  buildSenseiPricingOptions,
   buildSourcingPayload
 };

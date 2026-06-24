@@ -633,44 +633,76 @@
                 <input id="plannerImportInput" type="file" accept="application/json" style="display: none;" />
               </div>
 
-              <h4>Shelf Cost Estimator</h4>
+              <h4>Sensei Store CAPEX Estimator</h4>
+              <p class="readiness-sub" style="margin: 0 0 8px;">
+                Uses Setup Calculator rules (cameras, scales, servers, networking, installation). Values from <code>sensei_calc_2026-06-23.json</code>.
+              </p>
               <div class="planner-grid">
                 <div>
-                  <label for="costAmbientShelf">Ambient shelf unit cost (EUR)</label>
-                  <input id="costAmbientShelf" type="number" min="0" value="1500" step="50" />
+                  <label for="senseiFormat">Store format</label>
+                  <select id="senseiFormat" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: inherit;">
+                    <option value="auto">Auto (from area)</option>
+                    <option value="POD">POD</option>
+                    <option value="Corner">Corner</option>
+                    <option value="Conveniência">Conveniência</option>
+                    <option value="Supermercado">Supermercado</option>
+                  </select>
                 </div>
                 <div>
-                  <label for="costColdShelf">Cold shelf unit cost (EUR)</label>
-                  <input id="costColdShelf" type="number" min="0" value="4200" step="50" />
+                  <label for="senseiProjectType">Project type</label>
+                  <select id="senseiProjectType" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: inherit;">
+                    <option value="full">Full (tracking + shelf)</option>
+                    <option value="tracking">Tracking only</option>
+                  </select>
                 </div>
                 <div>
-                  <label for="costHotShelf">Hot shelf unit cost (EUR)</label>
-                  <input id="costHotShelf" type="number" min="0" value="3600" step="50" />
+                  <label for="senseiCountry">Installation country</label>
+                  <select id="senseiCountry" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: inherit;">
+                    <option value="PT">Portugal</option>
+                    <option value="ES">Spain</option>
+                    <option value="IT">Italy</option>
+                    <option value="FR">France</option>
+                    <option value="BR">Brazil</option>
+                    <option value="ROW">Rest of world</option>
+                  </select>
                 </div>
                 <div>
-                  <label for="costInstallPerShelf">Install cost per shelf (EUR)</label>
-                  <input id="costInstallPerShelf" type="number" min="0" value="280" step="10" />
+                  <label for="senseiUplink">Network uplink</label>
+                  <select id="senseiUplink" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: inherit;">
+                    <option value="Wired Only">Wired only</option>
+                    <option value="Wired + 5G">Wired + 5G backup</option>
+                  </select>
                 </div>
                 <div>
-                  <label for="costIntegrationFixed">Fixed integration cost (EUR)</label>
-                  <input id="costIntegrationFixed" type="number" min="0" value="12000" step="100" />
+                  <label for="senseiPctRef">Refrigerated scale mix (%)</label>
+                  <input id="senseiPctRef" type="number" min="0" max="100" step="1" placeholder="Auto from cold shelves" />
                 </div>
                 <div>
-                  <label for="costSetupPercent">General setup overhead (%)</label>
-                  <input id="costSetupPercent" type="number" min="0" max="100" value="15" step="0.5" />
-                </div>
-                <div>
-                  <label for="costContingencyPercent">Contingency (%)</label>
-                  <input id="costContingencyPercent" type="number" min="0" max="100" value="10" step="0.5" />
+                  <label for="senseiScaleDiscount">Scale discount (%)</label>
+                  <input id="senseiScaleDiscount" type="number" min="0" max="50" value="0" step="1" />
                 </div>
               </div>
-              <p class="offline-note">Counts from canvas: Ambient <span id="countAmbientShelf">0</span> | Cold <span id="countColdShelf">0</span> | Hot <span id="countHotShelf">0</span></p>
-              <p class="offline-note">Shelf + install subtotal: <strong id="plannerEstimatedSubtotal">€0</strong></p>
-              <p class="offline-note">General setup add-on: <strong id="plannerEstimatedSetup">€0</strong></p>
-              <p class="offline-note">Contingency add-on: <strong id="plannerEstimatedContingency">€0</strong></p>
-              <p class="offline-note">Estimated CAPEX ballpark: <strong id="plannerEstimatedCapex">€0</strong></p>
-              <p class="offline-note">Estimated cost per m²: <strong id="plannerEstimatedCostPerSqm">€0</strong></p>
-              <p class="offline-note">Estimated monthly service (12%/year): <strong id="plannerEstimatedMonthly">€0</strong></p>
+              <div class="planner-actions" style="margin: 8px 0;">
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.88rem;">
+                  <input id="senseiUseRefurbished" type="checkbox" /> Refurbished servers
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.88rem;">
+                  <input id="senseiAddSpare" type="checkbox" /> Add server spares
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.88rem;">
+                  <input id="senseiExternalTeam" type="checkbox" /> External install team
+                </label>
+              </div>
+              <p class="offline-note">Format: <strong id="senseiDetectedFormat">—</strong> · Area <strong id="senseiAreaLabel">0</strong> m² · Doors <strong id="senseiDoorCount">0</strong></p>
+              <p class="offline-note">Canvas counts — Ambient/island: <span id="countAmbientShelf">0</span> | Cold: <span id="countColdShelf">0</span> | Hot: <span id="countHotShelf">0</span> | Modules: <span id="countTotalModules">0</span></p>
+              <p class="offline-note">Cameras: <strong id="senseiCamTotal">0</strong> · Scales: <strong id="senseiScaleTotal">0</strong> · Servers: <strong id="senseiServerTotal">0</strong></p>
+              <p class="offline-note">Hardware: <strong id="plannerHardwareSubtotal">€0</strong> · Installation: <strong id="plannerInstallSubtotal">€0</strong></p>
+              <p class="offline-note">Total BOM (Setup Calculator): <strong id="plannerEstimatedCapex">€0</strong></p>
+              <p class="offline-note">Cost per m²: <strong id="plannerEstimatedCostPerSqm">€0</strong></p>
+              <details style="margin-top: 8px;">
+                <summary style="cursor: pointer; color: var(--muted); font-size: 0.88rem;">Hardware BOM breakdown</summary>
+                <pre id="senseiBomBreakdown" style="font-size: 0.72rem; white-space: pre-wrap; margin-top: 6px; max-height: 220px; overflow: auto;"></pre>
+              </details>
             </aside>
 
             <div>
@@ -823,6 +855,7 @@
     </script>
     <script src="libs/fabric.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="planner-sensei-cost.js"></script>
     <script src="planner-app.js"></script>
   </body>
 </html>

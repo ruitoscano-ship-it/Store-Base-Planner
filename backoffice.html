@@ -198,7 +198,7 @@
       <header class="topbar">
         <div>
           <h1>Store Profile Backoffice</h1>
-          <p class="subtitle">Configure store sizes, prop dimensions, unit costs, and review simulator verticals. Changes apply to the planner (2D/3D), sourcing API, and forecast model.</p>
+          <p class="subtitle">Configure store layout presets, Sensei calculator defaults, prop dimensions, and review simulator verticals. CAPEX uses Setup_Calculator.html rules via sensei-setup-assumptions.json.</p>
         </div>
         <div class="actions">
           <a class="btn" href="/">Open Simulator</a>
@@ -210,24 +210,78 @@
       <p class="status" id="statusMsg">Loading configuration…</p>
 
       <section class="panel">
-        <h2>Global unit costs (EUR)</h2>
+        <h2>Sensei setup calculator defaults</h2>
+        <p class="hint">
+          Planner CAPEX estimates use <code>data/sensei-setup-assumptions.json</code> (exported from Setup Calculator / sensei_calc_2026-06-23.json).
+          Override key pricing and defaults here; full BOM logic matches Setup_Calculator.html.
+        </p>
         <div class="grid-4">
           <div>
-            <label for="costAmbientShelf">Ambient shelf</label>
-            <input id="costAmbientShelf" type="number" min="0" step="50" />
+            <label for="senseiProjectType">Project type</label>
+            <select id="senseiProjectType" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: inherit;">
+              <option value="full">Full (tracking + shelf)</option>
+              <option value="tracking">Tracking only</option>
+            </select>
           </div>
           <div>
-            <label for="costColdShelf">Cold shelf</label>
-            <input id="costColdShelf" type="number" min="0" step="50" />
+            <label for="senseiFormat">Default format</label>
+            <select id="senseiFormat" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: inherit;">
+              <option value="auto">Auto (from area)</option>
+              <option value="POD">POD</option>
+              <option value="Corner">Corner</option>
+              <option value="Conveniência">Conveniência</option>
+              <option value="Supermercado">Supermercado</option>
+            </select>
           </div>
           <div>
-            <label for="costHotShelf">Hot shelf</label>
-            <input id="costHotShelf" type="number" min="0" step="50" />
+            <label for="senseiCountry">Installation country</label>
+            <select id="senseiCountry" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: inherit;">
+              <option value="PT">Portugal</option>
+              <option value="ES">Spain</option>
+              <option value="IT">Italy</option>
+              <option value="FR">France</option>
+              <option value="BR">Brazil</option>
+              <option value="ROW">Rest of world</option>
+            </select>
           </div>
           <div>
-            <label for="costInstallPerShelf">Install per shelf</label>
-            <input id="costInstallPerShelf" type="number" min="0" step="10" />
+            <label for="senseiUplink">Network uplink</label>
+            <select id="senseiUplink" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: inherit;">
+              <option value="Wired Only">Wired only</option>
+              <option value="Wired + 5G">Wired + 5G backup</option>
+            </select>
           </div>
+          <div>
+            <label for="senseiScaleDiscount">Scale discount (%)</label>
+            <input id="senseiScaleDiscount" type="number" min="0" max="50" step="1" />
+          </div>
+          <div>
+            <label for="senseiCameraPrice">Camera unit price (EUR)</label>
+            <input id="senseiCameraPrice" type="number" min="0" step="0.01" />
+          </div>
+          <div>
+            <label for="senseiBridgePrice">Smart bridge unit price (EUR)</label>
+            <input id="senseiBridgePrice" type="number" min="0" step="0.01" />
+          </div>
+          <div>
+            <label for="senseiCamerasSpare">Camera spare factor</label>
+            <input id="senseiCamerasSpare" type="number" min="0" max="0.5" step="0.01" />
+          </div>
+          <div>
+            <label for="senseiScalesSpare">Scale spare factor</label>
+            <input id="senseiScalesSpare" type="number" min="0" max="0.5" step="0.01" />
+          </div>
+        </div>
+        <div class="grid-3" style="margin-top: 10px;">
+          <label style="display: flex; align-items: center; gap: 8px;">
+            <input id="senseiUseRefurbished" type="checkbox" /> Default refurbished servers
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px;">
+            <input id="senseiAddSpare" type="checkbox" /> Default add server spares
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px;">
+            <input id="senseiExternalTeam" type="checkbox" /> Default external install team
+          </label>
         </div>
       </section>
 
@@ -276,6 +330,7 @@
 
       <section class="panel">
         <h2>Store size profiles</h2>
+        <p class="hint">Layout presets for the planner (footprint + fixture counts). CAPEX is computed exclusively from Setup Calculator rules via Sensei assumptions.</p>
         <div style="overflow-x: auto;">
           <table>
             <thead>
@@ -286,9 +341,6 @@
                 <th>Ambient</th>
                 <th>Cold</th>
                 <th>Hot</th>
-                <th>Integration (EUR)</th>
-                <th>Setup %</th>
-                <th>Contingency %</th>
               </tr>
             </thead>
             <tbody id="profilesTableBody"></tbody>
@@ -298,8 +350,8 @@
 
       <section class="panel">
         <h2>Bespoke sizing rules</h2>
-        <p class="subtitle" style="margin-bottom: 10px;">Used when the sourcing tool or planner requests the bespoke profile with custom width/depth.</p>
-        <div class="grid-4">
+        <p class="subtitle" style="margin-bottom: 10px;">Layout-only divisors when the planner uses the bespoke profile with custom width/depth.</p>
+        <div class="grid-3">
           <div>
             <label for="bespokeAmbientDiv">m² per ambient shelf</label>
             <input id="bespokeAmbientDiv" type="number" min="1" step="1" />
@@ -311,20 +363,6 @@
           <div>
             <label for="bespokeHotDiv">m² per hot shelf</label>
             <input id="bespokeHotDiv" type="number" min="1" step="1" />
-          </div>
-          <div>
-            <label for="bespokeIntegration">Integration (EUR)</label>
-            <input id="bespokeIntegration" type="number" min="0" step="100" />
-          </div>
-        </div>
-        <div class="grid-3" style="margin-top: 10px;">
-          <div>
-            <label for="bespokeSetup">Setup %</label>
-            <input id="bespokeSetup" type="number" min="0" max="100" step="0.5" />
-          </div>
-          <div>
-            <label for="bespokeContingency">Contingency %</label>
-            <input id="bespokeContingency" type="number" min="0" max="100" step="0.5" />
           </div>
         </div>
       </section>
@@ -357,6 +395,10 @@
         <h3 style="margin: 14px 0 6px; font-size: 0.92rem;">List / update configuration</h3>
         <div class="api-block" id="apiProfilesGet"></div>
         <div class="api-block" id="apiProfilesPut"></div>
+
+        <h3 style="margin: 14px 0 6px; font-size: 0.92rem;">Sensei CAPEX estimator</h3>
+        <div class="api-block" id="apiSenseiAssumptions"></div>
+        <div class="api-block" id="apiPlannerEstimate"></div>
 
         <h3 style="margin: 14px 0 6px; font-size: 0.92rem;">Sourcing bill of materials</h3>
         <div class="api-block" id="apiSourcingMedium"></div>
@@ -407,6 +449,8 @@
         const origin = window.location.origin;
         document.getElementById("apiProfilesGet").textContent = `GET ${origin}/api/store-profiles`;
         document.getElementById("apiProfilesPut").textContent = `PUT ${origin}/api/store-profiles\nContent-Type: application/json\n\n{ ...full configuration object... }`;
+        document.getElementById("apiSenseiAssumptions").textContent = `GET ${origin}/api/sensei-assumptions`;
+        document.getElementById("apiPlannerEstimate").textContent = `POST ${origin}/api/planner/estimate\nContent-Type: application/json\n\n{ "widthMeters": 18, "heightMeters": 14, "counts": { "ambient": 18, "cold": 8, "hot": 4 }, "doors": 2 }`;
         document.getElementById("apiSourcingMedium").textContent = `GET ${origin}/api/store-profiles/medium/sourcing`;
         document.getElementById("apiSourcingBespoke").textContent = `GET ${origin}/api/store-profiles/bespoke/sourcing?widthMeters=20&heightMeters=15`;
         document.getElementById("apiVerticalsGet").textContent = `GET ${origin}/api/verticals`;
@@ -464,17 +508,24 @@
 
       function renderForm(data) {
         config = data;
-        document.getElementById("costAmbientShelf").value = data.costs.ambientShelf;
-        document.getElementById("costColdShelf").value = data.costs.coldShelf;
-        document.getElementById("costHotShelf").value = data.costs.hotShelf;
-        document.getElementById("costInstallPerShelf").value = data.costs.installPerShelf;
+        const sensei = data.senseiDefaults || {};
+        document.getElementById("senseiProjectType").value = sensei.projectType || "full";
+        document.getElementById("senseiFormat").value = sensei.format || "auto";
+        document.getElementById("senseiCountry").value = sensei.country || "PT";
+        document.getElementById("senseiUplink").value = sensei.uplink || "Wired + 5G";
+        document.getElementById("senseiScaleDiscount").value = sensei.scaleDiscount ?? 0;
+        document.getElementById("senseiUseRefurbished").checked = Boolean(sensei.useRefurbished);
+        document.getElementById("senseiAddSpare").checked = Boolean(sensei.addSpare);
+        document.getElementById("senseiExternalTeam").checked = Boolean(sensei.hasExternalTeam);
+        const pricing = data.senseiPricingOverrides || {};
+        document.getElementById("senseiCameraPrice").value = pricing.cameraUnitPrice ?? 47.54;
+        document.getElementById("senseiBridgePrice").value = pricing.bridgeUnitPrice ?? 66.97;
+        document.getElementById("senseiCamerasSpare").value = pricing.camerasSpare ?? 0.05;
+        document.getElementById("senseiScalesSpare").value = pricing.scalesSpare ?? 0.05;
 
         document.getElementById("bespokeAmbientDiv").value = data.bespoke.areaDivisors.ambient;
         document.getElementById("bespokeColdDiv").value = data.bespoke.areaDivisors.cold;
         document.getElementById("bespokeHotDiv").value = data.bespoke.areaDivisors.hot;
-        document.getElementById("bespokeIntegration").value = data.bespoke.integrationFixed;
-        document.getElementById("bespokeSetup").value = data.bespoke.setupPercent;
-        document.getElementById("bespokeContingency").value = data.bespoke.contingencyPercent;
 
         document.getElementById("plannerWallHeight").value = data.planner?.wallHeightMeters ?? 2.8;
         document.getElementById("plannerWallThickness").value = data.planner?.wallThicknessMeters ?? 0.12;
@@ -507,12 +558,9 @@
             <td><strong>${profile.label}</strong><br><span style="color: var(--muted); font-size: 0.78rem;">${profile.blurb || ""}</span></td>
             <td>${isBespoke ? "—" : `<input data-field="widthMeters" data-id="${id}" type="number" min="5" max="200" value="${profile.widthMeters}" />`}</td>
             <td>${isBespoke ? "—" : `<input data-field="heightMeters" data-id="${id}" type="number" min="5" max="200" value="${profile.heightMeters}" />`}</td>
-            <td>${isBespoke ? "auto" : `<input data-field="ambient" data-id="${id}" type="number" min="0" value="${profile.shelves.ambient}" />`}</td>
-            <td>${isBespoke ? "auto" : `<input data-field="cold" data-id="${id}" type="number" min="0" value="${profile.shelves.cold}" />`}</td>
-            <td>${isBespoke ? "auto" : `<input data-field="hot" data-id="${id}" type="number" min="0" value="${profile.shelves.hot}" />`}</td>
-            <td><input data-field="integrationFixed" data-id="${id}" type="number" min="0" step="100" value="${profile.integrationFixed}" /></td>
-            <td><input data-field="setupPercent" data-id="${id}" type="number" min="0" max="100" step="0.5" value="${profile.setupPercent}" /></td>
-            <td><input data-field="contingencyPercent" data-id="${id}" type="number" min="0" max="100" step="0.5" value="${profile.contingencyPercent}" /></td>
+            <td>${isBespoke ? "auto" : `<input data-field="ambient" data-id="${id}" type="number" min="0" value="${profile.shelves?.ambient ?? 0}" />`}</td>
+            <td>${isBespoke ? "auto" : `<input data-field="cold" data-id="${id}" type="number" min="0" value="${profile.shelves?.cold ?? 0}" />`}</td>
+            <td>${isBespoke ? "auto" : `<input data-field="hot" data-id="${id}" type="number" min="0" value="${profile.shelves?.hot ?? 0}" />`}</td>
           `;
           profilesTableBody.appendChild(tr);
         });
@@ -520,23 +568,36 @@
 
       function collectFormData() {
         const next = structuredClone(config);
-        next.costs = {
-          ambientShelf: Number(document.getElementById("costAmbientShelf").value),
-          coldShelf: Number(document.getElementById("costColdShelf").value),
-          hotShelf: Number(document.getElementById("costHotShelf").value),
-          installPerShelf: Number(document.getElementById("costInstallPerShelf").value)
+        next.senseiDefaults = {
+          ...(next.senseiDefaults || {}),
+          projectType: document.getElementById("senseiProjectType").value,
+          format: document.getElementById("senseiFormat").value,
+          country: document.getElementById("senseiCountry").value,
+          uplink: document.getElementById("senseiUplink").value,
+          scaleDiscount: Number(document.getElementById("senseiScaleDiscount").value),
+          useRefurbished: document.getElementById("senseiUseRefurbished").checked,
+          addSpare: document.getElementById("senseiAddSpare").checked,
+          hasExternalTeam: document.getElementById("senseiExternalTeam").checked
         };
+        next.senseiPricingOverrides = {
+          ...(next.senseiPricingOverrides || {}),
+          cameraUnitPrice: Number(document.getElementById("senseiCameraPrice").value),
+          bridgeUnitPrice: Number(document.getElementById("senseiBridgePrice").value),
+          camerasSpare: Number(document.getElementById("senseiCamerasSpare").value),
+          scalesSpare: Number(document.getElementById("senseiScalesSpare").value)
+        };
+        delete next.costs;
         next.bespoke = {
           ...next.bespoke,
           areaDivisors: {
             ambient: Number(document.getElementById("bespokeAmbientDiv").value),
             cold: Number(document.getElementById("bespokeColdDiv").value),
             hot: Number(document.getElementById("bespokeHotDiv").value)
-          },
-          integrationFixed: Number(document.getElementById("bespokeIntegration").value),
-          setupPercent: Number(document.getElementById("bespokeSetup").value),
-          contingencyPercent: Number(document.getElementById("bespokeContingency").value)
+          }
         };
+        delete next.bespoke.integrationFixed;
+        delete next.bespoke.setupPercent;
+        delete next.bespoke.contingencyPercent;
 
         next.planner = {
           ...(next.planner || {}),
@@ -569,9 +630,12 @@
           }
         });
 
-        next.profiles.bespoke.integrationFixed = next.bespoke.integrationFixed;
-        next.profiles.bespoke.setupPercent = next.bespoke.setupPercent;
-        next.profiles.bespoke.contingencyPercent = next.bespoke.contingencyPercent;
+        Object.keys(next.profiles).forEach((id) => {
+          delete next.profiles[id].integrationFixed;
+          delete next.profiles[id].setupPercent;
+          delete next.profiles[id].contingencyPercent;
+        });
+        next.version = 2;
 
         return next;
       }

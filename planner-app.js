@@ -78,22 +78,30 @@
   const plannerExport3dSnapshotBtn = document.getElementById("plannerExport3dSnapshotBtn");
   const plannerDeleteSelectedBtn = document.getElementById("plannerDeleteSelectedBtn");
   const plannerStatus = document.getElementById("plannerStatus");
-  const costAmbientShelfInput = document.getElementById("costAmbientShelf");
-  const costColdShelfInput = document.getElementById("costColdShelf");
-  const costHotShelfInput = document.getElementById("costHotShelf");
-  const costInstallPerShelfInput = document.getElementById("costInstallPerShelf");
-  const costIntegrationFixedInput = document.getElementById("costIntegrationFixed");
-  const costSetupPercentInput = document.getElementById("costSetupPercent");
-  const costContingencyPercentInput = document.getElementById("costContingencyPercent");
+  const senseiFormatSelect = document.getElementById("senseiFormat");
+  const senseiProjectTypeSelect = document.getElementById("senseiProjectType");
+  const senseiCountrySelect = document.getElementById("senseiCountry");
+  const senseiUplinkSelect = document.getElementById("senseiUplink");
+  const senseiPctRefInput = document.getElementById("senseiPctRef");
+  const senseiScaleDiscountInput = document.getElementById("senseiScaleDiscount");
+  const senseiUseRefurbishedInput = document.getElementById("senseiUseRefurbished");
+  const senseiAddSpareInput = document.getElementById("senseiAddSpare");
+  const senseiExternalTeamInput = document.getElementById("senseiExternalTeam");
   const countAmbientShelfLabel = document.getElementById("countAmbientShelf");
   const countColdShelfLabel = document.getElementById("countColdShelf");
   const countHotShelfLabel = document.getElementById("countHotShelf");
-  const plannerEstimatedSubtotalLabel = document.getElementById("plannerEstimatedSubtotal");
-  const plannerEstimatedSetupLabel = document.getElementById("plannerEstimatedSetup");
-  const plannerEstimatedContingencyLabel = document.getElementById("plannerEstimatedContingency");
+  const countTotalModulesLabel = document.getElementById("countTotalModules");
+  const senseiDetectedFormatLabel = document.getElementById("senseiDetectedFormat");
+  const senseiAreaLabel = document.getElementById("senseiAreaLabel");
+  const senseiDoorCountLabel = document.getElementById("senseiDoorCount");
+  const senseiCamTotalLabel = document.getElementById("senseiCamTotal");
+  const senseiScaleTotalLabel = document.getElementById("senseiScaleTotal");
+  const senseiServerTotalLabel = document.getElementById("senseiServerTotal");
+  const plannerHardwareSubtotalLabel = document.getElementById("plannerHardwareSubtotal");
+  const plannerInstallSubtotalLabel = document.getElementById("plannerInstallSubtotal");
   const plannerEstimatedCapexLabel = document.getElementById("plannerEstimatedCapex");
   const plannerEstimatedCostPerSqmLabel = document.getElementById("plannerEstimatedCostPerSqm");
-  const plannerEstimatedMonthlyLabel = document.getElementById("plannerEstimatedMonthly");
+  const senseiBomBreakdown = document.getElementById("senseiBomBreakdown");
   const STORAGE_KEY = "smart_store_planner_v1";
   const LEGACY_SIMULATOR_KEY = "smart_store_simulator_v1";
   const PLANNER_MARGIN = 20;
@@ -150,7 +158,7 @@
       widthMeters: plannerState.widthMeters,
       heightMeters: plannerState.heightMeters,
       activePresetId: plannerState.activePresetId,
-      costModel: getPlannerCostModel(),
+      costModel: getPlannerSenseiOptions(),
       layout,
       canvasJson: plannerState.canvas
         ? plannerState.canvas.toDatalessJSON(layoutDocModule?.CANVAS_CUSTOM_PROPS || [
@@ -225,12 +233,11 @@
     plannerWidthInput.value = String(doc.store.widthMeters);
     plannerHeightInput.value = String(doc.store.heightMeters);
     plannerState.activePresetId = doc.activePresetId || null;
-    applyPlannerCostModel(doc.costModel || defaultPlannerCostModel);
+    applyPlannerSenseiOptions(doc.costModel || doc.senseiOptions || defaultSenseiOptions);
     plannerState.widthMeters = doc.store.widthMeters;
     plannerState.heightMeters = doc.store.heightMeters;
     syncPlannerMeterScale();
     drawPlannerBoundary();
-    fitPlannerViewport();
 
     if (doc.preferences) {
       showMonitoringVizPref = doc.preferences.showMonitoringViz !== false;
@@ -249,7 +256,7 @@
       plannerPresetSummary.textContent = `${preset.label}: ${doc.store.widthMeters}×${doc.store.heightMeters} m (${number.format(doc.store.widthMeters * doc.store.heightMeters)} m²)`;
     }
 
-    const restoreFromCanvas = () => restorePlannerCanvasFromJson(doc.canvasJson);
+    const restoreFromCanvas = () => restorePlannerCanvasFromJson(doc.canvasJson, { refitViewport: true });
 
     if (doc.canvasJson) {
       await restoreFromCanvas();
@@ -362,12 +369,7 @@
         widthMeters: built.widthMeters,
         heightMeters: built.heightMeters,
         activePresetId: presetId,
-        costModel: {
-          ...defaultPlannerCostModel,
-          integrationFixed: preset.integrationFixed,
-          setupPercent: preset.setupPercent ?? defaultPlannerCostModel.setupPercent,
-          contingencyPercent: preset.contingencyPercent ?? defaultPlannerCostModel.contingencyPercent
-        },
+        costModel: { ...defaultSenseiOptions },
         layout,
         preferences: { showMonitoringViz: true, simOccupancy: 24, simPlaying: true },
         templateMeta: { presetId, builtin: true }
@@ -1204,30 +1206,76 @@
     return merged;
   }
 
-  function getDefaultPlannerCostModel() {
-    const costs = storeProfileConfig?.costs || legacyDefaultPlannerCostModel;
+  function getDefaultSenseiOptionsFromConfig() {
+    const defaults = storeProfileConfig?.senseiDefaults || legacyDefaultSenseiOptions;
     return {
-      ambientShelf: costs.ambientShelf ?? legacyDefaultPlannerCostModel.ambientShelf,
-      coldShelf: costs.coldShelf ?? legacyDefaultPlannerCostModel.coldShelf,
-      hotShelf: costs.hotShelf ?? legacyDefaultPlannerCostModel.hotShelf,
-      installPerShelf: costs.installPerShelf ?? legacyDefaultPlannerCostModel.installPerShelf,
-      integrationFixed: legacyDefaultPlannerCostModel.integrationFixed,
-      setupPercent: legacyDefaultPlannerCostModel.setupPercent,
-      contingencyPercent: legacyDefaultPlannerCostModel.contingencyPercent
+      format: defaults.format ?? "auto",
+      projectType: defaults.projectType ?? "full",
+      country: defaults.country ?? "PT",
+      uplink: defaults.uplink ?? "Wired + 5G",
+      useRefurbished: Boolean(defaults.useRefurbished),
+      addSpare: Boolean(defaults.addSpare),
+      scaleDiscount: Number(defaults.scaleDiscount) || 0,
+      hasExternalTeam: Boolean(defaults.hasExternalTeam),
+      pctRef: defaults.pctRef != null ? Number(defaults.pctRef) : null
     };
   }
 
-  const legacyDefaultPlannerCostModel = {
-    ambientShelf: 1500,
-    coldShelf: 4200,
-    hotShelf: 3600,
-    installPerShelf: 280,
-    integrationFixed: 12000,
-    setupPercent: 15,
-    contingencyPercent: 10
+  async function loadSenseiAssumptions() {
+    try {
+      const response = await fetch("/api/sensei-assumptions");
+      if (response.ok) {
+        const data = await response.json();
+        senseiAssumptions = data.assumptions;
+        return senseiAssumptions;
+      }
+    } catch (_error) {
+      // Fall back to static JSON when API is unavailable.
+    }
+    try {
+      const response = await fetch("/data/sensei-setup-assumptions.json");
+      if (!response.ok) throw new Error("assumptions fetch failed");
+      let assumptions = await response.json();
+      if (globalThis.PlannerSenseiCost && storeProfileConfig?.senseiPricingOverrides) {
+        assumptions = globalThis.PlannerSenseiCost.mergeAssumptionsWithOverrides(
+          assumptions,
+          storeProfileConfig.senseiPricingOverrides
+        );
+      }
+      senseiAssumptions = assumptions;
+      return senseiAssumptions;
+    } catch (_error) {
+      senseiAssumptions = null;
+      return null;
+    }
+  }
+
+  function formatSenseiBom(bom) {
+    if (!bom) return "";
+    return Object.entries(bom)
+      .map(([group, items]) => {
+        const lines = (items || []).map((item) => `  ${item.qty}× ${item.label} @ ${currency.format(item.price)} = ${currency.format(item.total)}`);
+        return `${group.toUpperCase()}\n${lines.join("\n") || "  —"}`;
+      })
+      .join("\n\n");
+  }
+
+  let senseiAssumptions = null;
+  let senseiAssumptionsLoading = false;
+
+  const legacyDefaultSenseiOptions = {
+    format: "auto",
+    projectType: "full",
+    country: "PT",
+    uplink: "Wired + 5G",
+    useRefurbished: false,
+    addSpare: false,
+    scaleDiscount: 0,
+    hasExternalTeam: false,
+    pctRef: null
   };
 
-  let defaultPlannerCostModel = legacyDefaultPlannerCostModel;
+  let defaultSenseiOptions = { ...legacyDefaultSenseiOptions };
 
   async function ensureArtifactKindLists() {
     if (storeArtifactKinds.length && monitorArtifactKinds.length) return null;
@@ -1253,8 +1301,10 @@
         });
       }
       STORE_PRESETS = buildStorePresetsFromConfig(storeProfileConfig);
-      defaultPlannerCostModel = getDefaultPlannerCostModel();
-      applyPlannerCostModel(defaultPlannerCostModel);
+      defaultSenseiOptions = getDefaultSenseiOptionsFromConfig();
+      applyPlannerSenseiOptions(defaultSenseiOptions);
+      await loadSenseiAssumptions();
+      updatePlannerEstimate();
       await ensureLayoutBuilder();
       return true;
     } catch (_error) {
@@ -1371,12 +1421,7 @@
     plannerHeightInput.value = String(heightMeters);
     applyStoreDimensions();
 
-    applyPlannerCostModel({
-      ...defaultPlannerCostModel,
-      integrationFixed: preset.integrationFixed,
-      setupPercent: preset.setupPercent ?? defaultPlannerCostModel.setupPercent,
-      contingencyPercent: preset.contingencyPercent ?? defaultPlannerCostModel.contingencyPercent
-    });
+    applyPlannerSenseiOptions(defaultSenseiOptions);
 
     plannerBatchAdding = true;
     fixtures.forEach((fixture) => {
@@ -2100,63 +2145,107 @@
     updatePlannerEstimate();
   }
 
-  function getPlannerCostModel() {
+  function getPlannerSenseiOptions() {
+    const pctRefRaw = senseiPctRefInput?.value?.trim();
     return {
-      ambientShelf: clamp(Number(costAmbientShelfInput.value) || 0, 0, 200000),
-      coldShelf: clamp(Number(costColdShelfInput.value) || 0, 0, 200000),
-      hotShelf: clamp(Number(costHotShelfInput.value) || 0, 0, 200000),
-      installPerShelf: clamp(Number(costInstallPerShelfInput.value) || 0, 0, 200000),
-      integrationFixed: clamp(Number(costIntegrationFixedInput.value) || 0, 0, 2000000),
-      setupPercent: clamp(Number(costSetupPercentInput.value) || 0, 0, 100),
-      contingencyPercent: clamp(Number(costContingencyPercentInput.value) || 0, 0, 100)
+      format: senseiFormatSelect?.value || "auto",
+      projectType: senseiProjectTypeSelect?.value || "full",
+      country: senseiCountrySelect?.value || "PT",
+      uplink: senseiUplinkSelect?.value || "Wired + 5G",
+      useRefurbished: Boolean(senseiUseRefurbishedInput?.checked),
+      addSpare: Boolean(senseiAddSpareInput?.checked),
+      scaleDiscount: clamp(Number(senseiScaleDiscountInput?.value) || 0, 0, 50),
+      hasExternalTeam: Boolean(senseiExternalTeamInput?.checked),
+      pctRef: pctRefRaw ? clamp(Number(pctRefRaw) / 100, 0, 1) : null
     };
   }
 
-  function applyPlannerCostModel(model) {
-    const safeModel = { ...defaultPlannerCostModel, ...(model || {}) };
-    costAmbientShelfInput.value = String(clamp(Number(safeModel.ambientShelf) || 0, 0, 200000));
-    costColdShelfInput.value = String(clamp(Number(safeModel.coldShelf) || 0, 0, 200000));
-    costHotShelfInput.value = String(clamp(Number(safeModel.hotShelf) || 0, 0, 200000));
-    costInstallPerShelfInput.value = String(clamp(Number(safeModel.installPerShelf) || 0, 0, 200000));
-    costIntegrationFixedInput.value = String(clamp(Number(safeModel.integrationFixed) || 0, 0, 2000000));
-    costSetupPercentInput.value = String(clamp(Number(safeModel.setupPercent) || 0, 0, 100));
-    costContingencyPercentInput.value = String(clamp(Number(safeModel.contingencyPercent) || 0, 0, 100));
+  function applyPlannerSenseiOptions(model) {
+    const safeModel = { ...defaultSenseiOptions, ...(model || {}) };
+    if (senseiFormatSelect) senseiFormatSelect.value = safeModel.format || "auto";
+    if (senseiProjectTypeSelect) senseiProjectTypeSelect.value = safeModel.projectType || "full";
+    if (senseiCountrySelect) senseiCountrySelect.value = safeModel.country || "PT";
+    if (senseiUplinkSelect) senseiUplinkSelect.value = safeModel.uplink || "Wired + 5G";
+    if (senseiScaleDiscountInput) senseiScaleDiscountInput.value = String(clamp(Number(safeModel.scaleDiscount) || 0, 0, 50));
+    if (senseiUseRefurbishedInput) senseiUseRefurbishedInput.checked = Boolean(safeModel.useRefurbished);
+    if (senseiAddSpareInput) senseiAddSpareInput.checked = Boolean(safeModel.addSpare);
+    if (senseiExternalTeamInput) senseiExternalTeamInput.checked = Boolean(safeModel.hasExternalTeam);
+    if (senseiPctRefInput) {
+      senseiPctRefInput.value =
+        safeModel.pctRef != null && !Number.isNaN(Number(safeModel.pctRef))
+          ? String(Math.round(Number(safeModel.pctRef) * 100))
+          : "";
+    }
+  }
+
+  function countLayoutForEstimate() {
+    const counts = { ambient: 0, cold: 0, hot: 0, island: 0 };
+    let doors = 0;
+    if (plannerState.canvas) {
+      plannerState.canvas.getObjects().forEach((obj) => {
+        if (obj.plannerKind === "shelf-ambient") counts.ambient += 1;
+        if (obj.plannerKind === "shelf-island") counts.island += 1;
+        if (obj.plannerKind === "shelf-cold") counts.cold += 1;
+        if (obj.plannerKind === "shelf-hot") counts.hot += 1;
+        if (obj.plannerKind === "entry-open" || obj.plannerKind === "entry-gated" || obj.plannerKind === "checkout") {
+          doors += 1;
+        }
+      });
+    }
+    return { counts, doors: Math.max(1, doors || 1) };
   }
 
   function updatePlannerEstimate() {
-    const counts = { ambient: 0, cold: 0, hot: 0 };
-    if (plannerState.canvas) {
-      plannerState.canvas.getObjects().forEach((obj) => {
-        if (obj.plannerKind === "shelf-ambient" || obj.plannerKind === "shelf-island") counts.ambient += 1;
-        if (obj.plannerKind === "shelf-cold") counts.cold += 1;
-        if (obj.plannerKind === "shelf-hot") counts.hot += 1;
-      });
-    }
-
-    const costModel = getPlannerCostModel();
-    const shelfCount = counts.ambient + counts.cold + counts.hot;
-    const shelfAndInstallSubtotal =
-      counts.ambient * costModel.ambientShelf +
-      counts.cold * costModel.coldShelf +
-      counts.hot * costModel.hotShelf +
-      shelfCount * costModel.installPerShelf;
-    const baseSubtotal = shelfAndInstallSubtotal + costModel.integrationFixed;
-    const setupAddon = baseSubtotal * (costModel.setupPercent / 100);
-    const contingencyAddon = (baseSubtotal + setupAddon) * (costModel.contingencyPercent / 100);
-    const capex = baseSubtotal + setupAddon + contingencyAddon;
+    const { counts, doors } = countLayoutForEstimate();
+    const totalModules = counts.ambient + counts.island + counts.cold + counts.hot;
     const areaSqm = Math.max(1, plannerState.widthMeters * plannerState.heightMeters);
-    const capexPerSqm = capex / areaSqm;
-    const monthlyService = capex * 0.12 / 12;
 
-    countAmbientShelfLabel.textContent = String(counts.ambient);
+    countAmbientShelfLabel.textContent = String(counts.ambient + counts.island);
     countColdShelfLabel.textContent = String(counts.cold);
     countHotShelfLabel.textContent = String(counts.hot);
-    plannerEstimatedSubtotalLabel.textContent = currency.format(baseSubtotal);
-    plannerEstimatedSetupLabel.textContent = currency.format(setupAddon);
-    plannerEstimatedContingencyLabel.textContent = currency.format(contingencyAddon);
-    plannerEstimatedCapexLabel.textContent = currency.format(capex);
-    plannerEstimatedCostPerSqmLabel.textContent = `${currency.format(capexPerSqm)}/m²`;
-    plannerEstimatedMonthlyLabel.textContent = currency.format(monthlyService);
+    if (countTotalModulesLabel) countTotalModulesLabel.textContent = String(totalModules);
+    if (senseiDoorCountLabel) senseiDoorCountLabel.textContent = String(doors);
+    if (senseiAreaLabel) senseiAreaLabel.textContent = number.format(areaSqm);
+
+    const sensei = globalThis.PlannerSenseiCost;
+    if (!sensei || !senseiAssumptions) {
+      if (!senseiAssumptionsLoading) {
+        senseiAssumptionsLoading = true;
+        void loadSenseiAssumptions().finally(() => {
+          senseiAssumptionsLoading = false;
+          updatePlannerEstimate();
+        });
+      }
+      return;
+    }
+
+    const result = sensei.estimateStoreCapex(
+      senseiAssumptions,
+      {
+        widthMeters: plannerState.widthMeters,
+        heightMeters: plannerState.heightMeters,
+        counts,
+        doors
+      },
+      getPlannerSenseiOptions()
+    );
+
+    if (result.error) {
+      if (senseiDetectedFormatLabel) senseiDetectedFormatLabel.textContent = result.format || "—";
+      plannerEstimatedCapexLabel.textContent = "—";
+      if (senseiBomBreakdown) senseiBomBreakdown.textContent = result.error;
+      return;
+    }
+
+    if (senseiDetectedFormatLabel) senseiDetectedFormatLabel.textContent = result.format;
+    if (senseiCamTotalLabel) senseiCamTotalLabel.textContent = String(result.quantities.totalCams);
+    if (senseiScaleTotalLabel) senseiScaleTotalLabel.textContent = String(result.quantities.totalScales);
+    if (senseiServerTotalLabel) senseiServerTotalLabel.textContent = String(result.quantities.numSrv);
+    if (plannerHardwareSubtotalLabel) plannerHardwareSubtotalLabel.textContent = currency.format(result.summary.hardwareSubtotalEur);
+    if (plannerInstallSubtotalLabel) plannerInstallSubtotalLabel.textContent = currency.format(result.summary.installationSubtotalEur);
+    plannerEstimatedCapexLabel.textContent = currency.format(result.summary.capexEur);
+    plannerEstimatedCostPerSqmLabel.textContent = `${currency.format(result.summary.capexPerSqmEur)}/m²`;
+    if (senseiBomBreakdown) senseiBomBreakdown.textContent = formatSenseiBom(result.bom);
     updateMonitoringSummary();
   }
 
@@ -2486,7 +2575,7 @@
     else plannerState.canvas.requestRenderAll();
   }
 
-  function restorePlannerCanvasFromJson(canvasJson, { refitViewport = false } = {}) {
+  function restorePlannerCanvasFromJson(canvasJson, { refitViewport = true } = {}) {
     return new Promise((resolve) => {
       if (!plannerState.canvas || !canvasJson) {
         drawPlannerBoundary({ refitViewport });
@@ -2586,7 +2675,7 @@
       selection: true
     });
 
-    applyPlannerCostModel(defaultPlannerCostModel);
+    applyPlannerSenseiOptions(defaultSenseiOptions);
     resizePlannerCanvasToContainer();
     updatePlannerEstimate();
     const sync3d = () => requestPlanner3DSync();
@@ -2624,7 +2713,7 @@
       widthMeters: plannerState.widthMeters,
       heightMeters: plannerState.heightMeters,
       activePresetId: plannerState.activePresetId,
-      costModel: getPlannerCostModel(),
+      costModel: getPlannerSenseiOptions(),
       preferences: {
         showMonitoringViz: showMonitoringVizPref,
         simOccupancy: simOccupancyPref,
@@ -2641,7 +2730,7 @@
     if (state.widthMeters) plannerWidthInput.value = state.widthMeters;
     if (state.heightMeters) plannerHeightInput.value = state.heightMeters;
     plannerState.activePresetId = state.activePresetId || null;
-    applyPlannerCostModel(state.costModel || defaultPlannerCostModel);
+    applyPlannerSenseiOptions(state.costModel || state.senseiOptions || defaultSenseiOptions);
     if (state.preferences) {
       showMonitoringVizPref = state.preferences.showMonitoringViz !== false;
       simOccupancyPref = Number(state.preferences.simOccupancy) || 24;
@@ -2655,7 +2744,7 @@
     highlightActivePresetButton();
     if (state.canvasJson && plannerState.canvas) {
       setStoreDimensionsFromInputs();
-      await restorePlannerCanvasFromJson(state.canvasJson);
+      await restorePlannerCanvasFromJson(state.canvasJson, { refitViewport: true });
     } else {
       applyStoreDimensions();
     }
@@ -2945,19 +3034,35 @@
     deleteSelectedPlannerObjects();
   });
 
-  [costAmbientShelfInput, costColdShelfInput, costHotShelfInput, costInstallPerShelfInput, costIntegrationFixedInput].forEach((input) =>
-    input.addEventListener("input", () => {
-      updatePlannerEstimate();
-      persistState();
-    })
-  );
+  [senseiFormatSelect, senseiProjectTypeSelect, senseiCountrySelect, senseiUplinkSelect]
+    .filter(Boolean)
+    .forEach((input) =>
+      input.addEventListener("change", () => {
+        updatePlannerEstimate();
+        persistState();
+      })
+    );
 
-  [costSetupPercentInput, costContingencyPercentInput].forEach((input) =>
-    input.addEventListener("input", () => {
-      updatePlannerEstimate();
-      persistState();
-    })
-  );
+  [
+    senseiPctRefInput,
+    senseiScaleDiscountInput
+  ]
+    .filter(Boolean)
+    .forEach((input) =>
+      input.addEventListener("input", () => {
+        updatePlannerEstimate();
+        persistState();
+      })
+    );
+
+  [senseiUseRefurbishedInput, senseiAddSpareInput, senseiExternalTeamInput]
+    .filter(Boolean)
+    .forEach((input) =>
+      input.addEventListener("change", () => {
+        updatePlannerEstimate();
+        persistState();
+      })
+    );
 
   plannerLoadBlueprintBtn.addEventListener("click", () => plannerBlueprintInput.click());
   plannerBlueprintInput.addEventListener("change", async (event) => {
@@ -2994,7 +3099,7 @@
     plannerState.widthMeters = 20;
     plannerState.heightMeters = 20;
     plannerState.activePresetId = null;
-    applyPlannerCostModel(defaultPlannerCostModel);
+    applyPlannerSenseiOptions(defaultSenseiOptions);
     applyStoreDimensions();
     clearPlannerObjects();
     clearPlannerBlueprint();
