@@ -2285,147 +2285,138 @@
     plannerState.canvas.requestRenderAll();
   }
 
-  function estimateShelfCountFromBlueprint(renderCanvas) {
-    const targetWidth = Math.min(960, renderCanvas.width);
-    const scale = targetWidth / renderCanvas.width;
-    const targetHeight = Math.max(60, Math.floor(renderCanvas.height * scale));
-    const probeCanvas = document.createElement("canvas");
-    probeCanvas.width = targetWidth;
-    probeCanvas.height = targetHeight;
-    const probeCtx = probeCanvas.getContext("2d");
-    probeCtx.drawImage(renderCanvas, 0, 0, targetWidth, targetHeight);
-    const { data, width, height } = probeCtx.getImageData(0, 0, targetWidth, targetHeight);
-    const visited = new Uint8Array(width * height);
+  let blueprintInferenceModule = null;
 
-    const brightnessAt = (idx) => data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114;
-    const isDark = (x, y) => {
-      const px = (y * width + x) * 4;
-      return brightnessAt(px) < 110;
-    };
-
-    const components = [];
-    const qx = [];
-    const qy = [];
-    for (let y = 1; y < height - 1; y += 1) {
-      for (let x = 1; x < width - 1; x += 1) {
-        const key = y * width + x;
-        if (visited[key] || !isDark(x, y)) continue;
-        let minX = x;
-        let maxX = x;
-        let minY = y;
-        let maxY = y;
-        let area = 0;
-        qx.length = 0;
-        qy.length = 0;
-        qx.push(x);
-        qy.push(y);
-        visited[key] = 1;
-
-        while (qx.length) {
-          const cx = qx.pop();
-          const cy = qy.pop();
-          area += 1;
-          if (cx < minX) minX = cx;
-          if (cx > maxX) maxX = cx;
-          if (cy < minY) minY = cy;
-          if (cy > maxY) maxY = cy;
-
-          for (let oy = -1; oy <= 1; oy += 1) {
-            for (let ox = -1; ox <= 1; ox += 1) {
-              if (ox === 0 && oy === 0) continue;
-              const nx = cx + ox;
-              const ny = cy + oy;
-              if (nx < 1 || ny < 1 || nx >= width - 1 || ny >= height - 1) continue;
-              const nKey = ny * width + nx;
-              if (visited[nKey] || !isDark(nx, ny)) continue;
-              visited[nKey] = 1;
-              qx.push(nx);
-              qy.push(ny);
-            }
-          }
-        }
-
-        const compW = maxX - minX + 1;
-        const compH = maxY - minY + 1;
-        const aspect = compW / Math.max(1, compH);
-        const fillRatio = area / Math.max(1, compW * compH);
-        if (area >= 110 && area <= 18000 && compW >= 26 && compH >= 8 && aspect >= 1.8 && aspect <= 9 && fillRatio <= 0.72) {
-          components.push({ area, compW, compH, aspect, fillRatio, minX, minY });
-        }
-      }
-    }
-
-    const estimatedCount = clamp(components.length, 0, 40);
-    if (estimatedCount > 0) return estimatedCount;
-    const fallbackFromArea = Math.round((plannerState.widthMeters * plannerState.heightMeters) / 24);
-    return clamp(fallbackFromArea, 4, 30);
+  async function ensureBlueprintInference() {
+    if (blueprintInferenceModule) return blueprintInferenceModule;
+    blueprintInferenceModule = await import("./planner-blueprint-inference.js");
+    return blueprintInferenceModule;
   }
 
-  function clearAutoShelfObjects() {
+  function clearBlueprintInferredFixtures() {
     if (!plannerState.canvas) return;
-    const kinds = new Set(["shelf-ambient", "shelf-island", "shelf-cold", "shelf-hot"]);
+    const kinds =
+      blueprintInferenceModule?.BLUEPRINT_INFERRED_KINDS ??
+      new Set([
+        "shelf-ambient",
+        "shelf-island",
+        "shelf-cold",
+        "shelf-hot",
+        "entry-gated",
+        "entry-open",
+        "checkout",
+        "technical",
+        "warehouse",
+        "monitor-entrance",
+        "monitor-people-zone"
+      ]);
     const toRemove = plannerState.canvas.getObjects().filter((obj) => kinds.has(obj.plannerKind));
     toRemove.forEach((obj) => plannerState.canvas.remove(obj));
   }
 
-  function preloadShelvesFromBlueprint(estimatedCount) {
-    if (!plannerState.canvas) return;
-    clearAutoShelfObjects();
-    const total = clamp(Math.round(estimatedCount), 1, 60);
-    const cold = Math.max(1, Math.round(total * 0.25));
-    const hot = Math.max(1, Math.round(total * 0.15));
-    const ambient = Math.max(1, total - cold - hot);
+  async function applyBlueprintInferredLayout(renderCanvas) {
+    const mod = await ensureBlueprintInference();
+    await ensureLayoutBuilder();
+    clearBlueprintInferredFixtures();
 
-    const placements = [];
-    for (let i = 0; i < ambient; i += 1) placements.push("shelf-ambient");
-    for (let i = 0; i < cold; i += 1) placements.push("shelf-cold");
-    for (let i = 0; i < hot; i += 1) placements.push("shelf-hot");
-
-    const boundaryLeft = PLANNER_MARGIN;
-    const boundaryTop = PLANNER_MARGIN;
-    const widthPx = metersToPx(plannerState.widthMeters);
-    const heightPx = metersToPx(plannerState.heightMeters);
-    const cols = Math.max(3, Math.ceil(Math.sqrt(placements.length)));
-    const rows = Math.max(1, Math.ceil(placements.length / cols));
-    const cellW = widthPx / cols;
-    const cellH = heightPx / rows;
-    const yStart = boundaryTop + Math.max(18, heightPx * 0.42);
-
-    placements.forEach((kind, idx) => {
-      const col = idx % cols;
-      const row = Math.floor(idx / cols);
-      const left = boundaryLeft + cellW * col + cellW * 0.5;
-      const top = Math.min(boundaryTop + heightPx - 18, yStart + row * cellH + cellH * 0.45);
-      const angle = row % 2 === 0 ? 0 : 90;
-      addPlannerObject(kind, { left, top, angle });
+    const analysis = mod.analyzeBlueprintImage(renderCanvas);
+    const inference = mod.inferFixtureCountsFromBlueprint({
+      widthMeters: plannerState.widthMeters,
+      heightMeters: plannerState.heightMeters,
+      analysis
     });
+    const built = mod.buildBlueprintInferredLayout({
+      widthMeters: plannerState.widthMeters,
+      heightMeters: plannerState.heightMeters,
+      shelves: inference.shelves,
+      artifacts: artifactCatalogForBuilder(),
+      gapMeters: plannerSettings.layoutGapMeters ?? 0.15,
+      marginMeters: 0.55
+    });
+
+    plannerBatchAdding = true;
+    built.fixtures.forEach((fixture) => {
+      const point = canvasPointFromMeters(fixture.x, fixture.y);
+      addPlannerObject(fixture.kind, {
+        left: point.left,
+        top: point.top,
+        angle: fixture.angle || 0,
+        silent: true
+      });
+    });
+    plannerBatchAdding = false;
+    plannerState.canvas.requestRenderAll();
+    requestPlanner3DSync();
+    return { inference, placed: built.placed, analysis };
+  }
+
+  function applyBlueprintDimensionsFromAspect(aspectRatio) {
+    const area = plannerState.widthMeters * plannerState.heightMeters;
+    const ratio = aspectRatio > 0 ? aspectRatio : 1;
+    const nextWidth = clamp(Math.sqrt(area * ratio), 5, 200);
+    const nextHeight = clamp(area / Math.max(1, nextWidth), 5, 200);
+    plannerState.widthMeters = Number(nextWidth.toFixed(1));
+    plannerState.heightMeters = Number(nextHeight.toFixed(1));
+    plannerWidthInput.value = String(plannerState.widthMeters);
+    plannerHeightInput.value = String(plannerState.heightMeters);
+    drawPlannerBoundary();
+    resizePlannerCanvasToContainer();
+  }
+
+  async function renderBlueprintOverlay(renderCanvas) {
+    if (plannerState.blueprintObject) plannerState.canvas.remove(plannerState.blueprintObject);
+    const image = new fabric.Image(renderCanvas, {
+      left: PLANNER_MARGIN + 4,
+      top: PLANNER_MARGIN + 4,
+      selectable: false,
+      evented: false,
+      opacity: 0.46,
+      excludeFromExport: true
+    });
+    image.plannerKind = "blueprint";
+    plannerState.blueprintObject = image;
+    plannerState.canvas.add(image);
+    image.sendToBack();
+    plannerState.gridObjects.forEach((obj) => obj.bringToFront());
+    if (plannerState.boundary) plannerState.boundary.bringToFront();
+    fitPlannerViewport();
+    plannerState.canvas.requestRenderAll();
+  }
+
+  async function loadPlannerBlueprintImage(file) {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = reject;
+        image.src = url;
+      });
+      applyBlueprintDimensionsFromAspect(img.width / Math.max(1, img.height));
+      const maxWidth = Math.max(120, metersToPx(plannerState.widthMeters) - 8);
+      const maxHeight = Math.max(120, metersToPx(plannerState.heightMeters) - 8);
+      const scale = Math.min(maxWidth / img.width, maxHeight / img.height);
+      const renderCanvas = document.createElement("canvas");
+      renderCanvas.width = Math.ceil(img.width * scale);
+      renderCanvas.height = Math.ceil(img.height * scale);
+      const context = renderCanvas.getContext("2d");
+      context.drawImage(img, 0, 0, renderCanvas.width, renderCanvas.height);
+      await renderBlueprintOverlay(renderCanvas);
+      return renderCanvas;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
   }
 
   async function loadPlannerBlueprintPdf(file) {
-    if (!plannerState.canvas) return;
-    if (!file) return;
-    if (!window.pdfjsLib) {
-      plannerStatus.textContent = "PDF support unavailable. Check network and refresh the page.";
-      plannerStatus.style.color = "var(--warn)";
-      return;
-    }
+    if (!file) return null;
 
     try {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
       const bytes = new Uint8Array(await file.arrayBuffer());
       const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
       const page = await pdf.getPage(1);
       const baseViewport = page.getViewport({ scale: 1 });
-      const ratio = baseViewport.width / Math.max(1, baseViewport.height);
-      const area = plannerState.widthMeters * plannerState.heightMeters;
-      const nextWidth = clamp(Math.sqrt(area * ratio), 5, 200);
-      const nextHeight = clamp(area / Math.max(1, nextWidth), 5, 200);
-      plannerState.widthMeters = Number(nextWidth.toFixed(1));
-      plannerState.heightMeters = Number(nextHeight.toFixed(1));
-      plannerWidthInput.value = String(plannerState.widthMeters);
-      plannerHeightInput.value = String(plannerState.heightMeters);
-      drawPlannerBoundary();
-      resizePlannerCanvasToContainer();
+      applyBlueprintDimensionsFromAspect(baseViewport.width / Math.max(1, baseViewport.height));
       const maxWidth = Math.max(120, metersToPx(plannerState.widthMeters) - 8);
       const maxHeight = Math.max(120, metersToPx(plannerState.heightMeters) - 8);
       const scale = Math.min(maxWidth / baseViewport.width, maxHeight / baseViewport.height);
@@ -2436,34 +2427,57 @@
       renderCanvas.height = Math.ceil(viewport.height);
 
       await page.render({ canvasContext: context, viewport }).promise;
+      await renderBlueprintOverlay(renderCanvas);
+      return renderCanvas;
+    } catch (_error) {
+      return null;
+    }
+  }
 
-      if (plannerState.blueprintObject) plannerState.canvas.remove(plannerState.blueprintObject);
+  async function loadPlannerBlueprintFile(file) {
+    if (!plannerState.canvas) return;
+    if (!file) return;
 
-      const image = new fabric.Image(renderCanvas, {
-        left: PLANNER_MARGIN + 4,
-        top: PLANNER_MARGIN + 4,
-        selectable: false,
-        evented: false,
-        opacity: 0.46,
-        excludeFromExport: true
-      });
-      image.plannerKind = "blueprint";
-      plannerState.blueprintObject = image;
-      plannerState.canvas.add(image);
-      image.sendToBack();
-      plannerState.gridObjects.forEach((obj) => obj.bringToFront());
-      if (plannerState.boundary) plannerState.boundary.bringToFront();
-      fitPlannerViewport();
-      plannerState.canvas.requestRenderAll();
+    const isImage =
+      (file.type && file.type.startsWith("image/")) || /\.(png|jpe?g|webp)$/i.test(file.name || "");
+    const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name || "");
 
-      const estimatedShelves = estimateShelfCountFromBlueprint(renderCanvas);
-      preloadShelvesFromBlueprint(estimatedShelves);
+    try {
+      let renderCanvas = null;
+      if (isImage) {
+        renderCanvas = await loadPlannerBlueprintImage(file);
+      } else if (isPdf) {
+        if (!window.pdfjsLib) {
+          plannerStatus.textContent = "PDF support unavailable. Check network and refresh the page.";
+          plannerStatus.style.color = "var(--warn)";
+          return;
+        }
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+        renderCanvas = await loadPlannerBlueprintPdf(file);
+      } else {
+        plannerStatus.textContent = "Unsupported blueprint format. Upload PDF or PNG/JPEG.";
+        plannerStatus.style.color = "var(--warn)";
+        return;
+      }
+
+      if (!renderCanvas) {
+        plannerStatus.textContent = "Could not read blueprint. Please upload a valid PDF or image.";
+        plannerStatus.style.color = "var(--bad)";
+        return;
+      }
+
+      const mod = await ensureBlueprintInference();
+      const { inference, placed, analysis } = await applyBlueprintInferredLayout(renderCanvas);
       updatePlannerEstimate();
+      persistState();
 
-      plannerStatus.textContent = `Blueprint loaded (${file.name}) - page 1. Preloaded ${estimatedShelves} shelf units for adjustment.`;
+      const summary = mod.summarizeBlueprintInference(inference, placed);
+      const entranceNote = analysis.entranceLikely ? "Entrance at front." : "Entrance placed at front (required).";
+      plannerStatus.textContent = `Blueprint loaded (${file.name}). ${entranceNote} ${summary}`;
       plannerStatus.style.color = "var(--ok)";
     } catch (_error) {
-      plannerStatus.textContent = "Could not read PDF blueprint. Please upload a valid PDF.";
+      plannerStatus.textContent = "Could not read blueprint. Please upload a valid PDF or image.";
       plannerStatus.style.color = "var(--bad)";
     }
   }
@@ -3068,7 +3082,7 @@
   plannerBlueprintInput.addEventListener("change", async (event) => {
     if (!plannerState.canvas) initPlanner();
     const file = event.target.files && event.target.files[0];
-    await loadPlannerBlueprintPdf(file);
+    await loadPlannerBlueprintFile(file);
     event.target.value = "";
   });
 

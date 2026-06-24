@@ -3,10 +3,12 @@
  * Pattern: front entry + checkout, left cold wall, back hot/service, centre gondola runs, rear BOH.
  */
 
-const AISLE_WIDTH = 1.45;
+/** Cross-aisle width for two shoppers passing (~150 cm retail guidance). */
+const AISLE_WIDTH = 1.5;
 const FRONT_CLEARANCE = 2.45;
 const CHECKOUT_ROW_Y = 1.85;
 const PLACEMENT_PAD = 0.1;
+const DEFAULT_TECHNICAL_AREA_RATIO = 0.075;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -61,26 +63,75 @@ function tryPlace(placements, kind, x, y, angle, width, depth, margin, artifacts
   return true;
 }
 
-function checkoutCount(width, depth) {
+/**
+ * Checkout lanes from sales area (m²).
+ * Convenience / small format: ~1 lane / 90 m²; larger stores ~1 / 120–150 m².
+ */
+export function checkoutCountForArea(width, depth) {
   const area = width * depth;
-  if (area < 140) return 1;
-  if (area < 320) return 2;
-  if (area < 650) return 3;
-  return clamp(Math.floor(width / 8.5), 4, 6);
+  if (area < 80) return 1;
+  if (area < 400) return clamp(Math.ceil(area / 90), 1, 4);
+  if (area < 800) return clamp(Math.ceil(area / 120), 3, 6);
+  return clamp(Math.ceil(area / 150), 4, 8);
 }
 
-function backOfHouseSize(width, depth) {
+const FORMAT_MODULES_PER_M2 = {
+  POD: 0.54,
+  Corner: 0.54,
+  Conveniência: 0.3655,
+  Supermercado: 0.25
+};
+
+const FORMAT_PCT_REF = {
+  POD: 0.43,
+  Corner: 0.43,
+  Conveniência: 0.3,
+  Supermercado: 0.3
+};
+
+function inferStoreFormatFromArea(areaSqm) {
+  if (areaSqm <= 50) return "POD";
+  if (areaSqm <= 150) return "Corner";
+  if (areaSqm <= 800) return "Conveniência";
+  return "Supermercado";
+}
+
+/**
+ * Module counts from floor area using Sensei formatDefaults modules/m².
+ */
+export function inferFixtureCounts({
+  widthMeters,
+  heightMeters,
+  format = null,
+  modulesPerM2 = null,
+  pctRef = null
+}) {
+  const areaSqm = widthMeters * heightMeters;
+  const storeFormat = format || inferStoreFormatFromArea(areaSqm);
+  const density = modulesPerM2 ?? FORMAT_MODULES_PER_M2[storeFormat] ?? 0.3655;
+  const refPct = pctRef ?? FORMAT_PCT_REF[storeFormat] ?? 0.3;
+  const modules = Math.max(3, Math.round(areaSqm * density));
+  const cold = Math.max(1, Math.round(modules * refPct));
+  const hot = Math.max(1, Math.round(modules * (storeFormat === "Supermercado" ? 0.1 : 0.12)));
+  const ambient = Math.max(1, modules - cold - hot);
+  return { format: storeFormat, modules, shelves: { ambient, cold, hot } };
+}
+
+function backOfHouseSize(width, depth, technicalAreaRatio = DEFAULT_TECHNICAL_AREA_RATIO) {
   const area = width * depth;
+  const techRatio = clamp(technicalAreaRatio, 0.05, 0.1);
+  const technicalTarget = area * techRatio;
+  const technical = {
+    w: clamp(Math.sqrt(technicalTarget * 1.35), 1.8, Math.min(width * 0.35, 8)),
+    d: clamp(technicalTarget / Math.max(1.8, Math.sqrt(technicalTarget * 1.35)), 1.6, Math.min(depth * 0.28, 6))
+  };
+  const warehouseTarget = area * 0.04;
   const compact = area < 150 ? 0.72 : area < 320 ? 0.86 : 1;
   const warehouse = {
-    w: clamp(width * 0.22 * compact, 2.2, 5.5),
-    d: clamp(depth * 0.17 * compact, 1.9, 4.5)
+    w: clamp(Math.sqrt(warehouseTarget * 1.2) * compact, 2, Math.min(width * 0.22, 5.5)),
+    d: clamp(warehouseTarget / Math.max(2, Math.sqrt(warehouseTarget * 1.2)) * compact, 1.6, Math.min(depth * 0.17, 4.5))
   };
-  const technical = {
-    w: clamp(width * 0.15 * compact, 1.8, 3.8),
-    d: clamp(depth * 0.13 * compact, 1.6, 3.2)
-  };
-  return { warehouse, technical };
+  return { warehouse, technical, technicalAreaSqm: technical.w * technical.d };
 }
 
 function placeLine(placements, kind, start, count, axis, fixed, angle, width, depth, margin, gap, artifacts) {
@@ -164,6 +215,7 @@ function placeIslandGondolas(placements, count, width, depth, margin, gap, runSt
  * @param {number} [options.gapMeters=0.15]
  * @param {number} [options.marginMeters=0.55]
  * @param {boolean} [options.includeMonitoring=true]
+ * @param {number} [options.technicalAreaRatio=0.075] - 5–10% of floor for MEP / technical room
  */
 export function buildStorePresetLayout({
   widthMeters: W,
@@ -172,14 +224,15 @@ export function buildStorePresetLayout({
   artifacts,
   gapMeters = 0.15,
   marginMeters = 0.55,
-  includeMonitoring = true
+  includeMonitoring = true,
+  technicalAreaRatio = DEFAULT_TECHNICAL_AREA_RATIO
 }) {
   const placements = [];
   const margin = marginMeters;
   const gap = gapMeters;
   const cold = specSize(artifacts, "shelf-cold");
   const hot = specSize(artifacts, "shelf-hot");
-  const boh = backOfHouseSize(W, D);
+  const boh = backOfHouseSize(W, D, technicalAreaRatio);
 
   const backReserveY = margin + boh.warehouse.d + gap + 0.25;
   const runEndY = D - backReserveY;
@@ -193,7 +246,7 @@ export function buildStorePresetLayout({
     tryPlace(placements, "monitor-entrance", W / 2, margin + 0.42, 0, W, D, margin, artifacts);
   }
 
-  const lanes = checkoutCount(W, D);
+  const lanes = checkoutCountForArea(W, D);
   const laneSpacing = specSize(artifacts, "checkout").w + gap + 0.35;
   const laneStartX = clamp(W / 2 - ((lanes - 1) * laneSpacing) / 2, margin + 1.1, W - margin - 1.1);
   let checkoutsPlaced = 0;

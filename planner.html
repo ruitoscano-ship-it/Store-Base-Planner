@@ -621,15 +621,19 @@
               </div>
 
               <h4>Export / Import</h4>
+              <p class="readiness-sub" style="margin: 0 0 8px;">
+                Blueprint upload infers layout: entrance at front, checkouts by m², wall gondolas + ~25% island gondolas,
+                aisles ≥1.5 m, technical area ~7.5% of floor. PDF or PNG/JPEG.
+              </p>
               <div class="planner-actions">
-                <button class="action-btn" id="plannerLoadBlueprintBtn">Load Blueprint PDF</button>
+                <button class="action-btn" id="plannerLoadBlueprintBtn">Load blueprint</button>
                 <button class="action-btn" id="plannerClearBlueprintBtn">Clear Blueprint</button>
                 <button class="action-btn" id="plannerExportPngBtn">Export PNG</button>
                 <button class="action-btn" id="plannerExportSvgBtn">Export SVG</button>
                 <button class="action-btn" id="plannerExportJsonBtn">Export Plan JSON</button>
                 <button class="action-btn" id="plannerImportJsonBtn">Import Plan JSON</button>
                 <button class="action-btn" id="plannerClearBtn">Clear Planner</button>
-                <input id="plannerBlueprintInput" type="file" accept="application/pdf,.pdf" style="display: none;" />
+                <input id="plannerBlueprintInput" type="file" accept="application/pdf,.pdf,image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" style="display: none;" />
                 <input id="plannerImportInput" type="file" accept="application/json" style="display: none;" />
               </div>
 
