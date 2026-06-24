@@ -249,14 +249,7 @@
       plannerPresetSummary.textContent = `${preset.label}: ${doc.store.widthMeters}×${doc.store.heightMeters} m (${number.format(doc.store.widthMeters * doc.store.heightMeters)} m²)`;
     }
 
-    const restoreFromCanvas = () =>
-      new Promise((resolve) => {
-        plannerState.canvas.loadFromJSON(doc.canvasJson, () => {
-          plannerState.canvas.renderAll();
-          syncPlannerMetaFromCanvas();
-          resolve();
-        });
-      });
+    const restoreFromCanvas = () => restorePlannerCanvasFromJson(doc.canvasJson);
 
     if (doc.canvasJson) {
       await restoreFromCanvas();
@@ -2462,7 +2455,7 @@
     requestPlanner3DSync();
   }
 
-  function drawPlannerBoundary() {
+  function drawPlannerBoundary({ refitViewport = true } = {}) {
     if (!plannerState.canvas) return;
     if (plannerState.boundary) plannerState.canvas.remove(plannerState.boundary);
     drawPlannerGrid();
@@ -2483,12 +2476,35 @@
     plannerState.boundary = boundary;
     plannerState.canvas.add(boundary);
     boundary.bringToFront();
+    if (plannerState.blueprintObject) {
+      plannerState.blueprintObject.sendToBack();
+      plannerState.gridObjects.forEach((obj) => obj.bringToFront());
+      boundary.bringToFront();
+    }
     updatePlannerArea();
-    fitPlannerViewport();
-    plannerState.canvas.renderAll();
+    if (refitViewport) fitPlannerViewport();
+    else plannerState.canvas.requestRenderAll();
   }
 
-  function applyStoreDimensions() {
+  function restorePlannerCanvasFromJson(canvasJson, { refitViewport = false } = {}) {
+    return new Promise((resolve) => {
+      if (!plannerState.canvas || !canvasJson) {
+        drawPlannerBoundary({ refitViewport });
+        resolve(false);
+        return;
+      }
+      layoutApplying = true;
+      plannerState.canvas.loadFromJSON(canvasJson, () => {
+        plannerState.canvas.renderAll();
+        syncPlannerMetaFromCanvas();
+        drawPlannerBoundary({ refitViewport });
+        layoutApplying = false;
+        resolve(true);
+      });
+    });
+  }
+
+  function setStoreDimensionsFromInputs() {
     const widthMeters = clamp(Number(plannerWidthInput.value) || 20, 5, 200);
     const heightMeters = clamp(Number(plannerHeightInput.value) || 20, 5, 200);
     plannerState.widthMeters = widthMeters;
@@ -2496,8 +2512,12 @@
     plannerWidthInput.value = String(widthMeters);
     plannerHeightInput.value = String(heightMeters);
     syncPlannerMeterScale();
+    updatePlannerArea();
+  }
+
+  function applyStoreDimensions() {
+    setStoreDimensionsFromInputs();
     drawPlannerBoundary();
-    fitPlannerViewport();
     requestPlanner3DSync();
     persistState();
   }
@@ -2616,8 +2636,8 @@
     };
   }
 
-  function applyPlannerState(state) {
-    if (!state || typeof state !== "object") return;
+  async function applyPlannerState(state) {
+    if (!state || typeof state !== "object") return false;
     if (state.widthMeters) plannerWidthInput.value = state.widthMeters;
     if (state.heightMeters) plannerHeightInput.value = state.heightMeters;
     plannerState.activePresetId = state.activePresetId || null;
@@ -2632,24 +2652,22 @@
       syncSimPlayButton();
       if (planner3dView) planner3dView.setShowMonitoringViz(showMonitoringVizPref);
     }
-    applyStoreDimensions();
     highlightActivePresetButton();
+    if (state.canvasJson && plannerState.canvas) {
+      setStoreDimensionsFromInputs();
+      await restorePlannerCanvasFromJson(state.canvasJson);
+    } else {
+      applyStoreDimensions();
+    }
     if (plannerState.activePresetId && STORE_PRESETS[plannerState.activePresetId]) {
       const p = STORE_PRESETS[plannerState.activePresetId];
       plannerPresetSummary.textContent = `${p.label}: ${plannerState.widthMeters}×${plannerState.heightMeters} m (${number.format(plannerState.widthMeters * plannerState.heightMeters)} m²)`;
     }
-    if (state.canvasJson && plannerState.canvas) {
-      layoutApplying = true;
-      plannerState.canvas.loadFromJSON(state.canvasJson, () => {
-        plannerState.canvas.renderAll();
-        syncPlannerMetaFromCanvas();
-        updatePlannerEstimate();
-        updateMonitoringSummary();
-        layoutApplying = false;
-        refreshCachedLayout();
-        requestPlanner3DSync({ resetSimulation: false });
-      });
-    }
+    updatePlannerEstimate();
+    updateMonitoringSummary();
+    refreshCachedLayout();
+    requestPlanner3DSync({ resetSimulation: false });
+    return true;
   }
 
   function persistState() {
@@ -2658,18 +2676,18 @@
     } catch (_err) {}
   }
 
-  function loadPersistedState() {
+  async function loadPersistedState() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        applyPlannerState(JSON.parse(raw));
+        await applyPlannerState(JSON.parse(raw));
         return true;
       }
       const legacyRaw = localStorage.getItem(LEGACY_SIMULATOR_KEY);
       if (legacyRaw) {
         const legacy = JSON.parse(legacyRaw);
         if (legacy.planner) {
-          applyPlannerState(legacy.planner);
+          await applyPlannerState(legacy.planner);
           persistState();
           return true;
         }
@@ -3011,7 +3029,7 @@
     if (!plannerState.canvas) initPlanner();
     try {
       const parsed = JSON.parse(await file.text());
-      applyPlannerState(parsed.data || parsed);
+      await applyPlannerState(parsed.data || parsed);
       persistState();
       updateMonitoringSummary();
     } catch (_err) {
@@ -3025,7 +3043,8 @@
     await loadStoreProfilesFromApi();
     initPlanner();
     await ensureLayoutDocumentModule();
-    loadPersistedState();
+    const restored = await loadPersistedState();
+    if (!restored) drawPlannerBoundary();
     syncPlannerMetaFromCanvas();
     refreshCachedLayout();
     updatePlannerEstimate();

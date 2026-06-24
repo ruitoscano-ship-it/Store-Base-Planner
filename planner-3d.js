@@ -175,6 +175,8 @@ export function createPlanner3D(containerEl, options = {}) {
   let productFaceTextures = {};
   let storeSize = { w: 20, d: 20 };
   let floorMesh = null;
+  let floorGridHelper = null;
+  let lastShellSignature = null;
   let showMonitoringViz = true;
   let simulationMode = false;
   let heatmapMesh = null;
@@ -724,6 +726,38 @@ export function createPlanner3D(containerEl, options = {}) {
     }
   }
 
+  function shellSignature(layout) {
+    return [
+      layout.widthMeters,
+      layout.heightMeters,
+      wallHeight(),
+      wallThickness(),
+      layoutHasMonitoring(layout) ? 1 : 0,
+      showMonitoringViz ? 1 : 0
+    ].join("|");
+  }
+
+  function updateFloorGrid(w, d) {
+    if (floorGridHelper) {
+      scene.remove(floorGridHelper);
+      floorGridHelper.geometry.dispose();
+      const gridMaterials = Array.isArray(floorGridHelper.material)
+        ? floorGridHelper.material
+        : [floorGridHelper.material];
+      gridMaterials.forEach((material) => material.dispose());
+      floorGridHelper = null;
+    }
+
+    const span = Math.max(w, d);
+    const divisions = Math.max(1, Math.ceil(span));
+    floorGridHelper = new THREE.GridHelper(span, divisions, 0xe5e7eb, 0xf3f4f6);
+    floorGridHelper.position.set(w / 2, 0.012, d / 2);
+    floorGridHelper.material.opacity = 0.45;
+    floorGridHelper.material.transparent = true;
+    floorGridHelper.name = "store-floor-grid";
+    scene.add(floorGridHelper);
+  }
+
   function rebuildShell(layout) {
     textureKit.dispose();
     productFaceTextures = {};
@@ -844,12 +878,6 @@ export function createPlanner3D(containerEl, options = {}) {
       }
       storeGroup.add(cameraRigs);
     }
-
-    const grid = new THREE.GridHelper(Math.max(w, d), Math.max(w, d), 0xe5e7eb, 0xf3f4f6);
-    grid.position.set(w / 2, 0.012, d / 2);
-    grid.material.opacity = 0.45;
-    grid.material.transparent = true;
-    storeGroup.add(grid);
 
     if (humanPlaced) {
       const next = clampToStore(humanGroup.position.x, humanGroup.position.z);
@@ -1068,7 +1096,12 @@ export function createPlanner3D(containerEl, options = {}) {
     layoutSyncToken += 1;
     lastLayout = layout;
     clearFixtures();
-    rebuildShell(layout);
+    const signature = shellSignature(layout);
+    if (signature !== lastShellSignature) {
+      rebuildShell(layout);
+      lastShellSignature = signature;
+      updateFloorGrid(layout.widthMeters, layout.heightMeters);
+    }
     populateFixtures(layout, preserveSelectionId);
     fitCamera(refitCamera);
   }
@@ -1326,6 +1359,15 @@ export function createPlanner3D(containerEl, options = {}) {
       clearShoppers();
       shopperGeo.dispose();
       shopperMat.dispose();
+      if (floorGridHelper) {
+        scene.remove(floorGridHelper);
+        floorGridHelper.geometry.dispose();
+        const gridMaterials = Array.isArray(floorGridHelper.material)
+          ? floorGridHelper.material
+          : [floorGridHelper.material];
+        gridMaterials.forEach((material) => material.dispose());
+        floorGridHelper = null;
+      }
       disposeObject(storeGroup);
       disposeObject(fixturesGroup);
       disposeObject(humanGroup);
