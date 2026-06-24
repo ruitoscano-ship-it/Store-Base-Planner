@@ -1080,8 +1080,9 @@
 
   async function ensurePlanner3D() {
     if (planner3dView) return planner3dView;
-    const { createPlanner3D } = await import("./planner-3d.js");
-    planner3dView = createPlanner3D(planner3dContainer, {
+    try {
+      const { createPlanner3D } = await import("./planner-3d.js");
+      planner3dView = createPlanner3D(planner3dContainer, {
       artifacts: storeProfileConfig?.artifacts,
       planner: storeProfileConfig?.planner,
       onObjectTransform: applyPlannerTransformFrom3D,
@@ -1110,6 +1111,12 @@
     syncPlanner3dToolbar("edit");
     updatePlanner3dHint("edit");
     return planner3dView;
+    } catch (error) {
+      console.error("Failed to initialize 3D planner view.", error);
+      plannerStatus.textContent = "3D view failed to load. Hard refresh and try again.";
+      plannerStatus.style.color = "var(--bad)";
+      return null;
+    }
   }
 
   function resizePlanner3DView() {
@@ -1141,6 +1148,7 @@
 
     if (!plannerState.canvas) initPlanner();
     const view = await ensurePlanner3D();
+    if (!view) return;
     view.setActive(true);
     resizePlanner3DView();
 
@@ -1441,31 +1449,169 @@
     plannerGridScaleLabel.textContent = `1 m ≈ ${onScreen.toFixed(0)} px on screen`;
   }
 
-  function buildGatePanelShapes(width, height, strokeW, { fill, stroke, postFill }) {
-    const shapes = [
+  function buildTurnstileShapes(width, height, strokeW) {
+    const postW = Math.max(5, width * 0.11);
+    const panelW = Math.max(4, width * 0.07);
+    return [
       new fabric.Rect({
         width,
-        height: Math.max(5, height),
-        fill,
-        stroke,
+        height: Math.max(4, height * 0.35),
+        fill: "#f2f2f0",
+        stroke: "#111111",
         strokeWidth: strokeW,
+        originX: "center",
+        originY: "center"
+      }),
+      new fabric.Rect({
+        width: postW,
+        height: height * 1.6,
+        fill: "#404040",
+        stroke: "#111111",
+        strokeWidth: Math.max(0.6, strokeW * 0.65),
+        left: -width / 2 + postW / 2 + 1,
+        originX: "center",
+        originY: "center"
+      }),
+      new fabric.Rect({
+        width: postW,
+        height: height * 1.6,
+        fill: "#404040",
+        stroke: "#111111",
+        strokeWidth: Math.max(0.6, strokeW * 0.65),
+        left: width / 2 - postW / 2 - 1,
+        originX: "center",
+        originY: "center"
+      }),
+      new fabric.Rect({
+        width: panelW,
+        height: height * 1.35,
+        fill: "#e8e8e6",
+        stroke: "#111111",
+        strokeWidth: Math.max(0.5, strokeW * 0.55),
+        left: -width / 2 + postW + panelW / 2,
+        originX: "center",
+        originY: "center"
+      }),
+      new fabric.Rect({
+        width: panelW,
+        height: height * 1.35,
+        fill: "#e8e8e6",
+        stroke: "#111111",
+        strokeWidth: Math.max(0.5, strokeW * 0.55),
+        left: width / 2 - postW - panelW / 2,
+        originX: "center",
+        originY: "center"
+      }),
+      new fabric.Line([-width * 0.18, 0, width * 0.02, 0], {
+        stroke: "#111111",
+        strokeWidth: Math.max(0.8, strokeW * 0.75),
         originX: "center",
         originY: "center"
       })
     ];
-    [-0.28, 0, 0.28].forEach((offset) => {
-      shapes.push(
-        new fabric.Rect({
-          width: Math.max(2, width * 0.04),
-          height: Math.max(8, height * 2.2),
-          left: width * offset,
-          fill: postFill,
-          originX: "center",
-          originY: "center"
-        })
-      );
-    });
-    return shapes;
+  }
+
+  function buildSlidingDoorShapes(width, height, strokeW) {
+    const leafW = width * 0.42;
+    return [
+      new fabric.Rect({
+        width,
+        height: Math.max(4, height * 0.3),
+        fill: "#f2f2f0",
+        stroke: "#111111",
+        strokeWidth: strokeW,
+        originX: "center",
+        originY: "center"
+      }),
+      new fabric.Rect({
+        width: leafW,
+        height: height * 1.45,
+        fill: "#f8fafc",
+        stroke: "#111111",
+        strokeWidth: Math.max(0.6, strokeW * 0.65),
+        left: -width * 0.22,
+        originX: "center",
+        originY: "center",
+        opacity: 0.92
+      }),
+      new fabric.Rect({
+        width: leafW,
+        height: height * 1.45,
+        fill: "#f8fafc",
+        stroke: "#111111",
+        strokeWidth: Math.max(0.6, strokeW * 0.65),
+        left: width * 0.22,
+        originX: "center",
+        originY: "center",
+        opacity: 0.92
+      }),
+      new fabric.Line([0, -height * 0.72, 0, height * 0.72], {
+        stroke: "#6b7280",
+        strokeWidth: Math.max(0.5, strokeW * 0.5),
+        strokeDashArray: [3, 3],
+        originX: "center",
+        originY: "center"
+      })
+    ];
+  }
+
+  function buildSelfCheckoutShapes(width, height, strokeW) {
+    const baseW = width * 0.62;
+    const baseH = height * 0.55;
+    return [
+      new fabric.Rect({
+        width: baseW,
+        height: baseH,
+        fill: "#404040",
+        stroke: "#111111",
+        strokeWidth: strokeW,
+        originX: "center",
+        originY: "center"
+      }),
+      new fabric.Rect({
+        width: width * 0.28,
+        height: height * 1.35,
+        fill: "#1f2937",
+        stroke: "#111111",
+        strokeWidth: Math.max(0.6, strokeW * 0.65),
+        left: 0,
+        top: -height * 0.35,
+        originX: "center",
+        originY: "center"
+      }),
+      new fabric.Rect({
+        width: Math.max(6, width * 0.1),
+        height: Math.max(5, height * 0.22),
+        fill: "#f2f2f0",
+        stroke: "#111111",
+        strokeWidth: Math.max(0.5, strokeW * 0.5),
+        left: width * 0.2,
+        top: -height * 0.05,
+        originX: "center",
+        originY: "center"
+      }),
+      new fabric.Rect({
+        width: Math.max(5, width * 0.07),
+        height: Math.max(4, height * 0.16),
+        fill: "#e8e8e6",
+        stroke: "#111111",
+        strokeWidth: Math.max(0.5, strokeW * 0.5),
+        left: -width * 0.22,
+        top: height * 0.05,
+        originX: "center",
+        originY: "center"
+      }),
+      new fabric.Text("SCO", {
+        fontSize: Math.max(7, plannerFontSize(0.45)),
+        fontFamily: "Inter, Arial, sans-serif",
+        fontWeight: "700",
+        fill: "#f2f2f0",
+        left: 0,
+        top: height * 0.08,
+        originX: "center",
+        originY: "center"
+      })
+    ];
   }
 
   function buildPlannerArtifactShapes(kind, width, height, spec) {
@@ -1480,24 +1626,60 @@
       const tag =
         spec.tag2d ||
         (kind === "shelf-cold" ? "COLD" : kind === "shelf-hot" ? "HOT" : kind === "shelf-island" ? "ISL" : "DRY");
+      const backInset = height * 0.08;
+      const shelfLevels = Math.max(3, Math.min(5, spec.shelfLevels || 4));
+
       shapes.push(
         new fabric.Rect({
           width,
           height,
-          fill,
-          stroke,
+          fill: "#f8f8f6",
+          stroke: "#111111",
           strokeWidth: strokeW,
           originX: "center",
           originY: "center"
         }),
         new fabric.Rect({
+          width: width * 0.96,
+          height: Math.max(6, backInset),
+          fill: "#e4e4e2",
+          stroke: "#111111",
+          strokeWidth: Math.max(0.7, strokeW * 0.65),
+          left: 0,
+          top: -height / 2 + backInset / 2 + 1,
+          originX: "center",
+          originY: "center"
+        }),
+        new fabric.Rect({
+          width: Math.max(4, width * 0.035),
+          height: height * 0.88,
+          fill: "#b4b8be",
+          stroke: "#111111",
+          strokeWidth: Math.max(0.5, strokeW * 0.45),
+          left: -width / 2 + width * 0.04,
+          top: 0,
+          originX: "center",
+          originY: "center"
+        }),
+        new fabric.Rect({
+          width: Math.max(4, width * 0.035),
+          height: height * 0.88,
+          fill: "#b4b8be",
+          stroke: "#111111",
+          strokeWidth: Math.max(0.5, strokeW * 0.45),
+          left: width / 2 - width * 0.04,
+          top: 0,
+          originX: "center",
+          originY: "center"
+        }),
+        new fabric.Rect({
           width: width * 0.92,
-          height: Math.max(8, height * 0.24),
+          height: Math.max(8, height * 0.22),
           fill: bandColor,
           stroke: "#111111",
           strokeWidth: Math.max(0.8, strokeW * 0.5),
           left: 0,
-          top: -height / 2 + Math.max(8, height * 0.24) / 2 + 2,
+          top: -height / 2 + Math.max(8, height * 0.22) / 2 + backInset + 2,
           originX: "center",
           originY: "center"
         }),
@@ -1507,28 +1689,74 @@
           fontWeight: "700",
           fill: kind === "shelf-ambient" || kind === "shelf-island" ? "#111111" : "#ffffff",
           left: 0,
-          top: -height / 2 + Math.max(8, height * 0.24) / 2 + 2,
+          top: -height / 2 + Math.max(8, height * 0.22) / 2 + backInset + 2,
           originX: "center",
           originY: "center"
         })
       );
-      for (let i = 1; i <= 3; i += 1) {
-        const y = -height / 2 + (height * i) / 4;
+
+      for (let i = 1; i <= shelfLevels; i += 1) {
+        const y = -height / 2 + backInset + (height - backInset) * (i / (shelfLevels + 1));
+        const shelfW = i === 1 ? width * 0.9 : width * 0.84;
         shapes.push(
-          new fabric.Line([-width / 2 + 4, y, width / 2 - 4, y], {
-            stroke,
-            strokeWidth: Math.max(0.6, strokeW * 0.7),
+          new fabric.Line([-shelfW / 2, y, shelfW / 2, y], {
+            stroke: "#111111",
+            strokeWidth: Math.max(0.7, strokeW * 0.75),
             originX: "center",
             originY: "center"
           })
         );
+        const dots = 4;
+        const spacing = shelfW / (dots + 1);
+        for (let d = 1; d <= dots; d += 1) {
+          const dotX = -shelfW / 2 + spacing * d;
+          shapes.push(
+            new fabric.Rect({
+              width: Math.max(3, spacing * 0.35),
+              height: Math.max(3, spacing * 0.28),
+              fill: d % 2 === 0 ? fill : stroke,
+              stroke: "#111111",
+              strokeWidth: 0.5,
+              left: dotX,
+              top: y - Math.max(3, spacing * 0.2),
+              originX: "center",
+              originY: "center"
+            })
+          );
+        }
       }
+
       if (type === "gondola-island") {
         shapes.push(
-          new fabric.Line([0, -height / 2 + 4, 0, height / 2 - 4], {
-            stroke,
-            strokeWidth: Math.max(0.6, strokeW * 0.6),
-            strokeDashArray: [5, 4],
+          new fabric.Rect({
+            width: Math.max(4, width * 0.04),
+            height: height * 0.82,
+            fill: "#e4e4e2",
+            stroke: "#111111",
+            strokeWidth: Math.max(0.6, strokeW * 0.55),
+            left: 0,
+            top: height * 0.04,
+            originX: "center",
+            originY: "center"
+          }),
+          new fabric.Line([0, -height / 2 + backInset + 6, 0, height / 2 - 6], {
+            stroke: "#6b7280",
+            strokeWidth: Math.max(0.6, strokeW * 0.55),
+            strokeDashArray: [4, 3],
+            originX: "center",
+            originY: "center"
+          })
+        );
+      } else {
+        shapes.push(
+          new fabric.Rect({
+            width: width * 0.9,
+            height: Math.max(5, height * 0.12),
+            fill: "#d8d8d6",
+            stroke: "#111111",
+            strokeWidth: Math.max(0.5, strokeW * 0.45),
+            left: 0,
+            top: height / 2 - Math.max(5, height * 0.12) / 2 - 1,
             originX: "center",
             originY: "center"
           })
@@ -1581,34 +1809,11 @@
         })
       );
     } else if (type === "entry-open") {
-      shapes.push(
-        new fabric.Rect({
-          width,
-          height: Math.max(4, height),
-          fill: "#ede9fe",
-          stroke: "#5b21b6",
-          strokeWidth: strokeW,
-          originX: "center",
-          originY: "center"
-        }),
-        new fabric.Triangle({
-          width: Math.max(8, width * 0.12),
-          height: Math.max(8, width * 0.1),
-          fill: "#5b21b6",
-          angle: 90,
-          originX: "center",
-          originY: "center"
-        })
-      );
-    } else if (type === "entry-gated" || kind === "checkout") {
-      const isExit = kind === "checkout" || spec.gatePalette === "checkout";
-      shapes.push(
-        ...buildGatePanelShapes(width, height, strokeW, {
-          fill: isExit ? "#fffbeb" : "#fce7f3",
-          stroke: isExit ? "#b45309" : "#9d174d",
-          postFill: isExit ? "#b45309" : "#9d174d"
-        })
-      );
+      shapes.push(...buildSlidingDoorShapes(width, height, strokeW));
+    } else if (kind === "checkout" || type === "checkout") {
+      shapes.push(...buildSelfCheckoutShapes(width, height, strokeW));
+    } else if (type === "entry-gated") {
+      shapes.push(...buildTurnstileShapes(width, height, strokeW));
     } else if (type === "zone") {
       const { fill, stroke } = spec.palette;
       shapes.push(

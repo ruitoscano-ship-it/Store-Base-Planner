@@ -22,12 +22,17 @@ function clamp(value, min, max) {
 }
 
 function disposeObject(object) {
+  const disposedMaterials = new Set();
   object.traverse((child) => {
     if (child.geometry) child.geometry.dispose();
-    if (child.material) {
-      if (Array.isArray(child.material)) child.material.forEach((material) => material.dispose());
-      else child.material.dispose();
-    }
+    if (!child.material) return;
+    const materials = Array.isArray(child.material) ? child.material : [child.material];
+    materials.forEach((material) => {
+      if (disposedMaterials.has(material)) return;
+      disposedMaterials.add(material);
+      if (material.map) material.map = null;
+      material.dispose();
+    });
   });
 }
 
@@ -911,7 +916,12 @@ export function createPlanner3D(containerEl, options = {}) {
 
   function addFixtureMesh(group, obj, spec, footprintW, footprintD, height) {
     if (obj.kind.startsWith("shelf-") || obj.kind === "checkout" || obj.kind === "entry-open" || obj.kind === "entry-gated") {
-      buildProceduralFixture(group, obj.kind, spec, footprintW, footprintD, height, fixtureTextureBridge());
+      try {
+        buildProceduralFixture(group, obj.kind, spec, footprintW, footprintD, height, fixtureTextureBridge());
+      } catch (error) {
+        console.warn("Procedural fixture build failed; using fallback box.", obj.kind, error);
+        addBox(group, footprintW, height, footprintD, spec, obj.kind);
+      }
       return;
     }
 
@@ -961,22 +971,27 @@ export function createPlanner3D(containerEl, options = {}) {
     return group;
   }
 
-  function rebuildFixtures(layout, preserveSelectionId) {
-    const previousSelection = preserveSelectionId || selectedGroup?.userData?.objectId || null;
+  function clearFixtures() {
     transformControls.detach();
     selectedGroup = null;
     fixtureGroups.clear();
-
     while (fixturesGroup.children.length) {
       const child = fixturesGroup.children[0];
       fixturesGroup.remove(child);
       disposeObject(child);
     }
+  }
 
-    layout.objects.forEach((obj) => {
-      const group = buildFixtureGroup(obj);
-      fixturesGroup.add(group);
-      if (obj.id) fixtureGroups.set(obj.id, group);
+  function populateFixtures(layout, preserveSelectionId) {
+    const previousSelection = preserveSelectionId || null;
+    (layout.objects || []).forEach((obj) => {
+      try {
+        const group = buildFixtureGroup(obj);
+        fixturesGroup.add(group);
+        if (obj.id) fixtureGroups.set(obj.id, group);
+      } catch (error) {
+        console.warn("Failed to build fixture group.", obj?.kind, error);
+      }
     });
 
     refreshLayoutObstacles(layout);
@@ -985,6 +1000,11 @@ export function createPlanner3D(containerEl, options = {}) {
     if (previousSelection && fixtureGroups.has(previousSelection) && interactionMode === "edit") {
       selectFixture(fixtureGroups.get(previousSelection));
     }
+  }
+
+  function rebuildFixtures(layout, preserveSelectionId) {
+    clearFixtures();
+    populateFixtures(layout, preserveSelectionId);
   }
 
   function fitCamera(force = false) {
@@ -1047,15 +1067,21 @@ export function createPlanner3D(containerEl, options = {}) {
   function rebuildStore(layout, { refitCamera = false, preserveSelectionId = null } = {}) {
     layoutSyncToken += 1;
     lastLayout = layout;
+    clearFixtures();
     rebuildShell(layout);
-    rebuildFixtures(layout, preserveSelectionId);
+    populateFixtures(layout, preserveSelectionId);
     fitCamera(refitCamera);
   }
 
   function resizeToContainer() {
-    const width = Math.max(320, containerEl.clientWidth);
-    const height = Math.max(320, containerEl.clientHeight);
-    if (!width || !height) return;
+    const width = Math.max(320, containerEl.clientWidth || containerEl.parentElement?.clientWidth || 0);
+    const height = Math.max(320, containerEl.clientHeight || containerEl.parentElement?.clientHeight || 0);
+    if (!width || !height) {
+      requestAnimationFrame(() => {
+        if (active) resizeToContainer();
+      });
+      return;
+    }
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
     renderer.setSize(width, height, false);

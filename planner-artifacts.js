@@ -15,9 +15,9 @@ export const DEFAULT_ARTIFACTS = {
     depthMeters: 0.45,
     heightMeters: 1.85,
     shelfLevels: 4,
-    palette: { fill: "#f5f0d8", stroke: "#78716c" },
-    color3d: "#d9e57a",
-    badge3d: "#bef264",
+    palette: { fill: "#f6f6f4", stroke: "#111111" },
+    color3d: "#f6f6f4",
+    badge3d: "#d9f04f",
     emissive3d: "#84cc16",
     tag2d: "DRY"
   },
@@ -28,8 +28,8 @@ export const DEFAULT_ARTIFACTS = {
     depthMeters: 0.9,
     heightMeters: 1.85,
     shelfLevels: 4,
-    palette: { fill: "#f5f0d8", stroke: "#78716c" },
-    color3d: "#e5e7eb",
+    palette: { fill: "#f6f6f4", stroke: "#111111" },
+    color3d: "#f6f6f4",
     badge3d: "#d1d5db",
     emissive3d: "#9ca3af",
     tag2d: "ISL"
@@ -41,8 +41,8 @@ export const DEFAULT_ARTIFACTS = {
     depthMeters: 0.55,
     heightMeters: 1.85,
     shelfLevels: 4,
-    palette: { fill: "#dbeafe", stroke: "#1d4ed8" },
-    color3d: "#38bdf8",
+    palette: { fill: "#f0f7ff", stroke: "#1d4ed8" },
+    color3d: "#f0f7ff",
     badge3d: "#3b82f6",
     emissive3d: "#0284c7",
     tag2d: "COLD"
@@ -54,8 +54,8 @@ export const DEFAULT_ARTIFACTS = {
     depthMeters: 0.6,
     heightMeters: 1.85,
     shelfLevels: 4,
-    palette: { fill: "#ffedd5", stroke: "#c2410c" },
-    color3d: "#fb923c",
+    palette: { fill: "#fff8f0", stroke: "#c2410c" },
+    color3d: "#fff8f0",
     badge3d: "#f97316",
     emissive3d: "#ea580c",
     tag2d: "HOT"
@@ -71,32 +71,37 @@ export const DEFAULT_ARTIFACTS = {
     opacity3d: 0.35
   },
   "entry-open": {
-    label: "Open entrance",
+    label: "Automatic doors",
     type: "entry-open",
     widthMeters: 1.8,
     depthMeters: 0.12,
     heightMeters: 2.4,
     shelfLevels: 0,
-    color3d: "#a78bfa"
+    palette: { fill: "#f2f2f0", stroke: "#111111" },
+    color3d: "#f2f2f0",
+    tag2d: "DOOR"
   },
   "entry-gated": {
-    label: "Gated entrance",
+    label: "Turnstiles / barriers",
     type: "entry-gated",
     widthMeters: 1.8,
     depthMeters: 0.18,
     heightMeters: 2.4,
     shelfLevels: 0,
-    color3d: "#f472b6"
+    palette: { fill: "#f2f2f0", stroke: "#111111" },
+    color3d: "#404040",
+    tag2d: "GATE"
   },
   checkout: {
-    label: "Gated exit",
-    type: "entry-gated",
+    label: "Checkout self-service",
+    type: "checkout",
     widthMeters: 1.8,
     depthMeters: 0.18,
     heightMeters: 2.4,
     shelfLevels: 0,
-    color3d: "#f59e0b",
-    gatePalette: "checkout"
+    palette: { fill: "#404040", stroke: "#111111" },
+    color3d: "#404040",
+    tag2d: "SCO"
   },
   "separator-wall": {
     label: "Interior wall",
