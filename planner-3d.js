@@ -1011,7 +1011,7 @@ export function createPlanner3D(containerEl, options = {}) {
   }
 
   function populateFixtures(layout, preserveSelectionId) {
-    const previousSelection = preserveSelectionId || null;
+    const previousSelection = preserveSelectionId ?? null;
     (layout.objects || []).forEach((obj) => {
       try {
         const group = buildFixtureGroup(obj);
@@ -1031,8 +1031,9 @@ export function createPlanner3D(containerEl, options = {}) {
   }
 
   function rebuildFixtures(layout, preserveSelectionId) {
+    const selectionToPreserve = preserveSelectionId ?? selectedGroup?.userData?.objectId ?? null;
     clearFixtures();
-    populateFixtures(layout, preserveSelectionId);
+    populateFixtures(layout, selectionToPreserve);
   }
 
   function fitCamera(force = false) {
@@ -1095,6 +1096,7 @@ export function createPlanner3D(containerEl, options = {}) {
   function rebuildStore(layout, { refitCamera = false, preserveSelectionId = null } = {}) {
     layoutSyncToken += 1;
     lastLayout = layout;
+    const selectionToPreserve = preserveSelectionId ?? selectedGroup?.userData?.objectId ?? null;
     clearFixtures();
     const signature = shellSignature(layout);
     if (signature !== lastShellSignature) {
@@ -1102,19 +1104,21 @@ export function createPlanner3D(containerEl, options = {}) {
       lastShellSignature = signature;
       updateFloorGrid(layout.widthMeters, layout.heightMeters);
     }
-    populateFixtures(layout, preserveSelectionId);
+    populateFixtures(layout, selectionToPreserve);
     fitCamera(refitCamera);
   }
 
   function resizeToContainer() {
-    const width = Math.max(320, containerEl.clientWidth || containerEl.parentElement?.clientWidth || 0);
-    const height = Math.max(320, containerEl.clientHeight || containerEl.parentElement?.clientHeight || 0);
-    if (!width || !height) {
+    const rawWidth = containerEl.clientWidth || containerEl.parentElement?.clientWidth || 0;
+    const rawHeight = containerEl.clientHeight || containerEl.parentElement?.clientHeight || 0;
+    if (!rawWidth || !rawHeight) {
       requestAnimationFrame(() => {
         if (active) resizeToContainer();
       });
       return;
     }
+    const width = Math.max(320, rawWidth);
+    const height = Math.max(320, rawHeight);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
     renderer.setSize(width, height, false);
