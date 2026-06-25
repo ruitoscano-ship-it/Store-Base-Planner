@@ -176,6 +176,55 @@ function placeGondolaRuns(placements, count, width, depth, margin, gap, runStart
   return placed;
 }
 
+/**
+ * Vertical gondola runs: columns separated by cross-aisles along X, units stacked
+ * along Y rotated 90°. Used when the blueprint reads as portrait/vertical aisles.
+ */
+function placeGondolaRunsVertical(placements, count, width, depth, margin, gap, runStartY, runEndY, leftX, rightX, artifacts) {
+  const { w, d } = specSize(artifacts, "shelf-ambient");
+  // Rotated footprint: depth spans X, width spans Y
+  let placed = 0;
+  let col = 0;
+
+  while (placed < count) {
+    const runX = leftX + col * (d + AISLE_WIDTH) + d / 2;
+    if (runX + d / 2 > rightX) break;
+
+    let y = runStartY + w / 2;
+    while (y + w / 2 <= runEndY && placed < count) {
+      if (tryPlace(placements, "shelf-ambient", runX, y, 90, width, depth, margin, artifacts)) {
+        placed += 1;
+      }
+      y += w + gap;
+    }
+    col += 1;
+  }
+
+  return placed;
+}
+
+/**
+ * Place gondolas at positions suggested by the uploaded blueprint (mapped to meters),
+ * using each region's detected orientation. Returns how many were placed.
+ */
+function placeGondolaHints(placements, hints, count, width, depth, margin, runStartY, runEndY, leftX, rightX, artifacts) {
+  if (!hints || !hints.length || count <= 0) return 0;
+  let placed = 0;
+
+  for (const hint of hints) {
+    if (placed >= count) break;
+    const angle = hint.orientation === "vertical" ? 90 : 0;
+    // Keep suggestions inside the sales zone (clear of front/back/perimeter reserves)
+    const x = clamp(hint.x, leftX, rightX);
+    const y = clamp(hint.y, runStartY, runEndY);
+    if (tryPlace(placements, "shelf-ambient", x, y, angle, width, depth, margin, artifacts)) {
+      placed += 1;
+    }
+  }
+
+  return placed;
+}
+
 function placeIslandGondolas(placements, count, width, depth, margin, gap, runStartY, runEndY, leftX, rightX, artifacts) {
   const island = specSize(artifacts, "shelf-island");
   const aisleCentreX = leftX + (rightX - leftX) / 2;
@@ -216,6 +265,8 @@ function placeIslandGondolas(placements, count, width, depth, margin, gap, runSt
  * @param {number} [options.marginMeters=0.55]
  * @param {boolean} [options.includeMonitoring=true]
  * @param {number} [options.technicalAreaRatio=0.075] - 5–10% of floor for MEP / technical room
+ * @param {"horizontal"|"vertical"} [options.runOrientation="horizontal"] - suggested gondola run direction
+ * @param {Array<{x:number,y:number,orientation?:string}>} [options.gondolaHints] - positions suggested by a blueprint
  */
 export function buildStorePresetLayout({
   widthMeters: W,
@@ -225,7 +276,9 @@ export function buildStorePresetLayout({
   gapMeters = 0.15,
   marginMeters = 0.55,
   includeMonitoring = true,
-  technicalAreaRatio = DEFAULT_TECHNICAL_AREA_RATIO
+  technicalAreaRatio = DEFAULT_TECHNICAL_AREA_RATIO,
+  runOrientation = "horizontal",
+  gondolaHints = []
 }) {
   const placements = [];
   const margin = marginMeters;
@@ -317,19 +370,40 @@ export function buildStorePresetLayout({
   const rightRunX = W - margin - AISLE_WIDTH;
   const islandTarget = Math.max(0, Math.floor(shelves.ambient * 0.25));
   const wallAmbientTarget = Math.max(0, shelves.ambient - islandTarget);
-  const ambientPlaced = placeGondolaRuns(
+
+  // First, honour positions suggested by the uploaded blueprint (collision-aware).
+  const hintPlaced = placeGondolaHints(
     placements,
+    gondolaHints,
     wallAmbientTarget,
     W,
     D,
     margin,
-    gap,
     runStartY,
     runEndY,
     leftRunX,
     rightRunX,
     artifacts
   );
+
+  // Then top up to the target count with procedural runs in the suggested orientation.
+  const remainingAmbient = Math.max(0, wallAmbientTarget - hintPlaced);
+  const runPlacer = runOrientation === "vertical" ? placeGondolaRunsVertical : placeGondolaRuns;
+  const ambientPlaced =
+    hintPlaced +
+    runPlacer(
+      placements,
+      remainingAmbient,
+      W,
+      D,
+      margin,
+      gap,
+      runStartY,
+      runEndY,
+      leftRunX,
+      rightRunX,
+      artifacts
+    );
   const islandPlaced = placeIslandGondolas(
     placements,
     islandTarget,
@@ -355,8 +429,10 @@ export function buildStorePresetLayout({
 
   return {
     fixtures: placements,
+    orientation: runOrientation,
     placed: {
       ambient: ambientPlaced,
+      ambientFromBlueprint: hintPlaced,
       island: islandPlaced,
       cold: coldPlaced,
       hot: hotPlaced,

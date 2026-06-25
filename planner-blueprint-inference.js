@@ -109,14 +109,21 @@ export function analyzeBlueprintImage(renderCanvas) {
       const aspect = compW / Math.max(1, compH);
       const fillRatio = area / Math.max(1, compW * compH);
       if (area >= 90 && area <= 22000 && compW >= 22 && compH >= 6 && aspect >= 1.4 && aspect <= 12 && fillRatio <= 0.78) {
+        const cxPx = (minX + maxX) / 2;
+        const cyPx = (minY + maxY) / 2;
         components.push({
           area,
           compW,
           compH,
           aspect,
           fillRatio,
-          cx: (minX + maxX) / 2,
-          cy: (minY + maxY) / 2
+          cx: cxPx,
+          cy: cyPx,
+          // Normalized centroid in [0,1] (origin top-left, matches store W×D overlay)
+          nx: cxPx / width,
+          ny: cyPx / height,
+          // A run drawn wider than tall reads as a horizontal gondola, else vertical
+          orientation: compW >= compH ? "horizontal" : "vertical"
         });
       }
     }
@@ -126,9 +133,33 @@ export function analyzeBlueprintImage(renderCanvas) {
   const frontBand = components.filter((c) => c.cy > height * 0.72);
   const entranceLikely = frontBand.length > 0 || height > width * 0.8;
 
+  // Area-weighted dominant orientation → suggested aisle/run direction
+  let horizontalWeight = 0;
+  let verticalWeight = 0;
+  components.forEach((c) => {
+    if (c.orientation === "horizontal") horizontalWeight += c.area;
+    else verticalWeight += c.area;
+  });
+  const dominantOrientation =
+    detectedModules === 0 ? null : verticalWeight > horizontalWeight * 1.15 ? "vertical" : "horizontal";
+
+  // Normalized regions where fixtures actually appear (used to bias placement)
+  const regions = components.map((c) => ({
+    nx: c.nx,
+    ny: c.ny,
+    orientation: c.orientation,
+    area: c.area
+  }));
+
   return {
     detectedModules,
     components,
+    regions,
+    dominantOrientation,
+    orientationConfidence:
+      detectedModules >= 4 && Math.abs(horizontalWeight - verticalWeight) > Math.max(horizontalWeight, verticalWeight) * 0.2
+        ? "medium"
+        : "low",
     entranceLikely,
     confidence: detectedModules >= 3 ? "medium" : detectedModules >= 1 ? "low" : "benchmark-only"
   };
@@ -161,6 +192,8 @@ export function inferFixtureCountsFromBlueprint({ widthMeters, heightMeters, ana
   const checkouts = checkoutCountForArea(widthMeters, heightMeters);
   const technicalAreaSqm = areaSqm * TECHNICAL_AREA_RATIO;
 
+  const suggestedOrientation = analysis?.dominantOrientation ?? "horizontal";
+
   return {
     format: storeFormat,
     areaSqm,
@@ -171,10 +204,38 @@ export function inferFixtureCountsFromBlueprint({ widthMeters, heightMeters, ana
     entranceRequired: true,
     aisleWidthM: CROSS_AISLE_WIDTH_M,
     mainAisleWidthM: MAIN_AISLE_WIDTH_M,
+    suggestedOrientation,
+    orientationConfidence: analysis?.orientationConfidence ?? "low",
     analysisConfidence: analysis?.confidence ?? "benchmark-only",
     detectedModules: detected,
     benchmarkModules: benchmark.modules
   };
+}
+
+/**
+ * Map normalized blueprint regions into candidate gondola positions (meters),
+ * de-duplicating clustered detections so we suggest placements roughly where
+ * the uploaded plan already shows fixtures.
+ */
+export function regionsToGondolaHints({ regions = [], widthMeters, heightMeters, minSpacingMeters = 1.2 }) {
+  if (!regions.length) return [];
+  const hints = regions
+    .map((r) => ({
+      x: clamp(r.nx * widthMeters, 0.5, widthMeters - 0.5),
+      y: clamp(r.ny * heightMeters, 0.5, heightMeters - 0.5),
+      orientation: r.orientation,
+      area: r.area
+    }))
+    .sort((a, b) => b.area - a.area);
+
+  const kept = [];
+  hints.forEach((hint) => {
+    const tooClose = kept.some(
+      (k) => Math.hypot(k.x - hint.x, k.y - hint.y) < minSpacingMeters
+    );
+    if (!tooClose) kept.push(hint);
+  });
+  return kept;
 }
 
 /** Fixture kinds placed automatically from blueprint inference. */
@@ -200,11 +261,18 @@ export function buildBlueprintInferredLayout({
   heightMeters,
   shelves,
   artifacts,
+  analysis = null,
   gapMeters = 0.15,
   marginMeters = 0.55,
   technicalAreaRatio = TECHNICAL_AREA_RATIO,
   includeMonitoring = true
 }) {
+  const runOrientation = analysis?.dominantOrientation ?? "horizontal";
+  const gondolaHints =
+    analysis?.regions && analysis.regions.length
+      ? regionsToGondolaHints({ regions: analysis.regions, widthMeters, heightMeters })
+      : [];
+
   return buildStorePresetLayout({
     widthMeters,
     depthMeters: heightMeters,
@@ -213,14 +281,23 @@ export function buildBlueprintInferredLayout({
     gapMeters,
     marginMeters,
     technicalAreaRatio,
-    includeMonitoring
+    includeMonitoring,
+    runOrientation,
+    gondolaHints
   });
 }
 
 export function summarizeBlueprintInference(inference, placed) {
+  const orientationLabel =
+    inference.suggestedOrientation === "vertical" ? "vertical runs" : "horizontal runs";
+  const orientationNote =
+    inference.detectedModules > 0
+      ? `Suggested gondola orientation: ${orientationLabel} (from blueprint)`
+      : `Suggested gondola orientation: ${orientationLabel} (default)`;
   const lines = [
     `Format: ${inference.format} · ${inference.areaSqm.toFixed(0)} m²`,
     `Modules: ${inference.modules} (scan ${inference.detectedModules}, benchmark ${inference.benchmarkModules})`,
+    orientationNote,
     `Placed — ambient ${placed.ambient}, island ${placed.island}, cold ${placed.cold}, hot ${placed.hot}, checkout ${placed.checkout}`,
     `Technical reserve ~${inference.technicalAreaSqm.toFixed(0)} m² (${(TECHNICAL_AREA_RATIO * 100).toFixed(1)}%)`,
     `Aisles ≥${inference.aisleWidthM} m · entrance + checkout at front`

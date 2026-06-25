@@ -2330,6 +2330,7 @@
       heightMeters: plannerState.heightMeters,
       shelves: inference.shelves,
       artifacts: artifactCatalogForBuilder(),
+      analysis,
       gapMeters: plannerSettings.layoutGapMeters ?? 0.15,
       marginMeters: 0.55
     });
