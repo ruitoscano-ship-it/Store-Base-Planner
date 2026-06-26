@@ -42,6 +42,110 @@ export function inferStoreFormatFromArea(areaSqm) {
   return "Supermercado";
 }
 
+const PT_TO_M = 0.0254 / 72; // PDF points → metres on paper (1pt = 1/72 inch)
+
+function dimensionTokenToMeters(value, unit) {
+  const n = parseFloat(String(value).replace(",", "."));
+  if (!Number.isFinite(n)) return null;
+  const u = unit.toLowerCase();
+  if (u === "mm") return n / 1000;
+  if (u === "cm") return n / 100;
+  return n; // metres
+}
+
+/**
+ * Guess real store dimensions from a PDF page's text layer.
+ * Strategy (best → fallback):
+ *   1. Explicit dimension annotations with units (e.g. "12,5 m", "8400 mm").
+ *      Horizontal vs vertical text orientation assigns width/height.
+ *   2. A drawing scale ratio (e.g. "Escala 1:100") applied to the page size.
+ *   3. null → caller keeps aspect-ratio based sizing.
+ *
+ * @param {{items: Array}} textContent - pdf.js page.getTextContent() result
+ * @param {{width:number,height:number}} baseViewport - page viewport at scale 1 (points)
+ */
+export function inferDimensionsFromPdfText(textContent, baseViewport) {
+  const items = textContent?.items || [];
+  const pageWidthPts = baseViewport?.width || 0;
+  const pageHeightPts = baseViewport?.height || 0;
+  const aspect = pageHeightPts > 0 ? pageWidthPts / pageHeightPts : 1;
+
+  const dimGlobal = /(\d{1,4}(?:[.,]\d{1,2})?)\s*(mm|cm|m)\b/gi;
+  const scaleRe = /(?:escala|scale|esc\.?)?\s*1\s*[:/]\s*(\d{1,4})/i;
+
+  const widthCands = [];
+  const heightCands = [];
+  const allMeters = [];
+  let scaleDenom = null;
+
+  for (const item of items) {
+    const str = (item.str || "").trim();
+    if (!str) continue;
+
+    if (scaleDenom == null) {
+      const sm = str.match(scaleRe);
+      if (sm) {
+        const d = parseInt(sm[1], 10);
+        if (d >= 10 && d <= 5000) scaleDenom = d;
+      }
+    }
+
+    const transform = item.transform || [1, 0, 0, 1, 0, 0];
+    const rotated = Math.abs(transform[1]) > Math.abs(transform[0]);
+
+    let m;
+    dimGlobal.lastIndex = 0;
+    while ((m = dimGlobal.exec(str))) {
+      const meters = dimensionTokenToMeters(m[1], m[2]);
+      if (meters == null || meters < 1.5 || meters > 300) continue;
+      allMeters.push(meters);
+      if (rotated) heightCands.push(meters);
+      else widthCands.push(meters);
+    }
+  }
+
+  const maxOf = (arr) => (arr.length ? Math.max(...arr) : null);
+  let widthMeters = maxOf(widthCands);
+  let heightMeters = maxOf(heightCands);
+  let source = null;
+  let note = "";
+
+  if (widthMeters && heightMeters) {
+    source = "dimensions";
+    note = "From dimension annotations in the blueprint.";
+  } else if (widthMeters || heightMeters) {
+    // Only one axis annotated — derive the other from page proportions.
+    if (widthMeters) heightMeters = widthMeters / Math.max(0.2, aspect);
+    else widthMeters = heightMeters * Math.max(0.2, aspect);
+    source = "dimensions+aspect";
+    note = "One dimension annotation found; other axis from page proportion.";
+  } else if (scaleDenom && pageWidthPts && pageHeightPts) {
+    // Assume the drawing fills ~85% of the page area.
+    const fill = 0.85;
+    widthMeters = pageWidthPts * PT_TO_M * scaleDenom * fill;
+    heightMeters = pageHeightPts * PT_TO_M * scaleDenom * fill;
+    source = "scale";
+    note = `Estimated from drawing scale 1:${scaleDenom} (assuming drawing fills ~${Math.round(
+      fill * 100
+    )}% of page).`;
+  } else {
+    return null;
+  }
+
+  widthMeters = Math.round(clamp(widthMeters, 5, 200) * 10) / 10;
+  heightMeters = Math.round(clamp(heightMeters, 5, 200) * 10) / 10;
+
+  return {
+    widthMeters,
+    heightMeters,
+    areaSqm: Math.round(widthMeters * heightMeters),
+    source,
+    scaleDenom,
+    note,
+    candidatesMeters: allMeters.sort((a, b) => b - a).slice(0, 6)
+  };
+}
+
 /**
  * Scan blueprint raster for dark rectangular regions (likely gondola symbols).
  */
@@ -188,7 +292,8 @@ export function inferFixtureCountsFromBlueprint({ widthMeters, heightMeters, ana
   const pctRef = FORMAT_PCT_REF[storeFormat] ?? 0.3;
   const cold = Math.max(1, Math.round(modules * pctRef));
   const hot = Math.max(1, Math.round(modules * (storeFormat === "Supermercado" ? 0.1 : 0.12)));
-  const ambient = Math.max(1, modules - cold - hot);
+  const produce = storeFormat === "POD" ? 0 : clamp(Math.round(areaSqm / 70), 0, 14);
+  const ambient = Math.max(1, modules - cold - hot - produce);
   const checkouts = checkoutCountForArea(widthMeters, heightMeters);
   const technicalAreaSqm = areaSqm * TECHNICAL_AREA_RATIO;
 
@@ -197,7 +302,7 @@ export function inferFixtureCountsFromBlueprint({ widthMeters, heightMeters, ana
   return {
     format: storeFormat,
     areaSqm,
-    shelves: { ambient, cold, hot },
+    shelves: { ambient, cold, hot, produce },
     modules,
     checkouts,
     technicalAreaSqm,
@@ -244,6 +349,7 @@ export const BLUEPRINT_INFERRED_KINDS = new Set([
   "shelf-island",
   "shelf-cold",
   "shelf-hot",
+  "produce-bin",
   "entry-gated",
   "entry-open",
   "checkout",
@@ -298,7 +404,7 @@ export function summarizeBlueprintInference(inference, placed) {
     `Format: ${inference.format} · ${inference.areaSqm.toFixed(0)} m²`,
     `Modules: ${inference.modules} (scan ${inference.detectedModules}, benchmark ${inference.benchmarkModules})`,
     orientationNote,
-    `Placed — ambient ${placed.ambient}, island ${placed.island}, cold ${placed.cold}, hot ${placed.hot}, checkout ${placed.checkout}`,
+    `Placed — ambient ${placed.ambient}, island ${placed.island}, cold ${placed.cold}, hot ${placed.hot}, produce ${placed.produce ?? 0}, checkout ${placed.checkout}`,
     `Technical reserve ~${inference.technicalAreaSqm.toFixed(0)} m² (${(TECHNICAL_AREA_RATIO * 100).toFixed(1)}%)`,
     `Aisles ≥${inference.aisleWidthM} m · entrance + checkout at front`
   ];

@@ -60,6 +60,19 @@ export const DEFAULT_ARTIFACTS = {
     emissive3d: "#ea580c",
     tag2d: "HOT"
   },
+  "produce-bin": {
+    label: "Produce display",
+    type: "produce",
+    widthMeters: 1.3,
+    depthMeters: 1,
+    heightMeters: 1.05,
+    shelfLevels: 1,
+    palette: { fill: "#eef8e6", stroke: "#15803d" },
+    color3d: "#caa472",
+    badge3d: "#22c55e",
+    emissive3d: "#16a34a",
+    tag2d: "FRESH"
+  },
   aisle: {
     label: "Customer aisle",
     type: "aisle",
@@ -230,6 +243,7 @@ export const STORE_ARTIFACT_KINDS = [
   "shelf-island",
   "shelf-cold",
   "shelf-hot",
+  "produce-bin",
   "aisle",
   "entry-open",
   "entry-gated",

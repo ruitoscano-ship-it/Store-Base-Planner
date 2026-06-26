@@ -14,6 +14,20 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+/**
+ * Shelf model fronts face local +Z (2D: +Y). These helpers pick the angle so the
+ * front faces the store interior rather than the perimeter wall it backs onto.
+ */
+function horizontalInteriorAngle(centerY, depth) {
+  // Front along ±Y. Face toward the depth centre line.
+  return centerY < depth / 2 ? 0 : 180;
+}
+
+function verticalInteriorAngle(centerX, width) {
+  // Front along ±X. Face toward the width centre line.
+  return centerX < width / 2 ? 270 : 90;
+}
+
 function specSize(artifacts, kind) {
   const spec = artifacts[kind] || {};
   return {
@@ -113,8 +127,9 @@ export function inferFixtureCounts({
   const modules = Math.max(3, Math.round(areaSqm * density));
   const cold = Math.max(1, Math.round(modules * refPct));
   const hot = Math.max(1, Math.round(modules * (storeFormat === "Supermercado" ? 0.1 : 0.12)));
-  const ambient = Math.max(1, modules - cold - hot);
-  return { format: storeFormat, modules, shelves: { ambient, cold, hot } };
+  const produce = storeFormat === "POD" ? 0 : clamp(Math.round(areaSqm / 70), 0, 14);
+  const ambient = Math.max(1, modules - cold - hot - produce);
+  return { format: storeFormat, modules, shelves: { ambient, cold, hot, produce } };
 }
 
 function backOfHouseSize(width, depth, technicalAreaRatio = DEFAULT_TECHNICAL_AREA_RATIO) {
@@ -162,10 +177,11 @@ function placeGondolaRuns(placements, count, width, depth, margin, gap, runStart
     const runY = runStartY + row * (d + AISLE_WIDTH);
     if (runY + d / 2 > runEndY) break;
 
-    const facing = 0;
+    const centerY = runY + d / 2;
+    const facing = horizontalInteriorAngle(centerY, depth);
     let x = leftX + w / 2;
     while (x + w / 2 <= rightX && placed < count) {
-      if (tryPlace(placements, "shelf-ambient", x, runY + d / 2, facing, width, depth, margin, artifacts)) {
+      if (tryPlace(placements, "shelf-ambient", x, centerY, facing, width, depth, margin, artifacts)) {
         placed += 1;
       }
       x += w + gap;
@@ -190,9 +206,10 @@ function placeGondolaRunsVertical(placements, count, width, depth, margin, gap, 
     const runX = leftX + col * (d + AISLE_WIDTH) + d / 2;
     if (runX + d / 2 > rightX) break;
 
+    const facing = verticalInteriorAngle(runX, width);
     let y = runStartY + w / 2;
     while (y + w / 2 <= runEndY && placed < count) {
-      if (tryPlace(placements, "shelf-ambient", runX, y, 90, width, depth, margin, artifacts)) {
+      if (tryPlace(placements, "shelf-ambient", runX, y, facing, width, depth, margin, artifacts)) {
         placed += 1;
       }
       y += w + gap;
@@ -213,10 +230,14 @@ function placeGondolaHints(placements, hints, count, width, depth, margin, runSt
 
   for (const hint of hints) {
     if (placed >= count) break;
-    const angle = hint.orientation === "vertical" ? 90 : 0;
     // Keep suggestions inside the sales zone (clear of front/back/perimeter reserves)
     const x = clamp(hint.x, leftX, rightX);
     const y = clamp(hint.y, runStartY, runEndY);
+    // Front faces the interior based on orientation + position.
+    const angle =
+      hint.orientation === "vertical"
+        ? verticalInteriorAngle(x, width)
+        : horizontalInteriorAngle(y, depth);
     if (tryPlace(placements, "shelf-ambient", x, y, angle, width, depth, margin, artifacts)) {
       placed += 1;
     }
@@ -256,10 +277,37 @@ function placeIslandGondolas(placements, count, width, depth, margin, gap, runSt
 }
 
 /**
+ * Fresh produce section — low open bins clustered near the front (typical grocery
+ * entrance "power aisle"). Placed in a grid with walking clearance between rows.
+ */
+function placeProduceBins(placements, count, width, depth, margin, gap, runStartY, runEndY, leftX, rightX, artifacts) {
+  if (count <= 0) return 0;
+  const bin = specSize(artifacts, "produce-bin");
+  // Front portion of the sales floor, biased to the right of the entrance.
+  const zoneLeft = leftX + (rightX - leftX) * 0.42;
+  const zoneRight = rightX;
+  const zoneTop = runStartY;
+  const zoneBottom = Math.min(runEndY, runStartY + (runEndY - runStartY) * 0.45);
+
+  const stepX = bin.w + gap;
+  const stepY = bin.d + AISLE_WIDTH * 0.75;
+  let placed = 0;
+
+  for (let y = zoneTop + bin.d / 2; y + bin.d / 2 <= zoneBottom && placed < count; y += stepY) {
+    for (let x = zoneLeft + bin.w / 2; x + bin.w / 2 <= zoneRight && placed < count; x += stepX) {
+      if (tryPlace(placements, "produce-bin", x, y, 0, width, depth, margin, artifacts)) {
+        placed += 1;
+      }
+    }
+  }
+  return placed;
+}
+
+/**
  * @param {object} options
  * @param {number} options.widthMeters
  * @param {number} options.depthMeters
- * @param {{ ambient: number, cold: number, hot: number }} options.shelves
+ * @param {{ ambient: number, cold: number, hot: number, produce?: number }} options.shelves
  * @param {object} options.artifacts - artifact catalog with widthMeters/depthMeters
  * @param {number} [options.gapMeters=0.15]
  * @param {number} [options.marginMeters=0.55]
@@ -335,7 +383,7 @@ export function buildStorePresetLayout({
     tryPlace(placements, "technical", whX, whY - boh.warehouse.d / 2 - gap - boh.technical.d / 2, 0, W, D, margin, artifacts);
   }
 
-  // --- Left perimeter: refrigerated run (dairy / chilled wall) ---
+  // --- Left perimeter: refrigerated run (dairy / chilled wall, front faces interior) ---
   const coldX = margin + cold.d / 2;
   const coldPlaced = placeLine(
     placements,
@@ -344,7 +392,7 @@ export function buildStorePresetLayout({
     shelves.cold,
     "y",
     coldX,
-    90,
+    verticalInteriorAngle(coldX, W),
     W,
     D,
     margin,
@@ -352,14 +400,15 @@ export function buildStorePresetLayout({
     artifacts
   );
 
-  // --- Back wall: hot food / prepared counter ---
+  // --- Back wall: hot food / prepared counter (front faces interior) ---
   const hotY = D - margin - hot.d / 2 - 0.05;
+  const hotAngle = horizontalInteriorAngle(hotY, D);
   const hotStartX = margin + cold.d + AISLE_WIDTH + hot.w / 2;
   const hotEndX = W - margin - hot.w / 2;
   let hotPlaced = 0;
   let hotX = hotStartX;
   while (hotX <= hotEndX && hotPlaced < shelves.hot) {
-    if (tryPlace(placements, "shelf-hot", hotX, hotY, 0, W, D, margin, artifacts)) {
+    if (tryPlace(placements, "shelf-hot", hotX, hotY, hotAngle, W, D, margin, artifacts)) {
       hotPlaced += 1;
     }
     hotX += hot.w + gap;
@@ -370,6 +419,21 @@ export function buildStorePresetLayout({
   const rightRunX = W - margin - AISLE_WIDTH;
   const islandTarget = Math.max(0, Math.floor(shelves.ambient * 0.25));
   const wallAmbientTarget = Math.max(0, shelves.ambient - islandTarget);
+
+  // --- Fresh produce "power aisle" near the entrance (placed first so gondolas flow around it) ---
+  const producePlaced = placeProduceBins(
+    placements,
+    shelves.produce ?? 0,
+    W,
+    D,
+    margin,
+    gap,
+    runStartY,
+    runEndY,
+    leftRunX,
+    rightRunX,
+    artifacts
+  );
 
   // First, honour positions suggested by the uploaded blueprint (collision-aware).
   const hintPlaced = placeGondolaHints(
@@ -436,6 +500,7 @@ export function buildStorePresetLayout({
       island: islandPlaced,
       cold: coldPlaced,
       hot: hotPlaced,
+      produce: producePlaced,
       checkout: checkoutsPlaced
     },
     requested: { ...shelves }

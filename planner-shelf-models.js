@@ -1,4 +1,17 @@
 import * as THREE from "three";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+
+function paintGeometry(geometry, hex) {
+  const color = new THREE.Color(hex);
+  const count = geometry.attributes.position.count;
+  const colors = new Float32Array(count * 3);
+  for (let i = 0; i < count; i += 1) {
+    colors[i * 3] = color.r;
+    colors[i * 3 + 1] = color.g;
+    colors[i * 3 + 2] = color.b;
+  }
+  geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+}
 
 function addMesh(group, geometry, material, x, y, z, castShadow = true) {
   const mesh = new THREE.Mesh(geometry, material);
@@ -48,40 +61,56 @@ function addShelfProducts(group, {
   slanted = false
 }) {
   const palette = {
-    ambient: [0xef4444, 0xf59e0b, 0x22c55e, 0x3b82f6, 0xa855f7, 0xec4899],
-    cold: [0x38bdf8, 0x0ea5e9, 0x22d3ee, 0x67e8f9, 0x06b6d4, 0x7dd3fc],
-    hot: [0xfbbf24, 0xf97316, 0xef4444, 0xdc2626, 0xfcd34d, 0xfb923c]
+    ambient: [
+      0xef4444, 0xf59e0b, 0x22c55e, 0x3b82f6, 0xa855f7, 0xec4899, 0x14b8a6, 0xf97316, 0x84cc16, 0x6366f1
+    ],
+    cold: [0x38bdf8, 0x0ea5e9, 0x22d3ee, 0x67e8f9, 0x06b6d4, 0x7dd3fc, 0xbae6fd, 0x0284c7],
+    hot: [0xfbbf24, 0xf97316, 0xef4444, 0xdc2626, 0xfcd34d, 0xfb923c, 0xea580c, 0xf43f5e]
   };
   const colors = palette[variant] || palette.ambient;
-  const count = Math.max(3, Math.min(4, Math.floor(shelfW / 0.24)));
-  const spacing = shelfW / (count + 1);
+  // Pack the shelf with product facings, like a real planogram.
+  const count = Math.max(4, Math.min(10, Math.floor(shelfW / 0.16)));
+  const spacing = shelfW / count;
+  const rows = variant === "cold" ? 1 : 2;
+  const rowDepth = Math.min(0.14, shelfD * 0.3);
 
-  for (let i = 0; i < count; i += 1) {
-    const x = centerX - shelfW / 2 + spacing * (i + 1);
-    const color = colors[(seed + i) % colors.length];
-    const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.68, metalness: 0.04 });
+  const geometries = [];
+  for (let r = 0; r < rows; r += 1) {
+    const rowZ = shelfZ - r * rowDepth;
+    for (let i = 0; i < count; i += 1) {
+      const x = centerX - shelfW / 2 + spacing * (i + 0.5);
+      const idx = seed + i + r * 5;
+      const color = colors[idx % colors.length];
+      const isCan = idx % 4 === 0;
 
-    const isCylinder = (seed + i) % 3 === 0;
+      let geo;
+      let h;
+      if (isCan) {
+        const radius = spacing * 0.34;
+        h = 0.13 + (idx % 3) * 0.02;
+        geo = new THREE.CylinderGeometry(radius, radius, h, 12);
+      } else {
+        const bw = spacing * 0.82;
+        h = 0.14 + (idx % 4) * 0.022;
+        const bd = Math.min(shelfD * 0.62, spacing * 0.85);
+        geo = new THREE.BoxGeometry(bw, h, bd);
+      }
 
-    if (isCylinder) {
-      const radius = spacing * 0.16;
-      const h = 0.1 + ((seed + i) % 4) * 0.02;
-      const cyl = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, h, 10), mat);
-      cyl.position.set(x, shelfY + h / 2 + 0.02, shelfZ);
-      if (slanted) cyl.rotation.x = -0.28;
-      cyl.castShadow = true;
-      group.add(cyl);
-    } else {
-      const bw = spacing * 0.5;
-      const bh = 0.1 + ((seed + i) % 3) * 0.025;
-      const bd = Math.min(shelfD * 0.55, spacing * 0.42);
-      const box = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), mat);
-      box.position.set(x, shelfY + bh / 2 + 0.02, shelfZ);
-      if (slanted) box.rotation.x = -0.28;
-      box.castShadow = true;
-      group.add(box);
+      if (slanted) geo.rotateX(-0.28);
+      geo.translate(x, shelfY + h / 2 + 0.02, rowZ);
+      paintGeometry(geo, color);
+      geometries.push(geo);
     }
   }
+
+  if (!geometries.length) return;
+  const merged = mergeGeometries(geometries, false);
+  geometries.forEach((geo) => geo.dispose());
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.06 });
+  const mesh = new THREE.Mesh(merged, mat);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  group.add(mesh);
 }
 
 /** Wall gondola — single-sided gondola with back panel, uprights, tiered shelves, and planogram blocks. */
@@ -319,7 +348,87 @@ export function buildProceduralCheckout(group, spec, width, depth, height) {
   buildProceduralSelfCheckout(group, width, depth, height);
 }
 
+/**
+ * Open produce display — angled wooden crate filled with heaped, colourful fruit
+ * and veg, plus a small price-card riser. Gives the grocery "fresh section" look.
+ */
+export function buildProceduralProduceBin(group, _spec, width, depth, height) {
+  const wood = new THREE.MeshStandardMaterial({ color: 0xb5824a, roughness: 0.82, metalness: 0.03 });
+  const woodDark = new THREE.MeshStandardMaterial({ color: 0x8a5a2b, roughness: 0.85, metalness: 0.03 });
+  const liner = new THREE.MeshStandardMaterial({ color: 0x355e2b, roughness: 0.9, metalness: 0.02 });
+
+  const binH = Math.min(height * 0.6, 0.74);
+  const wallT = Math.max(0.04, width * 0.04);
+
+  // Slatted crate body (four low walls + base) raised on short legs.
+  const legH = height * 0.16;
+  addMesh(group, new THREE.BoxGeometry(width * 0.94, legH, depth * 0.94), woodDark, 0, legH / 2, 0);
+  const baseY = legH;
+  addMesh(group, new THREE.BoxGeometry(width * 0.96, 0.05, depth * 0.96), wood, 0, baseY + 0.025, 0);
+
+  const wallY = baseY + binH * 0.45;
+  addMesh(group, new THREE.BoxGeometry(width * 0.96, binH * 0.7, wallT), wood, 0, wallY, depth / 2 - wallT / 2);
+  addMesh(group, new THREE.BoxGeometry(width * 0.96, binH * 0.7, wallT), wood, 0, wallY, -depth / 2 + wallT / 2);
+  addMesh(group, new THREE.BoxGeometry(wallT, binH * 0.7, depth * 0.96), wood, width / 2 - wallT / 2, wallY, 0);
+  addMesh(group, new THREE.BoxGeometry(wallT, binH * 0.7, depth * 0.96), wood, -width / 2 + wallT / 2, wallY, 0);
+
+  // Slanted liner board so produce reads as a heaped display toward the shopper.
+  const linerBoard = new THREE.Mesh(new THREE.BoxGeometry(width * 0.88, 0.03, depth * 0.82), liner);
+  linerBoard.position.set(0, baseY + binH * 0.34, 0);
+  linerBoard.rotation.x = -0.22;
+  linerBoard.castShadow = false;
+  linerBoard.receiveShadow = true;
+  group.add(linerBoard);
+
+  // Heaped produce — merged spheres with vertex colours, mounded toward the front.
+  const produceColors = [
+    0xe23b2e, 0xf4641f, 0xf6b21b, 0x2fa84a, 0x7cb518, 0x9b2226,
+    0xd62828, 0xfca311, 0x457b3b, 0xb5179e, 0x6a994e, 0xe09f3e
+  ];
+  const geometries = [];
+  const cols = Math.max(3, Math.floor(width / 0.22));
+  const rows = Math.max(3, Math.floor(depth / 0.22));
+  let seed = 7;
+  for (let r = 0; r < rows; r += 1) {
+    for (let c = 0; c < cols; c += 1) {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      const rnd = (seed % 1000) / 1000;
+      const px = -width * 0.42 + (c + 0.5) * ((width * 0.84) / cols) + (rnd - 0.5) * 0.04;
+      const pz = -depth * 0.4 + (r + 0.5) * ((depth * 0.8) / rows) + (rnd - 0.5) * 0.04;
+      const radius = 0.05 + rnd * 0.045;
+      // Mound: higher toward the centre/front of the bin.
+      const moundY = baseY + binH * 0.5 + (0.06 - Math.abs(pz) * 0.12) + rnd * 0.03;
+      const geo = ((seed >> 4) % 5 === 0)
+        ? new THREE.CylinderGeometry(radius * 0.85, radius * 0.85, radius * 1.7, 8)
+        : new THREE.SphereGeometry(radius, 8, 6);
+      geo.translate(px, moundY, pz);
+      paintGeometry(geo, produceColors[(c + r * 3 + (seed >> 6)) % produceColors.length]);
+      geometries.push(geo);
+    }
+  }
+  if (geometries.length) {
+    const merged = mergeGeometries(geometries, false);
+    geometries.forEach((geo) => geo.dispose());
+    const produceMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.46, metalness: 0.04 });
+    const mound = new THREE.Mesh(merged, produceMat);
+    mound.castShadow = true;
+    mound.receiveShadow = true;
+    group.add(mound);
+  }
+
+  // Price-card riser at the back.
+  const cardMat = new THREE.MeshStandardMaterial({ color: 0xfafafa, roughness: 0.7, metalness: 0.02 });
+  const postMat = new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.5, metalness: 0.4 });
+  addMesh(group, new THREE.CylinderGeometry(0.012, 0.012, height * 0.4, 8), postMat, -width * 0.34, baseY + binH * 0.7 + height * 0.2, -depth * 0.3);
+  const card = addMesh(group, new THREE.BoxGeometry(width * 0.3, height * 0.16, 0.012), cardMat, -width * 0.34, baseY + binH * 0.7 + height * 0.36, -depth * 0.3);
+  card.rotation.x = -0.12;
+}
+
 export function buildProceduralFixture(group, kind, spec, footprintW, footprintD, height, textures = null) {
+  if (kind === "produce-bin") {
+    buildProceduralProduceBin(group, spec, footprintW, footprintD, height);
+    return;
+  }
   if (kind.startsWith("shelf-")) {
     buildProceduralShelf(group, kind, spec, footprintW, footprintD, height, textures);
     return;

@@ -68,6 +68,11 @@
   const plannerLoadBlueprintBtn = document.getElementById("plannerLoadBlueprintBtn");
   const plannerClearBlueprintBtn = document.getElementById("plannerClearBlueprintBtn");
   const plannerBlueprintInput = document.getElementById("plannerBlueprintInput");
+  const plannerBlueprintInfo = document.getElementById("plannerBlueprintInfo");
+  const plannerBlueprintBadge = document.getElementById("plannerBlueprintBadge");
+  const plannerBlueprintArea = document.getElementById("plannerBlueprintArea");
+  const plannerBlueprintDims = document.getElementById("plannerBlueprintDims");
+  const plannerBlueprintNote = document.getElementById("plannerBlueprintNote");
   const plannerClearBtn = document.getElementById("plannerClearBtn");
   const plannerTemplateSelect = document.getElementById("plannerTemplateSelect");
   const plannerTemplateSummary = document.getElementById("plannerTemplateSummary");
@@ -527,7 +532,7 @@
   function applyArtifactConfigFromProfiles(config) {
     if (!config?.artifacts) return;
     plannerSettings = {
-      wallHeightMeters: config.planner?.wallHeightMeters ?? 2.8,
+      wallHeightMeters: Math.max(2.8, config.planner?.wallHeightMeters ?? 2.8),
       wallThicknessMeters: config.planner?.wallThicknessMeters ?? 0.12,
       layoutGapMeters: config.planner?.layoutGapMeters ?? 0.15
     };
@@ -915,11 +920,19 @@
   }
 
   function readMeterPoseFromFabric(obj) {
-    const center = obj.getCenterPoint();
+    // When an object is part of an active (multi) selection it is temporarily
+    // re-parented to a group, so its left/top/angle are stored relative to that
+    // group. Project through the group matrix to recover the true canvas pose.
+    let center = obj.getCenterPoint();
+    let angle = obj.angle || 0;
+    if (obj.group) {
+      center = fabric.util.transformPoint(center, obj.group.calcTransformMatrix());
+      angle = (obj.group.angle || 0) + (obj.angle || 0);
+    }
     return {
       x: (center.x - PLANNER_MARGIN) / plannerState.scale,
       z: (center.y - PLANNER_MARGIN) / plannerState.scale,
-      angle: normalizePlannerAngle(obj.angle)
+      angle: normalizePlannerAngle(angle)
     };
   }
 
@@ -940,6 +953,65 @@
     const pose = readMeterPoseFromFabric(obj);
     obj.plannerPoseMeters = pose;
     return pose;
+  }
+
+  function isActiveSelectionTarget(target) {
+    return (
+      target?.type === "activeSelection" ||
+      (target && Array.isArray(target._objects) && !target.plannerKind)
+    );
+  }
+
+  /**
+   * Capture meter poses for whatever a Fabric event touched — a single fixture or
+   * a multi-fixture active selection — so the 2D arrangement (position + rotation)
+   * reliably propagates to the 3D scene and the persisted layout.
+   */
+  function capturePlannerPosesFromTarget(target) {
+    if (!target) return;
+    if (isActiveSelectionTarget(target)) {
+      target.getObjects().forEach((child) => {
+        if (isPlannerFixture(child)) capturePlannerPoseMeters(child);
+      });
+      return;
+    }
+    if (isPlannerFixture(target)) capturePlannerPoseMeters(target);
+  }
+
+  /** Inner store rectangle in canvas (px) coordinates. */
+  function storePixelBounds() {
+    return {
+      minX: PLANNER_MARGIN,
+      minY: PLANNER_MARGIN,
+      maxX: PLANNER_MARGIN + metersToPx(plannerState.widthMeters),
+      maxY: PLANNER_MARGIN + metersToPx(plannerState.heightMeters)
+    };
+  }
+
+  /**
+   * Keep a dragged/rotated fixture (or active selection) fully inside the store
+   * footprint. Returns true if the object had to be nudged back in.
+   */
+  function clampObjectWithinStore(obj) {
+    if (!obj) return false;
+    const bounds = storePixelBounds();
+    const rect = obj.getBoundingRect(true, true);
+    let dx = 0;
+    let dy = 0;
+    const overflowX = rect.width - (bounds.maxX - bounds.minX);
+    const overflowY = rect.height - (bounds.maxY - bounds.minY);
+    // If the fixture is larger than the store on an axis, just pin its top/left edge.
+    if (overflowX >= 0) dx = bounds.minX - rect.left;
+    else if (rect.left < bounds.minX) dx = bounds.minX - rect.left;
+    else if (rect.left + rect.width > bounds.maxX) dx = bounds.maxX - (rect.left + rect.width);
+    if (overflowY >= 0) dy = bounds.minY - rect.top;
+    else if (rect.top < bounds.minY) dy = bounds.minY - rect.top;
+    else if (rect.top + rect.height > bounds.maxY) dy = bounds.maxY - (rect.top + rect.height);
+    if (dx === 0 && dy === 0) return false;
+    obj.left += dx;
+    obj.top += dy;
+    obj.setCoords();
+    return true;
   }
 
   function repositionFixturesFromMeterPoses() {
@@ -1343,14 +1415,18 @@
   function shelvesForBespokeArea(widthMeters, heightMeters) {
     const area = widthMeters * heightMeters;
     const b = storeProfileConfig?.bespoke || {
-      areaDivisors: { ambient: 13, cold: 32, hot: 45 },
-      mins: { ambient: 12, cold: 4, hot: 2 },
-      maxs: { ambient: 80, cold: 28, hot: 16 }
+      areaDivisors: { ambient: 13, cold: 32, hot: 45, produce: 70 },
+      mins: { ambient: 12, cold: 4, hot: 2, produce: 0 },
+      maxs: { ambient: 80, cold: 28, hot: 16, produce: 14 }
     };
+    const produceDivisor = b.areaDivisors.produce ?? 70;
+    const produceMin = b.mins.produce ?? 0;
+    const produceMax = b.maxs.produce ?? 14;
     return {
       ambient: clamp(Math.round(area / b.areaDivisors.ambient), b.mins.ambient, b.maxs.ambient),
       cold: clamp(Math.round(area / b.areaDivisors.cold), b.mins.cold, b.maxs.cold),
-      hot: clamp(Math.round(area / b.areaDivisors.hot), b.mins.hot, b.maxs.hot)
+      hot: clamp(Math.round(area / b.areaDivisors.hot), b.mins.hot, b.maxs.hot),
+      produce: clamp(Math.round(area / produceDivisor), produceMin, produceMax)
     };
   }
 
@@ -1800,6 +1876,56 @@
           })
         );
       }
+    } else if (type === "produce") {
+      const { fill, stroke } = spec.palette || { fill: "#eef8e6", stroke: "#15803d" };
+      shapes.push(
+        new fabric.Rect({
+          width,
+          height,
+          fill,
+          stroke,
+          strokeWidth: strokeW,
+          rx: Math.min(width, height) * 0.08,
+          ry: Math.min(width, height) * 0.08,
+          originX: "center",
+          originY: "center"
+        })
+      );
+      const produceColors = ["#e23b2e", "#f6b21b", "#2fa84a", "#f4641f", "#7cb518", "#d62828"];
+      const cols = 4;
+      const rows = 3;
+      let pi = 0;
+      for (let r = 0; r < rows; r += 1) {
+        for (let c = 0; c < cols; c += 1) {
+          const cx = -width / 2 + ((c + 0.5) * width) / cols;
+          const cy = -height / 2 + ((r + 0.5) * height) / rows;
+          shapes.push(
+            new fabric.Circle({
+              radius: Math.max(2.5, Math.min(width / cols, height / rows) * 0.26),
+              fill: produceColors[pi % produceColors.length],
+              stroke: "#1f2937",
+              strokeWidth: 0.4,
+              left: cx,
+              top: cy,
+              originX: "center",
+              originY: "center"
+            })
+          );
+          pi += 1;
+        }
+      }
+      shapes.push(
+        new fabric.Text(spec.tag2d || "FRESH", {
+          fontSize: Math.max(7, plannerFontSize(0.5)),
+          fontFamily: "Inter, Arial, sans-serif",
+          fontWeight: "700",
+          fill: stroke,
+          left: 0,
+          top: height / 2 - Math.max(7, plannerFontSize(0.5)) * 0.7,
+          originX: "center",
+          originY: "center"
+        })
+      );
     } else if (type === "aisle") {
       shapes.push(
         new fabric.Rect({
@@ -2179,7 +2305,7 @@
   }
 
   function countLayoutForEstimate() {
-    const counts = { ambient: 0, cold: 0, hot: 0, island: 0 };
+    const counts = { ambient: 0, cold: 0, hot: 0, island: 0, produce: 0 };
     let doors = 0;
     if (plannerState.canvas) {
       plannerState.canvas.getObjects().forEach((obj) => {
@@ -2187,6 +2313,7 @@
         if (obj.plannerKind === "shelf-island") counts.island += 1;
         if (obj.plannerKind === "shelf-cold") counts.cold += 1;
         if (obj.plannerKind === "shelf-hot") counts.hot += 1;
+        if (obj.plannerKind === "produce-bin") counts.produce += 1;
         if (obj.plannerKind === "entry-open" || obj.plannerKind === "entry-gated" || obj.plannerKind === "checkout") {
           doors += 1;
         }
@@ -2197,10 +2324,10 @@
 
   function updatePlannerEstimate() {
     const { counts, doors } = countLayoutForEstimate();
-    const totalModules = counts.ambient + counts.island + counts.cold + counts.hot;
+    const totalModules = counts.ambient + counts.island + counts.cold + counts.hot + counts.produce;
     const areaSqm = Math.max(1, plannerState.widthMeters * plannerState.heightMeters);
 
-    countAmbientShelfLabel.textContent = String(counts.ambient + counts.island);
+    countAmbientShelfLabel.textContent = String(counts.ambient + counts.island + counts.produce);
     countColdShelfLabel.textContent = String(counts.cold);
     countHotShelfLabel.textContent = String(counts.hot);
     if (countTotalModulesLabel) countTotalModulesLabel.textContent = String(totalModules);
@@ -2364,6 +2491,40 @@
     resizePlannerCanvasToContainer();
   }
 
+  function showBlueprintAreaInfo({ widthMeters, heightMeters, areaSqm, dims }) {
+    if (!plannerBlueprintInfo) return;
+    const w = Number(widthMeters);
+    const h = Number(heightMeters);
+    const area = areaSqm != null ? areaSqm : Math.round(w * h);
+    if (plannerBlueprintArea) plannerBlueprintArea.textContent = `${number.format(area)} m²`;
+    if (plannerBlueprintDims) plannerBlueprintDims.textContent = `${w} × ${h} m`;
+
+    const measured = Boolean(dims);
+    if (plannerBlueprintBadge) {
+      plannerBlueprintBadge.textContent = measured ? "Measured" : "Estimated";
+      plannerBlueprintBadge.style.background = measured ? "var(--accent, #d9f04f)" : "#f6c84c";
+    }
+    if (plannerBlueprintNote) {
+      plannerBlueprintNote.textContent = measured
+        ? dims.note || `Read from blueprint (${dims.source}).`
+        : "No scale or dimensions found in the file — size estimated from page proportions. Adjust width/height if needed.";
+    }
+    plannerBlueprintInfo.hidden = false;
+  }
+
+  function hideBlueprintAreaInfo() {
+    if (plannerBlueprintInfo) plannerBlueprintInfo.hidden = true;
+  }
+
+  function applyBlueprintDimensionsExact(widthMeters, heightMeters) {
+    plannerState.widthMeters = Number(clamp(widthMeters, 5, 200).toFixed(1));
+    plannerState.heightMeters = Number(clamp(heightMeters, 5, 200).toFixed(1));
+    plannerWidthInput.value = String(plannerState.widthMeters);
+    plannerHeightInput.value = String(plannerState.heightMeters);
+    drawPlannerBoundary();
+    resizePlannerCanvasToContainer();
+  }
+
   async function renderBlueprintOverlay(renderCanvas) {
     if (plannerState.blueprintObject) plannerState.canvas.remove(plannerState.blueprintObject);
     const image = new fabric.Image(renderCanvas, {
@@ -2403,7 +2564,7 @@
       const context = renderCanvas.getContext("2d");
       context.drawImage(img, 0, 0, renderCanvas.width, renderCanvas.height);
       await renderBlueprintOverlay(renderCanvas);
-      return renderCanvas;
+      return { renderCanvas, dims: null };
     } finally {
       URL.revokeObjectURL(url);
     }
@@ -2417,7 +2578,23 @@
       const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
       const page = await pdf.getPage(1);
       const baseViewport = page.getViewport({ scale: 1 });
-      applyBlueprintDimensionsFromAspect(baseViewport.width / Math.max(1, baseViewport.height));
+
+      // Try to read the real store size from the drawing's scale or dimension text.
+      let dims = null;
+      try {
+        const textContent = await page.getTextContent();
+        const mod = await ensureBlueprintInference();
+        dims = mod.inferDimensionsFromPdfText(textContent, baseViewport);
+      } catch (_textError) {
+        dims = null;
+      }
+
+      if (dims) {
+        applyBlueprintDimensionsExact(dims.widthMeters, dims.heightMeters);
+      } else {
+        applyBlueprintDimensionsFromAspect(baseViewport.width / Math.max(1, baseViewport.height));
+      }
+
       const maxWidth = Math.max(120, metersToPx(plannerState.widthMeters) - 8);
       const maxHeight = Math.max(120, metersToPx(plannerState.heightMeters) - 8);
       const scale = Math.min(maxWidth / baseViewport.width, maxHeight / baseViewport.height);
@@ -2429,7 +2606,7 @@
 
       await page.render({ canvasContext: context, viewport }).promise;
       await renderBlueprintOverlay(renderCanvas);
-      return renderCanvas;
+      return { renderCanvas, dims };
     } catch (_error) {
       return null;
     }
@@ -2444,9 +2621,9 @@
     const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name || "");
 
     try {
-      let renderCanvas = null;
+      let result = null;
       if (isImage) {
-        renderCanvas = await loadPlannerBlueprintImage(file);
+        result = await loadPlannerBlueprintImage(file);
       } else if (isPdf) {
         if (!window.pdfjsLib) {
           plannerStatus.textContent = "PDF support unavailable. Check network and refresh the page.";
@@ -2455,27 +2632,38 @@
         }
         pdfjsLib.GlobalWorkerOptions.workerSrc =
           "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-        renderCanvas = await loadPlannerBlueprintPdf(file);
+        result = await loadPlannerBlueprintPdf(file);
       } else {
         plannerStatus.textContent = "Unsupported blueprint format. Upload PDF or PNG/JPEG.";
         plannerStatus.style.color = "var(--warn)";
         return;
       }
 
-      if (!renderCanvas) {
+      if (!result || !result.renderCanvas) {
         plannerStatus.textContent = "Could not read blueprint. Please upload a valid PDF or image.";
         plannerStatus.style.color = "var(--bad)";
         return;
       }
 
+      const { renderCanvas, dims } = result;
       const mod = await ensureBlueprintInference();
       const { inference, placed, analysis } = await applyBlueprintInferredLayout(renderCanvas);
       updatePlannerEstimate();
       persistState();
 
+      showBlueprintAreaInfo({
+        widthMeters: plannerState.widthMeters,
+        heightMeters: plannerState.heightMeters,
+        areaSqm: dims ? dims.areaSqm : null,
+        dims
+      });
+
       const summary = mod.summarizeBlueprintInference(inference, placed);
       const entranceNote = analysis.entranceLikely ? "Entrance at front." : "Entrance placed at front (required).";
-      plannerStatus.textContent = `Blueprint loaded (${file.name}). ${entranceNote} ${summary}`;
+      const sizeNote = dims
+        ? `Store size guessed ${plannerState.widthMeters}×${plannerState.heightMeters} m (~${dims.areaSqm} m², ${dims.source}). `
+        : `Store size set from page proportions (${plannerState.widthMeters}×${plannerState.heightMeters} m) — verify scale. `;
+      plannerStatus.textContent = `Blueprint loaded (${file.name}). ${sizeNote}${entranceNote} ${summary}`;
       plannerStatus.style.color = "var(--ok)";
     } catch (_error) {
       plannerStatus.textContent = "Could not read blueprint. Please upload a valid PDF or image.";
@@ -2665,8 +2853,10 @@
     } else {
       ensurePlannerObjectId(group);
     }
-    capturePlannerPoseMeters(group);
     plannerState.canvas.add(group);
+    group.setCoords();
+    clampObjectWithinStore(group);
+    capturePlannerPoseMeters(group);
     if (!options.silent) {
       plannerState.canvas.setActiveObject(group);
     }
@@ -2694,18 +2884,33 @@
     resizePlannerCanvasToContainer();
     updatePlannerEstimate();
     const sync3d = () => requestPlanner3DSync();
+    const liveSync3d = () => {
+      if (plannerViewMode === "3d" || plannerViewMode === "simulation") syncPlanner3DView();
+    };
+    const keepInStore = (target) => {
+      if (!target) return;
+      if (isPlannerFixture(target) || isActiveSelectionTarget(target)) clampObjectWithinStore(target);
+    };
     plannerState.canvas.on("object:modified", (event) => {
-      if (event?.target && isPlannerFixture(event.target)) capturePlannerPoseMeters(event.target);
+      keepInStore(event?.target);
+      capturePlannerPosesFromTarget(event?.target);
       persistState();
       sync3d();
     });
     plannerState.canvas.on("object:rotating", (event) => {
-      if (event?.target && isPlannerFixture(event.target)) {
-        capturePlannerPoseMeters(event.target);
-        if (plannerViewMode === "3d" || plannerViewMode === "simulation") {
-          syncPlanner3DView();
-        }
-      }
+      keepInStore(event?.target);
+      capturePlannerPosesFromTarget(event?.target);
+      liveSync3d();
+    });
+    plannerState.canvas.on("object:moving", (event) => {
+      keepInStore(event?.target);
+      capturePlannerPosesFromTarget(event?.target);
+      liveSync3d();
+    });
+    plannerState.canvas.on("object:scaling", (event) => {
+      keepInStore(event?.target);
+      capturePlannerPosesFromTarget(event?.target);
+      liveSync3d();
     });
     plannerState.canvas.on("object:added", () => {
       updatePlannerEstimate();
@@ -3093,6 +3298,7 @@
     plannerState.canvas.remove(plannerState.blueprintObject);
     plannerState.blueprintObject = null;
     plannerState.canvas.requestRenderAll();
+    hideBlueprintAreaInfo();
     plannerStatus.textContent = "Blueprint removed.";
     plannerStatus.style.color = "var(--ok)";
   });

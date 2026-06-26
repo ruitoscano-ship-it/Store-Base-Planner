@@ -2,6 +2,8 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { TransformControls } from "three/addons/controls/TransformControls.js";
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { DEFAULT_ARTIFACTS, DEFAULT_PLANNER, getAllArtifacts } from "./planner-artifacts.js";
 import {
   buildLayoutObstacles,
@@ -43,40 +45,77 @@ function hexToNumber(hex, fallback = 0x94a3b8) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+/**
+ * Slim human silhouette (feet at y=0, ~1.7 m tall) merged into one geometry so it
+ * can be reused for the human-scale reference and the instanced shopper crowd.
+ * Matches the minimal dark-charcoal "scalie" look of the people reference art.
+ */
+function createHumanGeometry() {
+  const parts = [];
+
+  const head = new THREE.SphereGeometry(0.105, 16, 12);
+  head.scale(0.92, 1.05, 0.92);
+  head.translate(0, 1.58, 0);
+  parts.push(head);
+
+  const neck = new THREE.CylinderGeometry(0.04, 0.05, 0.08, 10);
+  neck.translate(0, 1.47, 0);
+  parts.push(neck);
+
+  // Shoulders wide at top, tapering to the waist.
+  const torso = new THREE.CylinderGeometry(0.16, 0.115, 0.5, 18);
+  torso.scale(1, 1, 0.62);
+  torso.translate(0, 1.19, 0);
+  parts.push(torso);
+
+  const hips = new THREE.CylinderGeometry(0.125, 0.12, 0.2, 16);
+  hips.scale(1, 1, 0.66);
+  hips.translate(0, 0.88, 0);
+  parts.push(hips);
+
+  for (const side of [-1, 1]) {
+    const leg = new THREE.CylinderGeometry(0.062, 0.046, 0.86, 12);
+    leg.translate(side * 0.07, 0.43, 0);
+    parts.push(leg);
+
+    const arm = new THREE.CylinderGeometry(0.045, 0.038, 0.6, 12);
+    arm.rotateZ(side * 0.12);
+    arm.translate(side * 0.2, 1.15, 0);
+    parts.push(arm);
+  }
+
+  const merged = mergeGeometries(parts, false);
+  parts.forEach((part) => part.dispose());
+  merged.computeVertexNormals();
+  return merged;
+}
+
+/** Small handheld shopping basket to read the reference figure as a shopper. */
+function createBasketMesh(material) {
+  const group = new THREE.Group();
+  const basket = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.16, 0.18), material);
+  basket.position.set(0.27, 0.92, 0.06);
+  basket.castShadow = true;
+  group.add(basket);
+  const handle = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.012, 8, 16, Math.PI), material);
+  handle.position.set(0.27, 1.0, 0.06);
+  group.add(handle);
+  return group;
+}
+
 function createStickFigure() {
   const group = new THREE.Group();
   group.name = "stick-figure";
-  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x374151, roughness: 0.82, metalness: 0.04 });
-  const shadowMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, transparent: true, opacity: 0.35, roughness: 1 });
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2b2f36, roughness: 0.92, metalness: 0.02 });
+  const shadowMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, transparent: true, opacity: 0.32, roughness: 1 });
 
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 12), bodyMat);
-  head.position.y = 1.62;
-  head.castShadow = true;
-  group.add(head);
+  const body = new THREE.Mesh(createHumanGeometry(), bodyMat);
+  body.castShadow = true;
+  group.add(body);
 
-  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.05, 0.5, 10), bodyMat);
-  torso.position.y = 1.24;
-  torso.castShadow = true;
-  group.add(torso);
+  group.add(createBasketMesh(bodyMat));
 
-  const pelvis = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.11), bodyMat);
-  pelvis.position.y = 0.93;
-  group.add(pelvis);
-
-  const limb = (x, y, z, length, angleZ) => {
-    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, length, 8), bodyMat);
-    mesh.position.set(x, y, z);
-    mesh.rotation.z = angleZ;
-    mesh.castShadow = true;
-    group.add(mesh);
-  };
-
-  limb(-0.22, 1.28, 0, 0.4, 0.95);
-  limb(0.22, 1.28, 0, 0.4, -0.95);
-  limb(-0.08, 0.58, 0, 0.6, 0.08);
-  limb(0.08, 0.58, 0, 0.6, -0.08);
-
-  const marker = new THREE.Mesh(new THREE.CircleGeometry(0.16, 24), shadowMat);
+  const marker = new THREE.Mesh(new THREE.CircleGeometry(0.18, 28), shadowMat);
   marker.rotation.x = -Math.PI / 2;
   marker.position.y = 0.008;
   marker.receiveShadow = true;
@@ -107,14 +146,18 @@ export function createPlanner3D(containerEl, options = {}) {
   scene.add(shoppersGroup);
 
   const SHOPPER_MAX = 120;
-  const shopperGeo = new THREE.CapsuleGeometry(0.09, 0.36, 4, 8);
-  const shopperMat = new THREE.MeshStandardMaterial({ color: 0x374151, roughness: 0.78, metalness: 0.04 });
+  const shopperGeo = createHumanGeometry();
+  const shopperMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0.02 });
   const shopperMesh = new THREE.InstancedMesh(shopperGeo, shopperMat, SHOPPER_MAX);
   shopperMesh.count = 0;
   shopperMesh.castShadow = true;
   shopperMesh.visible = false;
   shoppersGroup.add(shopperMesh);
   const shopperDummy = new THREE.Object3D();
+  // Dark "scalie" palette — a few charcoal/grey tones, like the people reference art.
+  const SHOPPER_TONES = [0x2b2f36, 0x3b4250, 0x4b5563, 0x222529];
+  const shopperColor = new THREE.Color();
+  let shopperColorsInitialized = false;
 
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 600);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
@@ -123,11 +166,17 @@ export function createPlanner3D(containerEl, options = {}) {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.02;
+  renderer.toneMappingExposure = 1.12;
   renderer.domElement.style.display = "block";
   renderer.domElement.style.width = "100%";
   renderer.domElement.style.height = "100%";
   containerEl.appendChild(renderer.domElement);
+
+  // Image-based lighting for realistic PBR reflections (glossy floor, product sheen).
+  const pmremGenerator = new THREE.PMREMGenerator(renderer);
+  const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environment = envTexture;
+  scene.background = new THREE.Color(0xeef0ee);
 
   const orbit = new OrbitControls(camera, renderer.domElement);
   orbit.enableDamping = true;
@@ -140,10 +189,11 @@ export function createPlanner3D(containerEl, options = {}) {
   transformControls.setSpace("world");
   scene.add(transformControls);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.58));
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xe5e7eb, 0.42));
-  const sun = new THREE.DirectionalLight(0xffffff, 0.72);
-  sun.position.set(10, 22, 14);
+  // Env map carries most of the ambient fill; keep direct lights for soft shadows + sheen.
+  scene.add(new THREE.AmbientLight(0xffffff, 0.32));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xeceef0, 0.55));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.05);
+  sun.position.set(10, 24, 14);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.near = 0.5;
@@ -153,8 +203,11 @@ export function createPlanner3D(containerEl, options = {}) {
   sun.shadow.camera.top = 40;
   sun.shadow.camera.bottom = -40;
   sun.shadow.bias = -0.00015;
+  sun.shadow.normalBias = 0.02;
   scene.add(sun);
-  scene.add(new THREE.DirectionalLight(0xffffff, 0.18).translateX(-8).translateY(10).translateZ(-6));
+  const fill = new THREE.DirectionalLight(0xffffff, 0.35);
+  fill.position.set(-8, 14, -6);
+  scene.add(fill);
 
   const modelLibrary = new PlannerModelLibrary();
   const textureKit = new StoreTextureKit();
@@ -211,8 +264,12 @@ export function createPlanner3D(containerEl, options = {}) {
     };
   }
 
+  // Cameras are ceiling-mounted, so the room must be at least 2.8 m tall.
+  const MIN_CEILING_HEIGHT = 2.8;
+
   function wallHeight() {
-    return plannerConfig.wallHeightMeters ?? DEFAULT_PLANNER.wallHeightMeters;
+    const configured = plannerConfig.wallHeightMeters ?? DEFAULT_PLANNER.wallHeightMeters;
+    return Math.max(MIN_CEILING_HEIGHT, configured);
   }
 
   function wallThickness() {
@@ -696,10 +753,23 @@ export function createPlanner3D(containerEl, options = {}) {
     const count = Math.min(positions?.length || 0, SHOPPER_MAX);
     for (let i = 0; i < count; i += 1) {
       const p = positions[i];
-      shopperDummy.position.set(p.x, 0.68, p.z);
+      // Deterministic per-shopper height variation for a natural crowd.
+      const heightScale = 0.93 + ((i * 37) % 14) / 100;
+      shopperDummy.position.set(p.x, 0, p.z);
       shopperDummy.rotation.y = p.angle || 0;
+      shopperDummy.scale.set(1, heightScale, 1);
       shopperDummy.updateMatrix();
       shopperMesh.setMatrixAt(i, shopperDummy.matrix);
+      if (!shopperColorsInitialized) {
+        shopperColor.setHex(SHOPPER_TONES[(i * 7) % SHOPPER_TONES.length]);
+        shopperMesh.setColorAt(i, shopperColor);
+      }
+    }
+    shopperDummy.scale.set(1, 1, 1);
+    // Colours are stable per instance index, so we only need to assign them once.
+    if (!shopperColorsInitialized && count > 0) {
+      if (shopperMesh.instanceColor) shopperMesh.instanceColor.needsUpdate = true;
+      shopperColorsInitialized = count >= SHOPPER_MAX;
     }
     shopperMesh.count = count;
     shopperMesh.instanceMatrix.needsUpdate = count > 0;
@@ -776,7 +846,9 @@ export function createPlanner3D(containerEl, options = {}) {
     const hasMonitoring = layoutHasMonitoring(layout);
 
     const floorTex = textureKit.applyRepeat(textureKit.createFloorTexture(), Math.max(1, w / 2), Math.max(1, d / 2));
-    const floorMat = createStandardMaterial(floorTex);
+    // Polished retail floor: low roughness + env reflections for the glossy showroom look.
+    const floorMat = createStandardMaterial(floorTex, { roughness: 0.16, metalness: 0.0 });
+    floorMat.envMapIntensity = 1.3;
 
     floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), floorMat);
     floorMesh.rotation.x = -Math.PI / 2;
@@ -943,7 +1015,13 @@ export function createPlanner3D(containerEl, options = {}) {
   }
 
   function addFixtureMesh(group, obj, spec, footprintW, footprintD, height) {
-    if (obj.kind.startsWith("shelf-") || obj.kind === "checkout" || obj.kind === "entry-open" || obj.kind === "entry-gated") {
+    if (
+      obj.kind.startsWith("shelf-") ||
+      obj.kind === "produce-bin" ||
+      obj.kind === "checkout" ||
+      obj.kind === "entry-open" ||
+      obj.kind === "entry-gated"
+    ) {
       try {
         buildProceduralFixture(group, obj.kind, spec, footprintW, footprintD, height, fixtureTextureBridge());
       } catch (error) {
@@ -1375,6 +1453,9 @@ export function createPlanner3D(containerEl, options = {}) {
       disposeObject(storeGroup);
       disposeObject(fixturesGroup);
       disposeObject(humanGroup);
+      scene.environment = null;
+      envTexture.dispose();
+      pmremGenerator.dispose();
       renderer.dispose();
       if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);
     }

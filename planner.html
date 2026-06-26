@@ -164,6 +164,69 @@
         color: var(--muted);
       }
 
+      .blueprint-info {
+        margin: 10px 0 4px;
+        padding: 12px 14px;
+        border: 1px solid var(--accent, #d9f04f);
+        border-radius: 10px;
+        background: linear-gradient(180deg, rgba(217, 240, 79, 0.16), rgba(217, 240, 79, 0.05));
+      }
+
+      .blueprint-info[hidden] {
+        display: none;
+      }
+
+      .blueprint-info-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+
+      .blueprint-info-badge {
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #1a1a1a;
+        background: var(--accent, #d9f04f);
+        padding: 2px 7px;
+        border-radius: 999px;
+      }
+
+      .blueprint-info-title {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--text, inherit);
+      }
+
+      .blueprint-info-area {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .blueprint-info-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        line-height: 1.1;
+        color: var(--text, inherit);
+      }
+
+      .blueprint-info-dims {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--muted);
+      }
+
+      .blueprint-info-note {
+        margin: 6px 0 0;
+        font-size: 0.74rem;
+        line-height: 1.4;
+        color: var(--muted);
+      }
+
       .planner-layout {
         display: grid;
         grid-template-columns: 300px 1fr;
@@ -635,6 +698,18 @@
                 <button class="action-btn" id="plannerClearBtn">Clear Planner</button>
                 <input id="plannerBlueprintInput" type="file" accept="application/pdf,.pdf,image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" style="display: none;" />
                 <input id="plannerImportInput" type="file" accept="application/json" style="display: none;" />
+              </div>
+
+              <div id="plannerBlueprintInfo" class="blueprint-info" hidden>
+                <div class="blueprint-info-head">
+                  <span class="blueprint-info-badge" id="plannerBlueprintBadge">Inferred</span>
+                  <span class="blueprint-info-title">Inferred from blueprint</span>
+                </div>
+                <div class="blueprint-info-area">
+                  <span class="blueprint-info-value" id="plannerBlueprintArea">—</span>
+                  <span class="blueprint-info-dims" id="plannerBlueprintDims">—</span>
+                </div>
+                <p class="blueprint-info-note" id="plannerBlueprintNote"></p>
               </div>
 
               <h4>Sensei Store CAPEX Estimator</h4>
