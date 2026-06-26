@@ -424,9 +424,237 @@ export function buildProceduralProduceBin(group, _spec, width, depth, height) {
   card.rotation.x = -0.12;
 }
 
+const SERVICE_PALETTES = {
+  // Charcuterie / butcher: cured reds, pinks, whites, browns.
+  deli: [0xb23a48, 0xd1495b, 0xe8998d, 0xf3d9c7, 0x8c2f39, 0xa44a3f, 0xedae49, 0xf6e7d7],
+  // Fishmonger: silvers, blues, salmon pinks on ice.
+  fish: [0xb0c4d4, 0x8fb8c9, 0xd98a8a, 0xe9a6a0, 0x9aa7b1, 0xc7d6df, 0xde6a5a, 0xeef4f7],
+  // Bakery: golden crusts, creams, browns, berry accents.
+  bakery: [0xd9a05b, 0xc8853c, 0xf0d9a8, 0xe7b96f, 0xa9682f, 0xf5e6c8, 0x8b4513, 0xc1452b]
+};
+
+/** Scatter merged, vertex-coloured "food" items across a tray region. */
+function pushTrayProducts(geometries, { centerX, width, frontZ, backZ, y, palette, mode, seedStart = 11, rows = 2 }) {
+  const cols = Math.max(3, Math.floor(width / 0.16));
+  const span = frontZ - backZ;
+  let seed = seedStart;
+  for (let r = 0; r < rows; r += 1) {
+    for (let c = 0; c < cols; c += 1) {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      const rnd = (seed % 1000) / 1000;
+      const px = centerX - width / 2 + (c + 0.5) * (width / cols) + (rnd - 0.5) * 0.02;
+      const pz = frontZ - (r + 0.5) * (span / rows) - (rnd - 0.5) * 0.03;
+      let geo;
+      if (mode === "fish") {
+        const len = 0.16 + rnd * 0.12;
+        geo = new THREE.CylinderGeometry(0.03 + rnd * 0.02, 0.022, len, 8);
+        geo.rotateZ(Math.PI / 2);
+        geo.rotateY((rnd - 0.5) * 0.8);
+      } else if (mode === "bakery") {
+        geo = (seed >> 4) % 3 === 0
+          ? new THREE.BoxGeometry(0.11 + rnd * 0.05, 0.07 + rnd * 0.03, 0.11)
+          : new THREE.SphereGeometry(0.05 + rnd * 0.025, 8, 6);
+      } else {
+        // deli: laid sausages (cylinders) and cuts (flat boxes)
+        if ((seed >> 4) % 2 === 0) {
+          geo = new THREE.CylinderGeometry(0.028 + rnd * 0.015, 0.028, 0.18 + rnd * 0.06, 8);
+          geo.rotateZ(Math.PI / 2);
+        } else {
+          geo = new THREE.BoxGeometry(0.13, 0.04 + rnd * 0.02, 0.1);
+        }
+      }
+      const h = mode === "fish" ? 0.05 : 0.04;
+      geo.translate(px, y + h, pz);
+      paintGeometry(geo, palette[(c + r * 2 + (seed >> 6)) % palette.length]);
+      geometries.push(geo);
+    }
+  }
+}
+
+/**
+ * Assisted/unattended service counter (deli/butcher, fishmonger, bakery) — a
+ * stainless base counter with a slanted glass display case full of product.
+ * Matches the isometric service-counter reference art. Front faces +Z.
+ */
+export function buildProceduralServiceCounter(group, variant, width, depth, height) {
+  const v = variant || "deli";
+  const palette = SERVICE_PALETTES[v] || SERVICE_PALETTES.deli;
+
+  const carcass = new THREE.MeshStandardMaterial({ color: 0xececeb, roughness: 0.6, metalness: 0.06 });
+  const steel = new THREE.MeshStandardMaterial({ color: 0xc7cacf, metalness: 0.45, roughness: 0.38 });
+  const kickMat = new THREE.MeshStandardMaterial({ color: 0xb6b9be, metalness: 0.4, roughness: 0.42 });
+  const glass = new THREE.MeshStandardMaterial({ color: 0xeaf3fa, transparent: true, opacity: 0.2, roughness: 0.05, metalness: 0.04 });
+  const frame = new THREE.MeshStandardMaterial({ color: 0xa9adb3, metalness: 0.6, roughness: 0.3 });
+  const back = new THREE.MeshStandardMaterial({ color: 0xdedee0, roughness: 0.55, metalness: 0.08 });
+
+  const baseH = Math.min(height * 0.6, 0.9);
+  const kickH = 0.1;
+  addMesh(group, new THREE.BoxGeometry(width * 0.95, kickH, depth * 0.82), kickMat, 0, kickH / 2, 0);
+  addMesh(group, new THREE.BoxGeometry(width, baseH - kickH, depth), carcass, 0, kickH + (baseH - kickH) / 2, 0);
+  addMesh(group, new THREE.BoxGeometry(width * 1.02, 0.05, depth * 1.04), steel, 0, baseH + 0.02, 0);
+
+  // Deli reserves the right end of the counter for a scale + bag dispenser.
+  const caseWidth = v === "deli" ? width * 0.62 : width * 0.96;
+  const caseCenterX = v === "deli" ? -(width - caseWidth) / 2 : 0;
+  const caseDepth = depth * 0.9;
+  const frontZ = caseDepth / 2;
+  const backZ = -caseDepth / 2;
+  const caseH = v === "fish" ? Math.max(0.24, (height - baseH) * 0.75) : height - baseH;
+  const topY = baseH + caseH;
+  const counterTopY = baseH + 0.05;
+
+  const productGeos = [];
+
+  if (v === "fish") {
+    // Open crushed-ice bed (slightly sloped toward the customer) under a low guard.
+    const iceMat = new THREE.MeshStandardMaterial({ color: 0xdbeafe, roughness: 0.4, metalness: 0.04 });
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(caseWidth * 0.96, 0.07, caseDepth * 0.9), iceMat);
+    bed.position.set(caseCenterX, counterTopY + 0.06, 0);
+    bed.rotation.x = -0.16;
+    bed.receiveShadow = true;
+    group.add(bed);
+    addMesh(group, new THREE.BoxGeometry(caseWidth, caseH, 0.02), back, caseCenterX, baseH + caseH / 2, backZ);
+    const guard = new THREE.Mesh(new THREE.BoxGeometry(caseWidth, caseH * 0.85, 0.01), glass);
+    guard.position.set(caseCenterX, baseH + caseH * 0.55, frontZ * 0.45);
+    guard.rotation.x = 0.55;
+    group.add(guard);
+    pushTrayProducts(productGeos, {
+      centerX: caseCenterX, width: caseWidth * 0.9, frontZ: frontZ * 0.75, backZ: backZ * 0.7,
+      y: counterTopY + 0.09, palette, mode: "fish", seedStart: 23, rows: 2
+    });
+  } else {
+    // Glass display case: back panel, slanted front glass, side panels, internal tiers.
+    addMesh(group, new THREE.BoxGeometry(caseWidth, caseH, 0.03), back, caseCenterX, baseH + caseH / 2, backZ);
+    addMesh(group, new THREE.BoxGeometry(caseWidth, 0.04, caseDepth * 0.55), frame, caseCenterX, topY, backZ + caseDepth * 0.28);
+
+    const tiltTop = caseDepth * 0.5;
+    const glassLen = Math.hypot(caseH, tiltTop);
+    const frontGlass = new THREE.Mesh(new THREE.BoxGeometry(caseWidth, glassLen, 0.012), glass);
+    frontGlass.position.set(caseCenterX, baseH + caseH / 2, frontZ - tiltTop / 2);
+    frontGlass.rotation.x = Math.atan2(tiltTop, caseH);
+    group.add(frontGlass);
+    [caseCenterX - caseWidth / 2 + 0.01, caseCenterX + caseWidth / 2 - 0.01].forEach((sx) => {
+      addMesh(group, new THREE.BoxGeometry(0.012, caseH * 0.9, caseDepth * 0.8), glass, sx, baseH + caseH * 0.5, 0, false);
+    });
+
+    const tiers = v === "bakery" ? 3 : 2;
+    for (let t = 0; t < tiers; t += 1) {
+      const tierY = counterTopY + t * (caseH / (tiers + 0.4));
+      const tierZ = backZ + caseDepth * (0.32 + t * 0.12);
+      if (t > 0) {
+        addMesh(group, new THREE.BoxGeometry(caseWidth * 0.94, 0.02, caseDepth * 0.5), frame, caseCenterX, tierY, tierZ);
+      }
+      pushTrayProducts(productGeos, {
+        centerX: caseCenterX,
+        width: caseWidth * 0.88,
+        frontZ: tierZ + caseDepth * 0.2,
+        backZ: tierZ - caseDepth * 0.18,
+        y: tierY,
+        palette,
+        mode: v,
+        seedStart: 17 + t * 29,
+        rows: 2
+      });
+    }
+  }
+
+  if (productGeos.length) {
+    const merged = mergeGeometries(productGeos, false);
+    productGeos.forEach((geo) => geo.dispose());
+    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.48, metalness: 0.05 });
+    const mesh = new THREE.Mesh(merged, mat);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+  }
+
+  // Deli accessories on the open right counter: a scale and a bag dispenser.
+  if (v === "deli") {
+    const accentX = width / 2 - width * 0.18;
+    const scaleMat = new THREE.MeshStandardMaterial({ color: 0xe8e8e6, roughness: 0.5, metalness: 0.2 });
+    const screenMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.3, metalness: 0.1 });
+    addMesh(group, new THREE.BoxGeometry(0.26, 0.06, 0.22), steel, accentX - 0.18, baseH + 0.08, frontZ * 0.3);
+    addMesh(group, new THREE.BoxGeometry(0.2, 0.16, 0.03), screenMat, accentX - 0.18, baseH + 0.18, frontZ * 0.3 - 0.1);
+
+    const bagMat = new THREE.MeshStandardMaterial({ color: 0xd9d2c4, roughness: 0.75, metalness: 0.02 });
+    addMesh(group, new THREE.BoxGeometry(0.24, 0.26, 0.2), bagMat, accentX + 0.2, baseH + 0.16, -frontZ * 0.1);
+    addMesh(group, new THREE.BoxGeometry(0.26, 0.03, 0.16), steel, accentX + 0.2, baseH + 0.04, -frontZ * 0.1 + 0.02);
+  }
+}
+
+/**
+ * Self-service beverage station (coffee or juice) — a counter with a low
+ * backsplash, an upper cup shelf, and variant-specific equipment on top:
+ * coffee brewer + bean hopper, or juice dispensers. Front faces +Z.
+ */
+export function buildProceduralBeverageStation(group, variant, width, depth, height) {
+  const v = variant === "juice" ? "juice" : "coffee";
+  const carcass = new THREE.MeshStandardMaterial({ color: 0xefe9e1, roughness: 0.6, metalness: 0.05 });
+  const steel = new THREE.MeshStandardMaterial({ color: 0xc7cacf, metalness: 0.45, roughness: 0.38 });
+  const kickMat = new THREE.MeshStandardMaterial({ color: 0xb6b9be, metalness: 0.4, roughness: 0.42 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x3a3f46, roughness: 0.4, metalness: 0.25 });
+  const cupMat = new THREE.MeshStandardMaterial({ color: 0xf3f1ec, roughness: 0.7, metalness: 0.03 });
+
+  const baseH = Math.min(height * 0.62, 0.92);
+  const kickH = 0.1;
+  addMesh(group, new THREE.BoxGeometry(width * 0.94, kickH, depth * 0.82), kickMat, 0, kickH / 2, 0);
+  addMesh(group, new THREE.BoxGeometry(width, baseH - kickH, depth), carcass, 0, kickH + (baseH - kickH) / 2, 0);
+  addMesh(group, new THREE.BoxGeometry(width * 1.02, 0.05, depth * 1.04), steel, 0, baseH + 0.02, 0);
+
+  const topY = baseH + 0.05;
+  const backZ = -depth / 2;
+
+  // Backsplash + upper cup/condiment shelf.
+  const splashH = height - baseH;
+  addMesh(group, new THREE.BoxGeometry(width * 0.98, splashH, 0.04), carcass, 0, baseH + splashH / 2, backZ + 0.02);
+  const shelfY = baseH + splashH * 0.62;
+  addMesh(group, new THREE.BoxGeometry(width * 0.9, 0.03, depth * 0.32), steel, 0, shelfY, backZ + depth * 0.18);
+
+  // Stacks of cups on the upper shelf.
+  for (let i = 0; i < 3; i += 1) {
+    const cx = -width * 0.3 + i * (width * 0.3);
+    addMesh(group, new THREE.CylinderGeometry(0.035, 0.03, 0.16, 10), cupMat, cx, shelfY + 0.1, backZ + depth * 0.18);
+  }
+
+  if (v === "coffee") {
+    const machine = new THREE.MeshStandardMaterial({ color: 0x52555b, roughness: 0.42, metalness: 0.3 });
+    // Brewer body + warming plate + carafe + bean hopper on top.
+    addMesh(group, new THREE.BoxGeometry(width * 0.34, 0.34, depth * 0.42), machine, -width * 0.18, topY + 0.17, depth * 0.05);
+    addMesh(group, new THREE.CylinderGeometry(0.08, 0.07, 0.16, 12), new THREE.MeshStandardMaterial({ color: 0x6b4a2f, roughness: 0.45 }), -width * 0.18, topY + 0.42, depth * 0.05);
+    addMesh(group, new THREE.CylinderGeometry(0.06, 0.055, 0.12, 12), new THREE.MeshStandardMaterial({ color: 0x2b2f36, roughness: 0.5 }), -width * 0.18, topY + 0.06, depth * 0.2);
+    // Compact espresso unit + cups beside it.
+    addMesh(group, new THREE.BoxGeometry(width * 0.26, 0.22, depth * 0.34), dark, width * 0.22, topY + 0.11, depth * 0.04);
+    for (let i = 0; i < 2; i += 1) {
+      addMesh(group, new THREE.CylinderGeometry(0.03, 0.026, 0.1, 10), cupMat, width * 0.34, topY + 0.05, depth * 0.18 - i * 0.08);
+    }
+  } else {
+    // Two juice dispensers (clear tanks with coloured juice) + a tap base.
+    const juices = [0xf4751f, 0xe11d48];
+    [-1, 1].forEach((side, idx) => {
+      const dx = side * width * 0.22;
+      const tank = new THREE.MeshStandardMaterial({ color: 0xeaf3fa, transparent: true, opacity: 0.32, roughness: 0.08, metalness: 0.05 });
+      const juice = new THREE.MeshStandardMaterial({ color: juices[idx], roughness: 0.4, metalness: 0.04, transparent: true, opacity: 0.85 });
+      addMesh(group, new THREE.BoxGeometry(0.04, 0.06, depth * 0.36), dark, dx, topY + 0.03, depth * 0.02);
+      addMesh(group, new THREE.CylinderGeometry(0.1, 0.1, 0.3, 14), juice, dx, topY + 0.22, depth * 0.02);
+      addMesh(group, new THREE.CylinderGeometry(0.105, 0.105, 0.34, 14), tank, dx, topY + 0.22, depth * 0.02, false);
+    });
+    for (let i = 0; i < 3; i += 1) {
+      addMesh(group, new THREE.CylinderGeometry(0.03, 0.026, 0.1, 10), cupMat, width * 0.02 + i * 0.07 - 0.07, topY + 0.05, depth * 0.24);
+    }
+  }
+}
+
 export function buildProceduralFixture(group, kind, spec, footprintW, footprintD, height, textures = null) {
   if (kind === "produce-bin") {
     buildProceduralProduceBin(group, spec, footprintW, footprintD, height);
+    return;
+  }
+  if (kind && kind.startsWith("station-")) {
+    buildProceduralBeverageStation(group, spec?.stationVariant, footprintW, footprintD, height);
+    return;
+  }
+  if (kind && kind.startsWith("service-")) {
+    buildProceduralServiceCounter(group, spec?.serviceVariant, footprintW, footprintD, height);
     return;
   }
   if (kind.startsWith("shelf-")) {

@@ -1536,6 +1536,73 @@
     requestPlanner3DSync();
   }
 
+  // Fixed "base pod" prefab: a compact grab-and-go format with a back-wall run
+  // of 3 shelves + self-service coffee + self-service juice, an entrance gate,
+  // and a checkout at the front. Front of each fixture faces the aisle (+Y).
+  function basePodFixtures() {
+    const backEdge = 0.55;
+    const frontY = 3.86;
+    const shelfY = backEdge + 0.45 / 2;
+    const stationY = backEdge + 0.6 / 2;
+    return [
+      { kind: "shelf-ambient", x: 1.15, y: shelfY, angle: 0 },
+      { kind: "shelf-ambient", x: 2.53, y: shelfY, angle: 0 },
+      { kind: "shelf-cold", x: 3.91, y: shelfY, angle: 0 },
+      { kind: "station-coffee", x: 5.19, y: stationY, angle: 0 },
+      { kind: "station-juice", x: 6.37, y: stationY, angle: 0 },
+      { kind: "entry-gated", x: 1.7, y: frontY, angle: 0 },
+      { kind: "checkout", x: 6.2, y: frontY, angle: 0 }
+    ];
+  }
+
+  function applyBasePodConstruct() {
+    if (!initPlanner()) return;
+    const widthMeters = 8;
+    const heightMeters = 4.5;
+
+    clearPlannerBlueprint();
+    clearPlannerObjects();
+
+    plannerWidthInput.value = String(widthMeters);
+    plannerHeightInput.value = String(heightMeters);
+    applyStoreDimensions();
+
+    applyPlannerSenseiOptions(defaultSenseiOptions);
+
+    plannerBatchAdding = true;
+    basePodFixtures().forEach((fixture) => {
+      const point = canvasPointFromMeters(fixture.x, fixture.y);
+      addPlannerObject(fixture.kind, {
+        left: point.left,
+        top: point.top,
+        angle: fixture.angle || 0,
+        silent: true
+      });
+    });
+    plannerBatchAdding = false;
+
+    plannerState.activePresetId = "base-pod";
+    highlightActivePresetButton();
+    highlightActivePodButton();
+
+    const area = widthMeters * heightMeters;
+    plannerPresetSummary.textContent = `Base pod: ${widthMeters}×${heightMeters} m (${number.format(area)} m²) · 3 shelves, self-service coffee + juice, 1 checkout, 1 entrance gate.`;
+    plannerStatus.textContent = "Base pod construct loaded — compact grab-and-go format. Rearrange or duplicate fixtures as needed.";
+    plannerStatus.style.color = "var(--ok)";
+
+    plannerState.canvas.discardActiveObject();
+    plannerState.canvas.requestRenderAll();
+    fitPlannerViewport();
+    updatePlannerEstimate();
+    persistState();
+    requestPlanner3DSync();
+  }
+
+  function highlightActivePodButton() {
+    const btn = document.getElementById("plannerBasePodBtn");
+    if (btn) btn.classList.toggle("active", plannerState.activePresetId === "base-pod");
+  }
+
   function plannerStroke(mult = 1) {
     return Math.max(0.8, plannerState.scale * 0.045 * mult);
   }
@@ -1926,6 +1993,203 @@
           originY: "center"
         })
       );
+    } else if (type === "service") {
+      const { fill, stroke } = spec.palette || { fill: "#f1f1ef", stroke: "#374151" };
+      const variant = spec.serviceVariant || "deli";
+      const dotPalettes = {
+        deli: ["#b23a48", "#d1495b", "#e8998d", "#edae49", "#8c2f39"],
+        fish: ["#9aa7b1", "#b0c4d4", "#d98a8a", "#8fb8c9", "#de6a5a"],
+        bakery: ["#d9a05b", "#c8853c", "#e7b96f", "#a9682f", "#f5e6c8"]
+      };
+      const dots = dotPalettes[variant] || dotPalettes.deli;
+      // Counter body.
+      shapes.push(
+        new fabric.Rect({
+          width,
+          height,
+          fill,
+          stroke,
+          strokeWidth: strokeW,
+          rx: Math.min(width, height) * 0.05,
+          ry: Math.min(width, height) * 0.05,
+          originX: "center",
+          originY: "center"
+        })
+      );
+      // Reserve the right end of a deli counter for the scale + bag dispenser.
+      const caseW = variant === "deli" ? width * 0.62 : width * 0.94;
+      const caseLeft = variant === "deli" ? -width / 2 + caseW / 2 + width * 0.03 : 0;
+      const caseH = height * 0.6;
+      // Glass display case toward the back (-Y), product strip toward the front (+Y).
+      shapes.push(
+        new fabric.Rect({
+          width: caseW,
+          height: caseH,
+          fill: "#eaf3fa",
+          stroke,
+          strokeWidth: Math.max(0.6, strokeW * 0.6),
+          opacity: 0.92,
+          left: caseLeft,
+          top: -height / 2 + caseH / 2 + height * 0.06,
+          originX: "center",
+          originY: "center"
+        })
+      );
+      const cols = Math.max(3, Math.round(caseW / 14));
+      const rowsS = 2;
+      let si = 0;
+      for (let r = 0; r < rowsS; r += 1) {
+        for (let c = 0; c < cols; c += 1) {
+          const cx = caseLeft - caseW / 2 + ((c + 0.5) * caseW) / cols;
+          const cy = -height / 2 + height * 0.06 + ((r + 0.5) * caseH) / rowsS;
+          shapes.push(
+            new fabric.Circle({
+              radius: Math.max(2, Math.min(caseW / cols, caseH / rowsS) * 0.3),
+              fill: dots[si % dots.length],
+              stroke: "#1f2937",
+              strokeWidth: 0.4,
+              left: cx,
+              top: cy,
+              originX: "center",
+              originY: "center"
+            })
+          );
+          si += 1;
+        }
+      }
+      if (variant === "deli") {
+        const accX = width / 2 - width * 0.16;
+        shapes.push(
+          new fabric.Rect({
+            width: Math.max(8, width * 0.1),
+            height: Math.max(8, width * 0.1),
+            fill: "#d8d8d6",
+            stroke,
+            strokeWidth: Math.max(0.5, strokeW * 0.5),
+            left: accX - width * 0.06,
+            top: -height * 0.04,
+            originX: "center",
+            originY: "center"
+          }),
+          new fabric.Rect({
+            width: Math.max(7, width * 0.08),
+            height: Math.max(9, height * 0.22),
+            fill: "#d9d2c4",
+            stroke,
+            strokeWidth: Math.max(0.5, strokeW * 0.5),
+            left: accX + width * 0.07,
+            top: -height * 0.02,
+            originX: "center",
+            originY: "center"
+          })
+        );
+      }
+      shapes.push(
+        new fabric.Text(spec.tag2d || "SERVICE", {
+          fontSize: Math.max(7, plannerFontSize(0.5)),
+          fontFamily: "Inter, Arial, sans-serif",
+          fontWeight: "700",
+          fill: stroke,
+          left: 0,
+          top: height / 2 - Math.max(7, plannerFontSize(0.5)) * 0.75,
+          originX: "center",
+          originY: "center"
+        })
+      );
+    } else if (type === "station") {
+      const { fill, stroke } = spec.palette || { fill: "#f1f1ef", stroke: "#374151" };
+      const variant = spec.stationVariant || "coffee";
+      // Counter body.
+      shapes.push(
+        new fabric.Rect({
+          width,
+          height,
+          fill,
+          stroke,
+          strokeWidth: strokeW,
+          rx: Math.min(width, height) * 0.08,
+          ry: Math.min(width, height) * 0.08,
+          originX: "center",
+          originY: "center"
+        })
+      );
+      if (variant === "juice") {
+        // Two juice dispensers toward the back.
+        [-width * 0.22, width * 0.22].forEach((dx, i) => {
+          shapes.push(
+            new fabric.Rect({
+              width: Math.max(7, width * 0.18),
+              height: Math.max(9, height * 0.4),
+              fill: i === 0 ? "#f4751f" : "#e11d48",
+              stroke,
+              strokeWidth: Math.max(0.5, strokeW * 0.6),
+              rx: 2,
+              ry: 2,
+              left: dx,
+              top: -height * 0.14,
+              originX: "center",
+              originY: "center"
+            })
+          );
+        });
+      } else {
+        // Coffee brewer + compact espresso unit toward the back.
+        shapes.push(
+          new fabric.Rect({
+            width: Math.max(9, width * 0.3),
+            height: Math.max(9, height * 0.42),
+            fill: "#52555b",
+            stroke,
+            strokeWidth: Math.max(0.5, strokeW * 0.6),
+            rx: 2,
+            ry: 2,
+            left: -width * 0.18,
+            top: -height * 0.12,
+            originX: "center",
+            originY: "center"
+          }),
+          new fabric.Rect({
+            width: Math.max(8, width * 0.24),
+            height: Math.max(8, height * 0.32),
+            fill: "#3a3f46",
+            stroke,
+            strokeWidth: Math.max(0.5, strokeW * 0.6),
+            rx: 2,
+            ry: 2,
+            left: width * 0.2,
+            top: -height * 0.08,
+            originX: "center",
+            originY: "center"
+          })
+        );
+      }
+      // Cup stacks toward the front.
+      for (let i = 0; i < 3; i += 1) {
+        shapes.push(
+          new fabric.Circle({
+            radius: Math.max(2, height * 0.07),
+            fill: "#f3f1ec",
+            stroke,
+            strokeWidth: 0.5,
+            left: -width * 0.24 + i * (width * 0.24),
+            top: height * 0.22,
+            originX: "center",
+            originY: "center"
+          })
+        );
+      }
+      shapes.push(
+        new fabric.Text(spec.tag2d || "STATION", {
+          fontSize: Math.max(6, plannerFontSize(0.42)),
+          fontFamily: "Inter, Arial, sans-serif",
+          fontWeight: "700",
+          fill: stroke,
+          left: 0,
+          top: height / 2 - Math.max(6, plannerFontSize(0.42)) * 0.8,
+          originX: "center",
+          originY: "center"
+        })
+      );
     } else if (type === "aisle") {
       shapes.push(
         new fabric.Rect({
@@ -2305,7 +2569,7 @@
   }
 
   function countLayoutForEstimate() {
-    const counts = { ambient: 0, cold: 0, hot: 0, island: 0, produce: 0 };
+    const counts = { ambient: 0, cold: 0, hot: 0, island: 0, produce: 0, service: 0 };
     let doors = 0;
     if (plannerState.canvas) {
       plannerState.canvas.getObjects().forEach((obj) => {
@@ -2314,6 +2578,11 @@
         if (obj.plannerKind === "shelf-cold") counts.cold += 1;
         if (obj.plannerKind === "shelf-hot") counts.hot += 1;
         if (obj.plannerKind === "produce-bin") counts.produce += 1;
+        if (
+          typeof obj.plannerKind === "string" &&
+          (obj.plannerKind.startsWith("service-") || obj.plannerKind.startsWith("station-"))
+        )
+          counts.service += 1;
         if (obj.plannerKind === "entry-open" || obj.plannerKind === "entry-gated" || obj.plannerKind === "checkout") {
           doors += 1;
         }
@@ -2324,10 +2593,11 @@
 
   function updatePlannerEstimate() {
     const { counts, doors } = countLayoutForEstimate();
-    const totalModules = counts.ambient + counts.island + counts.cold + counts.hot + counts.produce;
+    const totalModules =
+      counts.ambient + counts.island + counts.cold + counts.hot + counts.produce + counts.service;
     const areaSqm = Math.max(1, plannerState.widthMeters * plannerState.heightMeters);
 
-    countAmbientShelfLabel.textContent = String(counts.ambient + counts.island + counts.produce);
+    countAmbientShelfLabel.textContent = String(counts.ambient + counts.island + counts.produce + counts.service);
     countColdShelfLabel.textContent = String(counts.cold);
     countHotShelfLabel.textContent = String(counts.hot);
     if (countTotalModulesLabel) countTotalModulesLabel.textContent = String(totalModules);
@@ -3135,6 +3405,12 @@
       applyStorePreset(button.dataset.preset);
     });
   });
+  const plannerBasePodBtn = document.getElementById("plannerBasePodBtn");
+  if (plannerBasePodBtn) {
+    plannerBasePodBtn.addEventListener("click", () => {
+      applyBasePodConstruct();
+    });
+  }
   bindPlannerAddButtonContainers();
   plannerClearBtn.addEventListener("click", () => {
     if (!plannerState.canvas) initPlanner();
