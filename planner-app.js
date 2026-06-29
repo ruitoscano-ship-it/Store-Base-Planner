@@ -1536,10 +1536,10 @@
     requestPlanner3DSync();
   }
 
-  // Fixed "base pod" prefab: a compact grab-and-go format with a back-wall run
-  // of 3 shelves + self-service coffee + self-service juice, an entrance gate,
-  // and a checkout at the front. Front of each fixture faces the aisle (+Y).
-  function basePodFixtures() {
+  // Prefab pod constructs: compact grab-and-go formats with a back-wall run of
+  // 3 shelves + self-service coffee + self-service juice, an entrance gate, and
+  // a checkout at the front. Front of each fixture faces the aisle (+Y).
+  function makePodFixtures() {
     const backEdge = 0.55;
     const frontY = 3.86;
     const shelfY = backEdge + 0.45 / 2;
@@ -1555,10 +1555,28 @@
     ];
   }
 
-  function applyBasePodConstruct() {
+  const POD_CONSTRUCTS = {
+    "base-pod": {
+      label: "Base pod",
+      widthMeters: 8,
+      heightMeters: 4.5,
+      fixtures: makePodFixtures,
+      summary: "3 shelves, self-service coffee + juice, 1 checkout, 1 entrance gate."
+    },
+    "pod-2": {
+      label: "Pod 2",
+      widthMeters: 8,
+      heightMeters: 4.5,
+      fixtures: makePodFixtures,
+      summary: "3 shelves, self-service coffee + juice, 1 checkout, 1 entrance gate."
+    }
+  };
+
+  function applyPodConstruct(podId) {
+    const pod = POD_CONSTRUCTS[podId];
+    if (!pod) return;
     if (!initPlanner()) return;
-    const widthMeters = 8;
-    const heightMeters = 4.5;
+    const { widthMeters, heightMeters } = pod;
 
     clearPlannerBlueprint();
     clearPlannerObjects();
@@ -1570,7 +1588,7 @@
     applyPlannerSenseiOptions(defaultSenseiOptions);
 
     plannerBatchAdding = true;
-    basePodFixtures().forEach((fixture) => {
+    pod.fixtures().forEach((fixture) => {
       const point = canvasPointFromMeters(fixture.x, fixture.y);
       addPlannerObject(fixture.kind, {
         left: point.left,
@@ -1581,13 +1599,13 @@
     });
     plannerBatchAdding = false;
 
-    plannerState.activePresetId = "base-pod";
+    plannerState.activePresetId = podId;
     highlightActivePresetButton();
     highlightActivePodButton();
 
     const area = widthMeters * heightMeters;
-    plannerPresetSummary.textContent = `Base pod: ${widthMeters}×${heightMeters} m (${number.format(area)} m²) · 3 shelves, self-service coffee + juice, 1 checkout, 1 entrance gate.`;
-    plannerStatus.textContent = "Base pod construct loaded — compact grab-and-go format. Rearrange or duplicate fixtures as needed.";
+    plannerPresetSummary.textContent = `${pod.label}: ${widthMeters}×${heightMeters} m (${number.format(area)} m²) · ${pod.summary}`;
+    plannerStatus.textContent = `${pod.label} construct loaded — compact grab-and-go format. Rearrange or duplicate fixtures as needed.`;
     plannerStatus.style.color = "var(--ok)";
 
     plannerState.canvas.discardActiveObject();
@@ -1599,8 +1617,9 @@
   }
 
   function highlightActivePodButton() {
-    const btn = document.getElementById("plannerBasePodBtn");
-    if (btn) btn.classList.toggle("active", plannerState.activePresetId === "base-pod");
+    document.querySelectorAll(".planner-pod-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.pod === plannerState.activePresetId);
+    });
   }
 
   function plannerStroke(mult = 1) {
@@ -3405,12 +3424,11 @@
       applyStorePreset(button.dataset.preset);
     });
   });
-  const plannerBasePodBtn = document.getElementById("plannerBasePodBtn");
-  if (plannerBasePodBtn) {
-    plannerBasePodBtn.addEventListener("click", () => {
-      applyBasePodConstruct();
+  document.querySelectorAll(".planner-pod-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      applyPodConstruct(button.dataset.pod);
     });
-  }
+  });
   bindPlannerAddButtonContainers();
   plannerClearBtn.addEventListener("click", () => {
     if (!plannerState.canvas) initPlanner();
