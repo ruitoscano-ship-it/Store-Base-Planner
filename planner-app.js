@@ -1477,6 +1477,9 @@
     plannerPresetButtons.forEach((button) => {
       button.classList.toggle("active", button.dataset.preset === plannerState.activePresetId);
     });
+    document.querySelectorAll(".planner-pod-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.pod === plannerState.activePresetId);
+    });
   }
 
   function applyStorePreset(presetId) {
@@ -1555,6 +1558,84 @@
     ];
   }
 
+  // "Cinema Bar" prefab: a larger walk-through format — a self-checkout bank and
+  // cooler across the back, a central double-sided island gondola, an L-shaped
+  // wall gondola run on the right/bottom, and entry gates wrapping the left and
+  // bottom-left perimeter. Wall fixtures face the interior.
+  function cinemaBarFixtures() {
+    const M = 0.55;
+    const fixtures = [];
+    // Cooler + 3 self-checkouts along the back wall (face +Y interior).
+    fixtures.push({ kind: "shelf-cold", x: 1.15, y: M + 0.55 / 2, angle: 0 });
+    [3.0, 5.0, 7.0].forEach((x) => fixtures.push({ kind: "checkout", x, y: M + 0.18 / 2, angle: 0 }));
+    // Central double-sided island gondola.
+    fixtures.push({ kind: "shelf-island", x: 4.5, y: 4.2, angle: 0 });
+    // Right wall gondola run (faces -X interior).
+    [2.4, 3.75, 5.1, 6.45].forEach((y) =>
+      fixtures.push({ kind: "shelf-ambient", x: 10.225, y, angle: 90 })
+    );
+    // Bottom-right run completing the L (faces -Y interior).
+    [7.0, 8.35].forEach((x) => fixtures.push({ kind: "shelf-ambient", x, y: 7.725, angle: 180 }));
+    // Entry / exit gates wrapping the left and bottom-left perimeter.
+    [4.2, 6.2].forEach((y) => fixtures.push({ kind: "entry-gated", x: 0.64, y, angle: 270 }));
+    [2.2, 4.0].forEach((x) => fixtures.push({ kind: "entry-gated", x, y: 7.86, angle: 180 }));
+    return fixtures;
+  }
+
+  // "Base supermarket" prefab: a full small-format supermarket — a back-wall
+  // gondola run + corner cooler, four central double-sided island aisles, a
+  // coffee station + entry gates on the right wall, a freezer island and
+  // checkout bank on the left, produce bins along the bottom, and bottom-wall
+  // entry gates. Wall fixtures face the interior.
+  function baseSupermarketFixtures() {
+    const fixtures = [];
+    // Back wall: corner cooler + dry gondola run (face +Y interior).
+    fixtures.push({ kind: "shelf-cold", x: 12.2, y: 0.825, angle: 0 });
+    [5.5, 7.0, 8.5, 10.0].forEach((x) => fixtures.push({ kind: "shelf-ambient", x, y: 0.775, angle: 0 }));
+    // Four central double-sided island aisles (run along Y, two units each).
+    [6.0, 7.9, 9.8, 11.7].forEach((x) => {
+      [3.2, 5.6].forEach((y) => fixtures.push({ kind: "shelf-island", x, y, angle: 90 }));
+    });
+    // Right wall: self-service coffee + entry gates (face -X interior).
+    fixtures.push({ kind: "station-coffee", x: 13.15, y: 2.0, angle: 90 });
+    [4.8, 6.4].forEach((y) => fixtures.push({ kind: "entry-gated", x: 13.15, y, angle: 90 }));
+    // Left: freezer island + checkout bank.
+    [2.3, 3.5].forEach((x) => fixtures.push({ kind: "shelf-cold", x, y: 2.6, angle: 0 }));
+    [3.0, 4.8].forEach((x) => fixtures.push({ kind: "checkout", x, y: 7.2, angle: 0 }));
+    // Bottom: produce bins + entry gates (face -Y interior).
+    [2.2, 3.6, 5.0].forEach((x) => fixtures.push({ kind: "produce-bin", x, y: 9.95, angle: 180 }));
+    [7.5, 9.3].forEach((x) => fixtures.push({ kind: "entry-gated", x, y: 10.36, angle: 180 }));
+    return fixtures;
+  }
+
+  // "Base Food Serving" prefab: a café / food-serving venue — an L-shaped
+  // serving line (deli + bakery + self-service coffee/juice) across the back and
+  // right, a back-wall retail gondola run, two central islands, a checkout at
+  // the counter and a small front counter, with entry gates wrapping the left,
+  // bottom, and right. The left-centre is left open as a seating zone (no table
+  // fixture exists). Wall fixtures face the interior.
+  function baseFoodServingFixtures() {
+    const fixtures = [];
+    // Back wall: retail gondola run + deli/bakery serving line (face +Y).
+    [1.8, 3.3, 4.8].forEach((x) => fixtures.push({ kind: "shelf-ambient", x, y: 0.775, angle: 0 }));
+    fixtures.push({ kind: "service-deli", x: 6.9, y: 1.1, angle: 0 });
+    fixtures.push({ kind: "service-bakery", x: 9.3, y: 1.05, angle: 0 });
+    fixtures.push({ kind: "station-coffee", x: 11.2, y: 0.85, angle: 0 });
+    // Right wall: retail gondola run + juice station (face -X interior).
+    [2.6, 3.95, 5.3].forEach((y) => fixtures.push({ kind: "shelf-ambient", x: 12.225, y, angle: 90 }));
+    fixtures.push({ kind: "station-juice", x: 12.1, y: 6.9, angle: 90 });
+    // Two central island gondolas.
+    [4.0, 5.6].forEach((y) => fixtures.push({ kind: "shelf-island", x: 6.5, y, angle: 0 }));
+    // Counter checkout + a small front counter near the seating zone.
+    fixtures.push({ kind: "checkout", x: 9.5, y: 3.0, angle: 0 });
+    fixtures.push({ kind: "checkout", x: 2.5, y: 9.3, angle: 180 });
+    // Entry gates wrapping the left, bottom, and right perimeter.
+    [4.2, 5.7, 7.2].forEach((y) => fixtures.push({ kind: "entry-gated", x: 0.64, y, angle: 270 }));
+    [5.5, 7.0, 8.5].forEach((x) => fixtures.push({ kind: "entry-gated", x, y: 10.36, angle: 180 }));
+    [8.0, 9.2].forEach((y) => fixtures.push({ kind: "entry-gated", x: 12.36, y, angle: 90 }));
+    return fixtures;
+  }
+
   const POD_CONSTRUCTS = {
     "base-pod": {
       label: "Base pod",
@@ -1569,6 +1650,27 @@
       heightMeters: 4.5,
       fixtures: makePodFixtures,
       summary: "3 shelves, self-service coffee + juice, 1 checkout, 1 entrance gate."
+    },
+    "cinema-bar": {
+      label: "Cinema Bar",
+      widthMeters: 11,
+      heightMeters: 8.5,
+      fixtures: cinemaBarFixtures,
+      summary: "3 self-checkouts + cooler, central island, L-shaped wall run, 4 entry gates."
+    },
+    "base-supermarket": {
+      label: "Base supermarket",
+      widthMeters: 14,
+      heightMeters: 11,
+      fixtures: baseSupermarketFixtures,
+      summary: "4 central aisles, back-wall run, coolers + freezer island, coffee, produce bins, 2 checkouts, 4 entry gates."
+    },
+    "base-food-serving": {
+      label: "Base Food Serving",
+      widthMeters: 13,
+      heightMeters: 11,
+      fixtures: baseFoodServingFixtures,
+      summary: "Deli + bakery + coffee/juice serving line, retail gondolas, 2 islands, 2 checkouts, open seating zone, 8 entry gates."
     }
   };
 
@@ -1601,7 +1703,6 @@
 
     plannerState.activePresetId = podId;
     highlightActivePresetButton();
-    highlightActivePodButton();
 
     const area = widthMeters * heightMeters;
     plannerPresetSummary.textContent = `${pod.label}: ${widthMeters}×${heightMeters} m (${number.format(area)} m²) · ${pod.summary}`;
@@ -1614,12 +1715,6 @@
     updatePlannerEstimate();
     persistState();
     requestPlanner3DSync();
-  }
-
-  function highlightActivePodButton() {
-    document.querySelectorAll(".planner-pod-btn").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.pod === plannerState.activePresetId);
-    });
   }
 
   function plannerStroke(mult = 1) {
