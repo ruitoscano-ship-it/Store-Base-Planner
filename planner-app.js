@@ -35,6 +35,7 @@
   const simOccupancyVal = document.getElementById("simOccupancyVal");
   const simPlayBtn = document.getElementById("simPlayBtn");
   const simRandomizeBtn = document.getElementById("simRandomizeBtn");
+  const simReentryBtn = document.getElementById("simReentryBtn");
   const simIsoBtn = document.getElementById("simIsoBtn");
   const simFitBtn = document.getElementById("simFitBtn");
   const simZoomInBtn = document.getElementById("simZoomInBtn");
@@ -177,7 +178,8 @@
       preferences: {
         showMonitoringViz: showMonitoringVizPref,
         simOccupancy: simOccupancyPref,
-        simPlaying: simPlaying
+        simPlaying: simPlaying,
+        simReentry: simReentryPref
       },
       templateMeta
     });
@@ -249,10 +251,12 @@
       showMonitoringVizPref = doc.preferences.showMonitoringViz !== false;
       simOccupancyPref = Number(doc.preferences.simOccupancy) || 24;
       simPlaying = doc.preferences.simPlaying !== false;
+      simReentryPref = doc.preferences.simReentry !== false;
       syncMonitoringGridButton();
       if (simOccupancySlider) simOccupancySlider.value = String(simOccupancyPref);
       if (simOccupancyVal) simOccupancyVal.textContent = String(simOccupancyPref);
       syncSimPlayButton();
+      syncSimReentryButton();
       if (planner3dView) planner3dView.setShowMonitoringViz(showMonitoringVizPref);
     }
 
@@ -377,7 +381,7 @@
         activePresetId: presetId,
         costModel: { ...defaultSenseiOptions },
         layout,
-        preferences: { showMonitoringViz: true, simOccupancy: 24, simPlaying: true },
+        preferences: { showMonitoringViz: true, simOccupancy: 24, simPlaying: true, simReentry: true },
         templateMeta: { presetId, builtin: true }
       });
       store = mod.upsertTemplate(store, {
@@ -612,6 +616,7 @@
   let plannerBatchAdding = false;
   let showMonitoringVizPref = true;
   let simOccupancyPref = 24;
+  let simReentryPref = true;
   let computeStoreSimulationFn = null;
   let ShopperSimClass = null;
   let shopperSim = null;
@@ -641,7 +646,14 @@
       shopperSim.applyLayout(layout);
       shopperSim.setCount(count);
     }
+    shopperSim.setReplenish(simReentryPref);
     return shopperSim;
+  }
+
+  function syncSimReentryButton() {
+    if (!simReentryBtn) return;
+    simReentryBtn.textContent = simReentryPref ? "Re-entry: On" : "Re-entry: Off";
+    simReentryBtn.classList.toggle("active", simReentryPref);
   }
 
   function stopLiveSimulation({ clearShoppers = false } = {}) {
@@ -724,7 +736,8 @@
       lastSimFrame = now;
 
       shopperSim.step(dt);
-      if (shopperSim.getLiveMetrics().simulationEnabled) {
+      const metrics = shopperSim.getLiveMetrics();
+      if (metrics.simulationEnabled) {
         planner3dView.updateShoppers(shopperSim.getShopperPositions());
         planner3dView.updateHeatmap(shopperSim.getHeatmap());
       } else {
@@ -738,6 +751,16 @@
           ? computeStoreSimulationFn(layout, shopperSim.shoppers.length)
           : null;
         renderLiveSimulationDashboard(shopperSim, staticResult);
+      }
+
+      // Single-cohort mode: stop once everyone who entered has left.
+      if (metrics.finished) {
+        simPlaying = false;
+        syncSimPlayButton();
+        stopLiveSimulation();
+        if (simFootnote) {
+          simFootnote.textContent = "Simulation ended — everyone who entered has left (re-entry off). Press Randomize or toggle re-entry to run again.";
+        }
       }
     };
 
@@ -1229,6 +1252,7 @@
       if (simOccupancySlider) simOccupancySlider.value = String(simOccupancyPref);
       simPlaying = true;
       syncSimPlayButton();
+      syncSimReentryButton();
       await syncLayoutAcrossViews({
         refitCamera: true,
         forceSimulationReset: true,
@@ -3385,7 +3409,8 @@
       preferences: {
         showMonitoringViz: showMonitoringVizPref,
         simOccupancy: simOccupancyPref,
-        simPlaying: simPlaying
+        simPlaying: simPlaying,
+        simReentry: simReentryPref
       },
       canvasJson: plannerState.canvas
         ? plannerState.canvas.toDatalessJSON(["plannerKind", "plannerObjectId", "plannerMeters", "plannerPoseMeters"])
@@ -3403,10 +3428,12 @@
       showMonitoringVizPref = state.preferences.showMonitoringViz !== false;
       simOccupancyPref = Number(state.preferences.simOccupancy) || 24;
       simPlaying = state.preferences.simPlaying !== false;
+      simReentryPref = state.preferences.simReentry !== false;
       syncMonitoringGridButton();
       if (simOccupancySlider) simOccupancySlider.value = String(simOccupancyPref);
       if (simOccupancyVal) simOccupancyVal.textContent = String(simOccupancyPref);
       syncSimPlayButton();
+      syncSimReentryButton();
       if (planner3dView) planner3dView.setShowMonitoringViz(showMonitoringVizPref);
     }
     highlightActivePresetButton();
@@ -3489,6 +3516,23 @@
     persistState();
     if (simPlaying) startLiveSimulationLoop();
     else stopLiveSimulation();
+  });
+
+  simReentryBtn?.addEventListener("click", async () => {
+    simReentryPref = !simReentryPref;
+    syncSimReentryButton();
+    persistState();
+    await ensureShopperSim();
+    if (shopperSim) shopperSim.setReplenish(simReentryPref);
+    // Turning re-entry back on resumes a finished run.
+    if (simReentryPref && plannerViewMode === "simulation") {
+      if (!simPlaying) {
+        simPlaying = true;
+        syncSimPlayButton();
+        syncSimulationUi();
+      }
+      startLiveSimulationLoop();
+    }
   });
 
   simRandomizeBtn?.addEventListener("click", async () => {

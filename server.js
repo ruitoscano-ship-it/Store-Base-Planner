@@ -1,5 +1,4 @@
 const http = require("http");
-const fs = require("fs");
 const path = require("path");
 const {
   loadStoreProfiles,
@@ -18,55 +17,17 @@ const {
   listVerticalsForClient,
   evaluateOpportunities
 } = require("./verticals");
+const {
+  loadConfig,
+  sendJson,
+  requireAdmin,
+  serveStatic,
+  parseJsonBody,
+  logRequest
+} = require("./server-utils");
 
-const PORT = process.env.PORT || 3000;
-const HOST = process.env.HOST || "127.0.0.1";
 const root = __dirname;
-const MAX_BODY_BYTES = 1_000_000;
-
-function sendJson(res, statusCode, payload) {
-  res.statusCode = statusCode;
-  res.setHeader("Content-Type", "application/json; charset=UTF-8");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, PUT, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.end(JSON.stringify(payload));
-}
-
-function parseJsonBody(req) {
-  return new Promise((resolve, reject) => {
-    let body = "";
-    req.on("data", (chunk) => {
-      body += chunk;
-      if (body.length > MAX_BODY_BYTES) {
-        reject(new Error("Payload too large"));
-      }
-    });
-    req.on("end", () => {
-      try {
-        resolve(body ? JSON.parse(body) : {});
-      } catch (error) {
-        reject(new Error("Invalid JSON body"));
-      }
-    });
-    req.on("error", () => reject(new Error("Request stream error")));
-  });
-}
-
-const mimeTypes = {
-  ".html": "text/html; charset=UTF-8",
-  ".js": "text/javascript; charset=UTF-8",
-  ".css": "text/css; charset=UTF-8",
-  ".json": "application/json; charset=UTF-8",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".gif": "image/gif",
-  ".svg": "image/svg+xml",
-  ".ico": "image/x-icon",
-  ".glb": "model/gltf-binary",
-  ".gltf": "model/gltf+json"
-};
+const config = loadConfig(root);
 
 function matchStoreProfileSourcing(pathname) {
   const match = pathname.match(/^\/api\/store-profiles\/([a-z]+)\/sourcing$/);
@@ -79,82 +40,94 @@ function matchVerticalId(pathname) {
 }
 
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${HOST}:${PORT}`);
+  const url = new URL(req.url, `http://${config.host}:${config.port}`);
   const pathname = url.pathname;
+  let statusCode = 200;
 
-  if (req.method === "OPTIONS" && pathname.startsWith("/api/")) {
-    sendJson(res, 204, {});
-    return;
-  }
+  const finishJson = (code, payload) => {
+    statusCode = code;
+    sendJson(res, code, payload, config);
+    logRequest(req, pathname, statusCode);
+  };
 
-  if (req.method === "GET" && pathname === "/api/health") {
-    sendJson(res, 200, { ok: true, service: "smart-store-simulator-api", verticals: true });
-    return;
-  }
-
-  if (req.method === "GET" && pathname === "/api/verticals") {
-    const config = loadVerticals();
-    sendJson(res, 200, {
-      version: config.version,
-      updatedAt: config.updatedAt,
-      verticals: listVerticalsForClient(config)
-    });
-    return;
-  }
-
-  const verticalId = matchVerticalId(pathname);
-  if (req.method === "GET" && verticalId) {
-    const config = loadVerticals();
-    const vertical = getVertical(config, verticalId);
-    if (!vertical) {
-      sendJson(res, 404, { error: `Unknown vertical: ${verticalId}` });
+  try {
+    if (req.method === "OPTIONS" && pathname.startsWith("/api/")) {
+      finishJson(204, {});
       return;
     }
-    sendJson(res, 200, {
-      ...listVerticalsForClient(config).find((v) => v.id === verticalId),
-      modelConstantsResolved: resolveModelConstants(vertical, vertical.defaultInput)
-    });
-    return;
-  }
 
-  if (req.method === "PUT" && pathname === "/api/verticals") {
-    try {
-      const body = await parseJsonBody(req);
-      const saved = saveVerticals(body);
-      sendJson(res, 200, saved);
-    } catch (error) {
-      sendJson(res, 400, { error: error.message });
-    }
-    return;
-  }
-
-  if (req.method === "GET" && pathname === "/api/sensei-assumptions") {
-    const config = loadStoreProfiles();
-    const assumptions = loadSenseiAssumptions(config);
-    if (!assumptions) {
-      sendJson(res, 404, { error: "Sensei assumptions file not found" });
+    if (req.method === "GET" && pathname === "/api/health") {
+      finishJson(200, {
+        ok: true,
+        service: "smart-store-simulator-api",
+        verticals: true,
+        version: "1.0.0"
+      });
       return;
     }
-    sendJson(res, 200, {
-      version: assumptions.version,
-      exportedAt: assumptions.exportedAt,
-      assumptions,
-      defaults: config.senseiDefaults,
-      pricingOverrides: config.senseiPricingOverrides
-    });
-    return;
-  }
 
-  if (req.method === "POST" && pathname === "/api/planner/estimate") {
-    try {
-      const body = await parseJsonBody(req);
-      const config = loadStoreProfiles();
-      const assumptions = loadSenseiAssumptions(config);
-      if (!assumptions) {
-        sendJson(res, 404, { error: "Sensei assumptions file not found" });
+    if (req.method === "GET" && pathname === "/api/verticals") {
+      const verticalsConfig = loadVerticals();
+      finishJson(200, {
+        version: verticalsConfig.version,
+        updatedAt: verticalsConfig.updatedAt,
+        verticals: listVerticalsForClient(verticalsConfig)
+      });
+      return;
+    }
+
+    const verticalId = matchVerticalId(pathname);
+    if (req.method === "GET" && verticalId) {
+      const verticalsConfig = loadVerticals();
+      const vertical = getVertical(verticalsConfig, verticalId);
+      if (!vertical) {
+        finishJson(404, { error: `Unknown vertical: ${verticalId}` });
         return;
       }
-      const pricingOptions = buildSenseiPricingOptions(config, body);
+      finishJson(200, {
+        ...listVerticalsForClient(verticalsConfig).find((v) => v.id === verticalId),
+        modelConstantsResolved: resolveModelConstants(vertical, vertical.defaultInput)
+      });
+      return;
+    }
+
+    if (req.method === "PUT" && pathname === "/api/verticals") {
+      if (!requireAdmin(req, res, config)) {
+        logRequest(req, pathname, 401);
+        return;
+      }
+      const body = await parseJsonBody(req, config.maxBodyBytes);
+      const saved = saveVerticals(body);
+      finishJson(200, saved);
+      return;
+    }
+
+    if (req.method === "GET" && pathname === "/api/sensei-assumptions") {
+      const profilesConfig = loadStoreProfiles();
+      const assumptions = loadSenseiAssumptions(profilesConfig);
+      if (!assumptions) {
+        finishJson(404, { error: "Sensei assumptions file not found" });
+        return;
+      }
+      finishJson(200, {
+        version: assumptions.version,
+        exportedAt: assumptions.exportedAt,
+        assumptions,
+        defaults: profilesConfig.senseiDefaults,
+        pricingOverrides: profilesConfig.senseiPricingOverrides
+      });
+      return;
+    }
+
+    if (req.method === "POST" && pathname === "/api/planner/estimate") {
+      const body = await parseJsonBody(req, config.maxBodyBytes);
+      const profilesConfig = loadStoreProfiles();
+      const assumptions = loadSenseiAssumptions(profilesConfig);
+      if (!assumptions) {
+        finishJson(404, { error: "Sensei assumptions file not found" });
+        return;
+      }
+      const pricingOptions = buildSenseiPricingOptions(profilesConfig, body);
       const estimate = estimateStoreCapex(
         assumptions,
         {
@@ -165,86 +138,82 @@ const server = http.createServer(async (req, res) => {
         },
         pricingOptions
       );
-      sendJson(res, 200, estimate);
-    } catch (error) {
-      sendJson(res, 400, { error: error.message });
-    }
-    return;
-  }
-
-  if (req.method === "GET" && pathname === "/api/store-profiles") {
-    sendJson(res, 200, loadStoreProfiles());
-    return;
-  }
-
-  if (req.method === "PUT" && pathname === "/api/store-profiles") {
-    try {
-      const body = await parseJsonBody(req);
-      const saved = saveStoreProfiles(body);
-      sendJson(res, 200, saved);
-    } catch (error) {
-      sendJson(res, 400, { error: error.message });
-    }
-    return;
-  }
-
-  const sourcingProfileId = matchStoreProfileSourcing(pathname);
-  if (req.method === "GET" && sourcingProfileId) {
-    const config = loadStoreProfiles();
-    const payload = buildSourcingPayload(config, sourcingProfileId, {
-      widthMeters: url.searchParams.get("widthMeters"),
-      heightMeters: url.searchParams.get("heightMeters")
-    });
-    if (!payload) {
-      sendJson(res, 404, { error: `Unknown profile: ${sourcingProfileId}` });
+      finishJson(200, estimate);
       return;
     }
-    sendJson(res, 200, payload);
-    return;
-  }
 
-  if (req.method === "POST" && pathname === "/api/forecast") {
-    try {
-      const body = await parseJsonBody(req);
-      const verticalKey = body.verticalId || body.vertical || "retail";
-      const input = body.input || body;
-      const config = loadVerticals();
-      const vertical = getVertical(config, verticalKey);
-      if (!vertical) {
-        sendJson(res, 404, { error: `Unknown vertical: ${verticalKey}` });
+    if (req.method === "GET" && pathname === "/api/store-profiles") {
+      finishJson(200, loadStoreProfiles());
+      return;
+    }
+
+    if (req.method === "PUT" && pathname === "/api/store-profiles") {
+      if (!requireAdmin(req, res, config)) {
+        logRequest(req, pathname, 401);
         return;
       }
-      const forecast = computeForecast(input, verticalKey, config);
-      const modelConstants = resolveModelConstants(vertical, input);
-      const opportunities = evaluateOpportunities(input, forecast.netValue, verticalKey, config);
-      sendJson(res, 200, { verticalId: verticalKey, forecast, modelConstants, opportunities });
-    } catch (error) {
-      sendJson(res, 400, { error: error.message });
-    }
-    return;
-  }
-
-  const requestPath = pathname === "/" ? "/index.html" : pathname;
-  const safePath = path.normalize(requestPath).replace(/^(\.\.[/\\])+/, "");
-  const filePath = path.join(root, safePath);
-
-  fs.readFile(filePath, (error, content) => {
-    if (error) {
-      res.statusCode = error.code === "ENOENT" ? 404 : 500;
-      res.setHeader("Content-Type", "text/plain; charset=UTF-8");
-      res.end(error.code === "ENOENT" ? "404 Not Found" : "500 Internal Server Error");
+      const body = await parseJsonBody(req, config.maxBodyBytes);
+      const saved = saveStoreProfiles(body);
+      finishJson(200, saved);
       return;
     }
 
-    const ext = path.extname(filePath).toLowerCase();
-    const contentType = mimeTypes[ext] || "application/octet-stream";
-    res.statusCode = 200;
-    res.setHeader("Content-Type", contentType);
-    res.end(content);
-  });
+    const sourcingProfileId = matchStoreProfileSourcing(pathname);
+    if (req.method === "GET" && sourcingProfileId) {
+      const profilesConfig = loadStoreProfiles();
+      const payload = buildSourcingPayload(profilesConfig, sourcingProfileId, {
+        widthMeters: url.searchParams.get("widthMeters"),
+        heightMeters: url.searchParams.get("heightMeters")
+      });
+      if (!payload) {
+        finishJson(404, { error: `Unknown profile: ${sourcingProfileId}` });
+        return;
+      }
+      finishJson(200, payload);
+      return;
+    }
+
+    if (req.method === "POST" && pathname === "/api/forecast") {
+      const body = await parseJsonBody(req, config.maxBodyBytes);
+      const verticalKey = body.verticalId || body.vertical || "retail";
+      const input = body.input || body;
+      const verticalsConfig = loadVerticals();
+      const vertical = getVertical(verticalsConfig, verticalKey);
+      if (!vertical) {
+        finishJson(404, { error: `Unknown vertical: ${verticalKey}` });
+        return;
+      }
+      const forecast = computeForecast(input, verticalKey, verticalsConfig);
+      const modelConstants = resolveModelConstants(vertical, input);
+      const opportunities = evaluateOpportunities(input, forecast.netValue, verticalKey, verticalsConfig);
+      finishJson(200, { verticalId: verticalKey, forecast, modelConstants, opportunities });
+      return;
+    }
+
+    if (pathname.startsWith("/api/")) {
+      finishJson(404, { error: "Not found" });
+      return;
+    }
+
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      finishJson(405, { error: "Method not allowed" });
+      return;
+    }
+
+    serveStatic(root, pathname, res, config);
+  } catch (error) {
+    finishJson(400, { error: error.message || "Bad request" });
+  }
 });
 
-server.listen(PORT, HOST, () => {
-  console.log(`Smart Store simulator running at http://${HOST}:${PORT}`);
-  console.log(`Backoffice available at http://${HOST}:${PORT}/backoffice.html`);
+server.listen(config.port, config.host, () => {
+  console.log(`Smart Store simulator running at http://${config.host}:${config.port}`);
+  console.log(`Backoffice: http://${config.host}:${config.port}/backoffice.html`);
+  console.log(`Planner:    http://${config.host}:${config.port}/planner.html`);
+  if (config.isProduction && !config.adminToken) {
+    console.warn("WARNING: ADMIN_TOKEN is not set — write APIs are open. Set ADMIN_TOKEN in production.");
+  }
+  if (!config.isProduction) {
+    console.log("Development mode — listening on localhost. Set NODE_ENV=production for deploy defaults.");
+  }
 });

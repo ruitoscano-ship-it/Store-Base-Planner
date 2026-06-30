@@ -219,7 +219,17 @@ export class ShopperSim {
     this.sessionBasketUnits = 0;
     this.targetOccupancy = 0;
     this.elapsed = 0;
+    // When true, occupancy is continuously replenished as shoppers leave.
+    // When false, a single cohort shops and the run ends once everyone leaves.
+    this.replenish = true;
+    this.everSpawned = false;
+    this.finished = false;
     this.setCount(count, { trackEntries: false });
+  }
+
+  setReplenish(value) {
+    this.replenish = value !== false;
+    if (this.replenish) this.finished = false;
   }
 
   applyLayout(layout) {
@@ -394,6 +404,8 @@ export class ShopperSim {
       if (!spawned) break;
       this.shoppers.push(spawned);
     }
+    // A fresh cohort means the run is no longer finished.
+    if (this.shoppers.length > 0) this.finished = false;
     while (this.shoppers.length > target) {
       const shopper = this.shoppers.pop();
       if (shopper) this.removeFromCheckoutQueues(shopper.id);
@@ -511,6 +523,7 @@ export class ShopperSim {
       : Math.random() * Math.PI * 2;
 
     const shoppingGoal = this.randomShoppingGoal();
+    this.everSpawned = true;
 
     return {
       id: this.nextShopperId++,
@@ -555,6 +568,8 @@ export class ShopperSim {
       this.sessionCheckoutInteractions = 0;
       this.sessionBaskets = 0;
       this.sessionBasketUnits = 0;
+      this.everSpawned = false;
+      this.finished = false;
       this.elapsed = 0;
       return;
     }
@@ -567,6 +582,8 @@ export class ShopperSim {
     this.sessionCheckoutInteractions = 0;
     this.sessionBaskets = 0;
     this.sessionBasketUnits = 0;
+    this.everSpawned = false;
+    this.finished = false;
     this.elapsed = 0;
     this.checkoutQueues = new Map(this.checkouts.map((checkout) => [checkout.id, []]));
     const count = this.targetOccupancy || this.shoppers.length;
@@ -858,10 +875,15 @@ export class ShopperSim {
 
     this.shoppers = nextShoppers;
 
-    while (this.shoppers.length < this.targetOccupancy) {
-      const spawned = this.spawnShopper({ atEntrance: true, countEntry: true });
-      if (spawned) this.shoppers.push(spawned);
-      else break;
+    if (this.replenish) {
+      while (this.shoppers.length < this.targetOccupancy) {
+        const spawned = this.spawnShopper({ atEntrance: true, countEntry: true });
+        if (spawned) this.shoppers.push(spawned);
+        else break;
+      }
+    } else if (this.everSpawned && this.shoppers.length === 0) {
+      // Single-cohort mode: everyone who entered has now left.
+      this.finished = true;
     }
   }
 
@@ -908,6 +930,8 @@ export class ShopperSim {
       elapsed: this.elapsed,
       simulationEnabled: this.simulationEnabled,
       statusMessage: this.getStatusMessage(),
+      replenish: this.replenish,
+      finished: this.finished,
       shopperCount: this.shoppers.length,
       peopleInside: this.shoppers.filter((shopper) => inStoreStates.has(shopper.state)).length,
       queueLength: Array.from(this.checkoutQueues.values()).reduce((sum, queue) => sum + queue.length, 0),

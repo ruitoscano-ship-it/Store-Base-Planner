@@ -71,6 +71,15 @@
         background: var(--accent);
       }
 
+      .admin-token-input {
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        padding: 8px 10px;
+        min-width: 140px;
+        font: inherit;
+      }
+
       .panel {
         border: 1px solid var(--border);
         background: var(--card);
@@ -203,6 +212,7 @@
         <div class="actions">
           <a class="btn" href="/">Open Simulator</a>
           <a class="btn" href="/planner.html">Open Store Planner</a>
+          <input class="admin-token-input" id="adminToken" type="password" placeholder="Admin token" title="Required when ADMIN_TOKEN is set on the server" autocomplete="off" />
           <button class="btn btn-primary" id="saveBtn" type="button">Save configuration</button>
         </div>
       </header>
@@ -445,6 +455,23 @@
         statusMsg.className = `status ${tone}`;
       }
 
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function writeApiHeaders() {
+        const headers = { "Content-Type": "application/json" };
+        const tokenInput = document.getElementById("adminToken");
+        const token = tokenInput?.value?.trim() || sessionStorage.getItem("adminToken") || "";
+        if (token) headers.Authorization = `Bearer ${token}`;
+        return headers;
+      }
+
       function renderApiDocs() {
         const origin = window.location.origin;
         document.getElementById("apiProfilesGet").textContent = `GET ${origin}/api/store-profiles`;
@@ -466,8 +493,8 @@
           card.style.border = "1px solid var(--border)";
           card.style.padding = "10px 12px";
           card.innerHTML = `
-            <strong>${vertical.label}</strong>
-            <p class="hint" style="margin: 4px 0 8px;">${vertical.tagline} · ${vertical.footprint.min}–${vertical.footprint.max} sq ft · planner hint: ${vertical.plannerProfileHint || "—"}</p>
+            <strong>${escapeHtml(vertical.label)}</strong>
+            <p class="hint" style="margin: 4px 0 8px;">${escapeHtml(vertical.tagline)} · ${vertical.footprint.min}–${vertical.footprint.max} sq ft · planner hint: ${escapeHtml(vertical.plannerProfileHint || "—")}</p>
             <table>
               <thead>
                 <tr><th>Activity</th><th>Benefit</th><th>How to impact</th><th>Rationale</th><th>Lever</th></tr>
@@ -477,11 +504,11 @@
                   .map(
                     (driver) => `
                   <tr>
-                    <td>${driver.activity}<br><span style="color: var(--muted); font-size: 0.76rem;">${driver.impact || ""}</span></td>
-                    <td>${driver.benefit || "—"}</td>
-                    <td>${driver.impactMechanism || "—"}</td>
-                    <td>${driver.rationale || "—"}</td>
-                    <td><code>${driver.lever}</code></td>
+                    <td>${escapeHtml(driver.activity)}<br><span style="color: var(--muted); font-size: 0.76rem;">${escapeHtml(driver.impact || "")}</span></td>
+                    <td>${escapeHtml(driver.benefit || "—")}</td>
+                    <td>${escapeHtml(driver.impactMechanism || "—")}</td>
+                    <td>${escapeHtml(driver.rationale || "—")}</td>
+                    <td><code>${escapeHtml(driver.lever)}</code></td>
                   </tr>`
                   )
                   .join("")}
@@ -538,13 +565,13 @@
           const isGondola = artifact.type === "gondola";
           const tr = document.createElement("tr");
           tr.innerHTML = `
-            <td><span class="prop-id">${kind}</span></td>
-            <td><input data-artifact="label" data-kind="${kind}" type="text" value="${artifact.label || ""}" /></td>
-            <td><input data-artifact="widthMeters" data-kind="${kind}" type="number" min="0.05" max="50" step="0.01" value="${artifact.widthMeters}" /></td>
-            <td><input data-artifact="depthMeters" data-kind="${kind}" type="number" min="0.05" max="50" step="0.01" value="${artifact.depthMeters}" /></td>
-            <td><input data-artifact="heightMeters" data-kind="${kind}" type="number" min="0.02" max="8" step="0.01" value="${artifact.heightMeters}" /></td>
-            <td>${isGondola ? `<input data-artifact="shelfLevels" data-kind="${kind}" type="number" min="0" max="12" step="1" value="${artifact.shelfLevels ?? 0}" />` : "—"}</td>
-            <td>${artifact.type || "—"}</td>
+            <td><span class="prop-id">${escapeHtml(kind)}</span></td>
+            <td><input data-artifact="label" data-kind="${escapeHtml(kind)}" type="text" value="${escapeHtml(artifact.label || "")}" /></td>
+            <td><input data-artifact="widthMeters" data-kind="${escapeHtml(kind)}" type="number" min="0.05" max="50" step="0.01" value="${artifact.widthMeters}" /></td>
+            <td><input data-artifact="depthMeters" data-kind="${escapeHtml(kind)}" type="number" min="0.05" max="50" step="0.01" value="${artifact.depthMeters}" /></td>
+            <td><input data-artifact="heightMeters" data-kind="${escapeHtml(kind)}" type="number" min="0.02" max="8" step="0.01" value="${artifact.heightMeters}" /></td>
+            <td>${isGondola ? `<input data-artifact="shelfLevels" data-kind="${escapeHtml(kind)}" type="number" min="0" max="12" step="1" value="${artifact.shelfLevels ?? 0}" />` : "—"}</td>
+            <td>${escapeHtml(artifact.type || "—")}</td>
           `;
           artifactsTableBody.appendChild(tr);
         });
@@ -555,12 +582,12 @@
           const tr = document.createElement("tr");
           const isBespoke = !!profile.dynamicSize;
           tr.innerHTML = `
-            <td><strong>${profile.label}</strong><br><span style="color: var(--muted); font-size: 0.78rem;">${profile.blurb || ""}</span></td>
-            <td>${isBespoke ? "—" : `<input data-field="widthMeters" data-id="${id}" type="number" min="5" max="200" value="${profile.widthMeters}" />`}</td>
-            <td>${isBespoke ? "—" : `<input data-field="heightMeters" data-id="${id}" type="number" min="5" max="200" value="${profile.heightMeters}" />`}</td>
-            <td>${isBespoke ? "auto" : `<input data-field="ambient" data-id="${id}" type="number" min="0" value="${profile.shelves?.ambient ?? 0}" />`}</td>
-            <td>${isBespoke ? "auto" : `<input data-field="cold" data-id="${id}" type="number" min="0" value="${profile.shelves?.cold ?? 0}" />`}</td>
-            <td>${isBespoke ? "auto" : `<input data-field="hot" data-id="${id}" type="number" min="0" value="${profile.shelves?.hot ?? 0}" />`}</td>
+            <td><strong>${escapeHtml(profile.label)}</strong><br><span style="color: var(--muted); font-size: 0.78rem;">${escapeHtml(profile.blurb || "")}</span></td>
+            <td>${isBespoke ? "—" : `<input data-field="widthMeters" data-id="${escapeHtml(id)}" type="number" min="5" max="200" value="${profile.widthMeters}" />`}</td>
+            <td>${isBespoke ? "—" : `<input data-field="heightMeters" data-id="${escapeHtml(id)}" type="number" min="5" max="200" value="${profile.heightMeters}" />`}</td>
+            <td>${isBespoke ? "auto" : `<input data-field="ambient" data-id="${escapeHtml(id)}" type="number" min="0" value="${profile.shelves?.ambient ?? 0}" />`}</td>
+            <td>${isBespoke ? "auto" : `<input data-field="cold" data-id="${escapeHtml(id)}" type="number" min="0" value="${profile.shelves?.cold ?? 0}" />`}</td>
+            <td>${isBespoke ? "auto" : `<input data-field="hot" data-id="${escapeHtml(id)}" type="number" min="0" value="${profile.shelves?.hot ?? 0}" />`}</td>
           `;
           profilesTableBody.appendChild(tr);
         });
@@ -653,7 +680,7 @@
         const payload = collectFormData();
         const response = await fetch("/api/store-profiles", {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: writeApiHeaders(),
           body: JSON.stringify(payload)
         });
         if (!response.ok) {
@@ -715,6 +742,13 @@
       });
 
       renderApiDocs();
+      const adminTokenInput = document.getElementById("adminToken");
+      if (adminTokenInput) {
+        adminTokenInput.value = sessionStorage.getItem("adminToken") || "";
+        adminTokenInput.addEventListener("change", () => {
+          sessionStorage.setItem("adminToken", adminTokenInput.value.trim());
+        });
+      }
       loadVerticalsOverview().catch((error) => setStatus(error.message, "bad"));
       loadConfig().catch((error) => setStatus(error.message, "bad"));
     </script>

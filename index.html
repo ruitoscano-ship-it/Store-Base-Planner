@@ -1866,6 +1866,15 @@
         });
       }
 
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
       function renderVerticalTabs() {
         if (!verticalTabs) return;
         verticalTabs.innerHTML = "";
@@ -1876,8 +1885,8 @@
           button.setAttribute("role", "tab");
           button.setAttribute("aria-selected", vertical.id === activeVerticalId ? "true" : "false");
           button.innerHTML = `
-            <strong>${vertical.label}</strong>
-            <span>${vertical.tagline}</span>
+            <strong>${escapeHtml(vertical.label)}</strong>
+            <span>${escapeHtml(vertical.tagline)}</span>
             <span class="vertical-range">${number.format(vertical.footprint.min)}–${number.format(vertical.footprint.max)}+ sq ft</span>
           `;
           button.addEventListener("click", () => setActiveVertical(vertical.id, true));
@@ -1893,14 +1902,14 @@
           const leverLabel = vertical.levers?.[driver.lever]?.label || driver.lever;
           li.innerHTML = `
             <div class="driver-head">
-              <span>${driver.activity}</span>
-              <span class="driver-impact ${driver.impact}">${driver.impact}</span>
+              <span>${escapeHtml(driver.activity)}</span>
+              <span class="driver-impact ${escapeHtml(driver.impact)}">${escapeHtml(driver.impact)}</span>
             </div>
-            ${driver.benefit ? `<p class="driver-benefit">Benefit: ${driver.benefit}</p>` : ""}
-            ${driver.impactMechanism ? `<p class="driver-mechanism"><strong>How to impact:</strong> ${driver.impactMechanism}</p>` : ""}
-            ${driver.rationale ? `<p class="driver-rationale"><strong>Rationale:</strong> ${driver.rationale}</p>` : ""}
-            <p class="driver-body">${driver.optimize}</p>
-            <p class="driver-lever"><strong>Lever:</strong> ${leverLabel}</p>
+            ${driver.benefit ? `<p class="driver-benefit">Benefit: ${escapeHtml(driver.benefit)}</p>` : ""}
+            ${driver.impactMechanism ? `<p class="driver-mechanism"><strong>How to impact:</strong> ${escapeHtml(driver.impactMechanism)}</p>` : ""}
+            ${driver.rationale ? `<p class="driver-rationale"><strong>Rationale:</strong> ${escapeHtml(driver.rationale)}</p>` : ""}
+            <p class="driver-body">${escapeHtml(driver.optimize)}</p>
+            <p class="driver-lever"><strong>Lever:</strong> ${escapeHtml(leverLabel)}</p>
           `;
           costDriverList.appendChild(li);
         });
