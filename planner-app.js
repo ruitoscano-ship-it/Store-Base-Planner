@@ -1636,6 +1636,58 @@
     return fixtures;
   }
 
+  // "12K supermarket" prefab: a 1,200 m² (40 × 30 m) full-line supermarket.
+  // Perimeter fresh departments (assisted deli/fish/bakery + chilled wall on the
+  // back, ambient gondolas down both side walls), a central grid of double-sided
+  // gondola island aisles, a produce hall + self-service coffee/juice near the
+  // front, a 7-lane checkout bank, and entry/exit gates along the front wall.
+  // All wall fixtures face the interior; islands run front-to-back.
+  function twelveKSupermarketFixtures() {
+    const round = (n) => Number(n.toFixed(2));
+    const fixtures = [];
+
+    // Back wall: assisted-service counters + chilled wall (face +Y interior).
+    fixtures.push({ kind: "service-deli", x: 3.3, y: 1.25, angle: 0 });
+    fixtures.push({ kind: "service-fish", x: 6.3, y: 1.25, angle: 0 });
+    fixtures.push({ kind: "service-bakery", x: 8.9, y: 1.2, angle: 0 });
+    for (let x = 11.8; x <= 38.4; x += 1.5) {
+      fixtures.push({ kind: "shelf-cold", x: round(x), y: 1.05, angle: 0 });
+    }
+
+    // Side walls: ambient gondola runs (left faces +X, right faces -X).
+    for (let y = 4.0; y <= 25.5; y += 1.4) {
+      fixtures.push({ kind: "shelf-ambient", x: 1.0, y: round(y), angle: 270 });
+      fixtures.push({ kind: "shelf-ambient", x: 39.0, y: round(y), angle: 90 });
+    }
+
+    // Centre: double-sided gondola island aisles, running front-to-back.
+    [9.5, 13, 16.5, 20, 23.5, 27, 30.5].forEach((x) => {
+      for (let y = 5.5; y <= 18.5; y += 2.5) {
+        fixtures.push({ kind: "shelf-island", x, y: round(y), angle: 90 });
+      }
+    });
+
+    // Produce hall near the front, two rows facing the aisle.
+    for (let r = 0; r < 2; r += 1) {
+      for (let x = 9.5; x <= 15.5; x += 1.5) {
+        fixtures.push({ kind: "produce-bin", x: round(x), y: round(21.5 + r * 1.6), angle: 0 });
+      }
+    }
+    // Self-service coffee + juice beside the produce hall.
+    fixtures.push({ kind: "station-coffee", x: 18.0, y: 21.8, angle: 0 });
+    fixtures.push({ kind: "station-juice", x: 19.2, y: 21.8, angle: 0 });
+
+    // Front checkout bank (7 lanes) facing the exit.
+    for (let i = 0; i < 7; i += 1) {
+      fixtures.push({ kind: "checkout", x: round(14 + i * 3.2), y: 26.8, angle: 180 });
+    }
+
+    // Entry / exit gates along the front wall.
+    [3.0, 5.0, 35.0, 37.0].forEach((x) => fixtures.push({ kind: "entry-gated", x, y: 28.9, angle: 180 }));
+
+    return fixtures;
+  }
+
   const POD_CONSTRUCTS = {
     "base-pod": {
       label: "Base pod",
@@ -1671,6 +1723,13 @@
       heightMeters: 11,
       fixtures: baseFoodServingFixtures,
       summary: "Deli + bakery + coffee/juice serving line, retail gondolas, 2 islands, 2 checkouts, open seating zone, 8 entry gates."
+    },
+    "12k-supermarket": {
+      label: "12K supermarket",
+      widthMeters: 40,
+      heightMeters: 30,
+      fixtures: twelveKSupermarketFixtures,
+      summary: "1,200 m² full-line: deli + fish + bakery, chilled wall, ambient side runs, central island grid, produce hall, coffee/juice, 7 checkouts, 4 entry gates."
     }
   };
 
