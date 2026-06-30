@@ -53,6 +53,7 @@
   const simShelfInteractions = document.getElementById("simShelfInteractions");
   const simShelfInteractionsLive = document.getElementById("simShelfInteractionsLive");
   const simPaymentInteractions = document.getElementById("simPaymentInteractions");
+  const simAvgBasket = document.getElementById("simAvgBasket");
   const simTrackingEvents = document.getElementById("simTrackingEvents");
   const simZoneList = document.getElementById("simZoneList");
   const simFootnote = document.getElementById("simFootnote");
@@ -677,6 +678,7 @@
       simPeopleLeaving.textContent = "0";
       if (simShelfInteractionsLive) simShelfInteractionsLive.textContent = "0";
       if (simPaymentInteractions) simPaymentInteractions.textContent = "0";
+      if (simAvgBasket) simAvgBasket.textContent = "0";
       simSessionCaptures.textContent = "0";
       simLiveRate.textContent = "—";
       updateSimulationTrafficKpis(null, null);
@@ -692,10 +694,13 @@
     simPeopleEntering.textContent = number.format(live.sessionEntries);
     simPeopleLeaving.textContent = number.format(live.sessionExits ?? live.sessionLeaves);
     if (simShelfInteractionsLive) {
-      simShelfInteractionsLive.textContent = number.format(live.sessionShelfInteractions);
+      simShelfInteractionsLive.textContent = number.format(live.sessionProductGrabs ?? live.sessionShelfInteractions);
     }
     if (simPaymentInteractions) {
-      simPaymentInteractions.textContent = number.format(live.sessionPaymentInteractions);
+      simPaymentInteractions.textContent = number.format(live.sessionCheckoutInteractions ?? live.sessionPaymentInteractions);
+    }
+    if (simAvgBasket) {
+      simAvgBasket.textContent = live.avgBasketSize ? live.avgBasketSize.toFixed(1) : "0";
     }
     simSessionCaptures.textContent = number.format(live.sessionCaptures);
     simLiveRate.textContent = live.elapsed > 0.5 ? `${number.format(live.liveCapturedPerHour)}/hr` : "—";

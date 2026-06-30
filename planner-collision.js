@@ -8,6 +8,21 @@ export const SHELF_KINDS = new Set(["shelf-ambient", "shelf-island", "shelf-cold
 export const GATE_KINDS = new Set(["entry-gated", "entry-open"]);
 export const CHECKOUT_KINDS = new Set(["checkout"]);
 
+// Every merchandised fixture a shopper can touch and grab a product from.
+// Excludes gates (entries) and checkouts (counted separately at payment).
+export const MODULE_KINDS = new Set([
+  "shelf-ambient",
+  "shelf-island",
+  "shelf-cold",
+  "shelf-hot",
+  "produce-bin",
+  "service-deli",
+  "service-fish",
+  "service-bakery",
+  "station-coffee",
+  "station-juice"
+]);
+
 export const COLLISION_KINDS = new Set([
   "shelf-ambient",
   "shelf-island",

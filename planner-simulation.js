@@ -6,8 +6,8 @@ import {
   buildLayoutObstacles,
   CHECKOUT_KINDS,
   GATE_KINDS,
+  MODULE_KINDS,
   resolveMovement,
-  SHELF_KINDS,
   shopperTouchesFixture,
   SHOPPER_BODY_RADIUS
 } from "./planner-collision.js";
@@ -16,7 +16,12 @@ import { findStorePath, pathGoalKey } from "./planner-pathfinding.js";
 export const SIM_CELL_SIZE = 1;
 export const CAMERA_GRID_SPACING = 3;
 const AVG_DWELL_MINUTES = 12;
-const INTERACTIONS_PER_VISIT = 4.2;
+// Consuming script grabs 1–30 products per visit, so the average basket (and
+// therefore the average number of module interactions) sits near 15.5.
+const SHOPPING_GOAL_MIN = 1;
+const SHOPPING_GOAL_MAX = 30;
+const CHECKOUT_INTERACTION_RATIO = 0.5;
+const INTERACTIONS_PER_VISIT = (SHOPPING_GOAL_MIN + SHOPPING_GOAL_MAX) / 2;
 const TRACK_EVENTS_PER_VISIT = 18;
 const SHELF_TOUCH_COOLDOWN = 4.5;
 const CHECKOUT_PASS_RADIUS = 0.45;
@@ -25,10 +30,10 @@ const CHECKOUT_OUTSIDE_DISTANCE = 1.05;
 const CHECKOUT_SERVICE_MIN = 0.5;
 const CHECKOUT_SERVICE_MAX = 1;
 const QUEUE_SPACING = 0.92;
-const BROWSE_MIN_SECONDS = 1;
-const BROWSE_MAX_SECONDS = 90;
-const VISIT_MIN_SECONDS = 5;
-const VISIT_MAX_SECONDS = 35;
+// Dwell per product grab. Kept short enough that a full 1–30 basket completes
+// within a visit, while still accumulating heat at popular modules.
+const BROWSE_MIN_SECONDS = 1.5;
+const BROWSE_MAX_SECONDS = 9;
 export const SIM_REQUIREMENTS_MESSAGE = "Please add an entrance and checkout to run the simulation.";
 
 export function getSimulationRequirements(layout) {
@@ -208,8 +213,10 @@ export class ShopperSim {
     this.sessionRaw = 0;
     this.sessionEntries = 0;
     this.sessionLeaves = 0;
-    this.sessionShelfInteractions = 0;
-    this.sessionPaymentInteractions = 0;
+    this.sessionProductGrabs = 0;
+    this.sessionCheckoutInteractions = 0;
+    this.sessionBaskets = 0;
+    this.sessionBasketUnits = 0;
     this.targetOccupancy = 0;
     this.elapsed = 0;
     this.setCount(count, { trackEntries: false });
@@ -227,7 +234,7 @@ export class ShopperSim {
     this.gates = buildFixtureZones(objects, GATE_KINDS);
     this.checkouts = buildFixtureZones(objects, CHECKOUT_KINDS);
     this.checkoutIds = new Set(this.checkouts.map((checkout) => checkout.id));
-    this.shelves = buildFixtureZones(objects, SHELF_KINDS);
+    this.modules = buildFixtureZones(objects, MODULE_KINDS);
     this.requirements = getSimulationRequirements(layout);
     this.simulationEnabled = this.requirements.canRun;
     this.checkoutQueues = new Map(this.checkouts.map((checkout) => [checkout.id, []]));
@@ -444,17 +451,23 @@ export class ShopperSim {
     return best;
   }
 
-  pickRandomShelf() {
-    if (!this.shelves.length) return null;
-    return this.shelves[Math.floor(Math.random() * this.shelves.length)];
+  pickRandomModule() {
+    if (!this.modules.length) return null;
+    return this.modules[Math.floor(Math.random() * this.modules.length)];
+  }
+
+  randomShoppingGoal() {
+    return SHOPPING_GOAL_MIN + Math.floor(Math.random() * (SHOPPING_GOAL_MAX - SHOPPING_GOAL_MIN + 1));
   }
 
   randomBrowseDuration() {
     return BROWSE_MIN_SECONDS + Math.random() * (BROWSE_MAX_SECONDS - BROWSE_MIN_SECONDS);
   }
 
-  randomVisitDuration() {
-    return VISIT_MIN_SECONDS + Math.random() * (VISIT_MAX_SECONDS - VISIT_MIN_SECONDS);
+  // Generous safety cap so a shopper who cannot reach enough modules still
+  // heads to checkout eventually; normally the basket goal drives the exit.
+  shopTimeCapFor(goal) {
+    return 90 + (goal || 1) * (BROWSE_MAX_SECONDS + 6);
   }
 
   beginCheckout(shopper) {
@@ -497,6 +510,8 @@ export class ShopperSim {
       ? Math.atan2(enterTarget.x - point.x, enterTarget.z - point.z)
       : Math.random() * Math.PI * 2;
 
+    const shoppingGoal = this.randomShoppingGoal();
+
     return {
       id: this.nextShopperId++,
       x: point.x,
@@ -512,7 +527,10 @@ export class ShopperSim {
       exitTarget: null,
       browsingShelfId: null,
       browseRemaining: 0,
-      visitRemaining: this.randomVisitDuration(),
+      // Consuming script: grab a randomized 1–30 products, then pay.
+      shoppingGoal,
+      basket: 0,
+      visitRemaining: this.shopTimeCapFor(shoppingGoal),
       checkoutServiceRemaining: 0,
       checkoutWaitRemaining: 0,
       checkoutReady: false,
@@ -533,8 +551,10 @@ export class ShopperSim {
       this.sessionRaw = 0;
       this.sessionEntries = 0;
       this.sessionLeaves = 0;
-      this.sessionShelfInteractions = 0;
-      this.sessionPaymentInteractions = 0;
+      this.sessionProductGrabs = 0;
+      this.sessionCheckoutInteractions = 0;
+      this.sessionBaskets = 0;
+      this.sessionBasketUnits = 0;
       this.elapsed = 0;
       return;
     }
@@ -543,8 +563,10 @@ export class ShopperSim {
     this.sessionRaw = 0;
     this.sessionEntries = 0;
     this.sessionLeaves = 0;
-    this.sessionShelfInteractions = 0;
-    this.sessionPaymentInteractions = 0;
+    this.sessionProductGrabs = 0;
+    this.sessionCheckoutInteractions = 0;
+    this.sessionBaskets = 0;
+    this.sessionBasketUnits = 0;
     this.elapsed = 0;
     this.checkoutQueues = new Map(this.checkouts.map((checkout) => [checkout.id, []]));
     const count = this.targetOccupancy || this.shoppers.length;
@@ -570,18 +592,20 @@ export class ShopperSim {
 
   tryBeginBrowsing(shopper) {
     if (shopper.state !== "shopping") return false;
-    for (const shelf of this.shelves) {
-      const remaining = shopper.shelfCooldowns[shelf.id] || 0;
+    for (const module of this.modules) {
+      const remaining = shopper.shelfCooldowns[module.id] || 0;
       if (remaining > 0) continue;
-      if (!shopperTouchesFixture(shopper.x, shopper.z, SHOPPER_BODY_RADIUS, shelf)) continue;
+      if (!shopperTouchesFixture(shopper.x, shopper.z, SHOPPER_BODY_RADIUS, module)) continue;
       shopper.state = "browsing";
-      shopper.browsingShelfId = shelf.id;
+      shopper.browsingShelfId = module.id;
       shopper.browseRemaining = this.randomBrowseDuration();
       shopper.seekTarget = null;
       shopper.vx = 0;
       shopper.vz = 0;
-      shopper.shelfCooldowns[shelf.id] = SHELF_TOUCH_COOLDOWN + Math.random() * 2;
-      this.sessionShelfInteractions += 1;
+      shopper.shelfCooldowns[module.id] = SHELF_TOUCH_COOLDOWN + Math.random() * 2;
+      // Each module the shopper touches is one product grab in their basket.
+      shopper.basket = (shopper.basket || 0) + 1;
+      this.sessionProductGrabs += 1;
       this.clearShopperPath(shopper);
       return true;
     }
@@ -594,7 +618,7 @@ export class ShopperSim {
       if (dist < 0.5 || shopper.z >= shopper.enterTarget.z - 0.12) {
         shopper.state = "shopping";
         shopper.enterTarget = null;
-        shopper.visitRemaining = this.randomVisitDuration();
+        shopper.visitRemaining = this.shopTimeCapFor(shopper.shoppingGoal);
         this.clearShopperPath(shopper);
         if (!shopper.entryCounted) {
           shopper.entryCounted = true;
@@ -617,6 +641,12 @@ export class ShopperSim {
     }
 
     if (shopper.state === "shopping") {
+      // Primary exit: the consuming script grabbed its target basket of products.
+      if ((shopper.basket || 0) >= shopper.shoppingGoal) {
+        this.beginCheckout(shopper);
+        return;
+      }
+      // Safety exit: cannot reach enough modules within a generous time budget.
       shopper.visitRemaining -= stepDt;
       if (shopper.visitRemaining <= 0) {
         this.beginCheckout(shopper);
@@ -639,9 +669,10 @@ export class ShopperSim {
       } else {
         shopper.wander -= stepDt;
         if (shopper.wander <= 0) {
-          const shelf = this.shelves.length && Math.random() < 0.62 ? this.pickRandomShelf() : null;
-          if (shelf) {
-            shopper.seekTarget = { x: shelf.cx, z: shelf.cz };
+          // Actively head for a module to keep filling the basket.
+          const module = this.modules.length && Math.random() < 0.9 ? this.pickRandomModule() : null;
+          if (module) {
+            shopper.seekTarget = { x: module.cx, z: module.cz };
             shopper.wander = 2 + Math.random() * 3;
             this.clearShopperPath(shopper);
           } else {
@@ -698,7 +729,13 @@ export class ShopperSim {
         }
       }
       if (shopper.checkoutReady && shopper.checkoutServiceRemaining <= 0) {
-        this.sessionPaymentInteractions += 1;
+        // Checkout interactions = 0.5 × the products in the basket (counted
+        // separately from in-store module grabs). Record the basket for the
+        // running average basket-size indicator.
+        const items = shopper.basket || 0;
+        this.sessionCheckoutInteractions += items * CHECKOUT_INTERACTION_RATIO;
+        this.sessionBaskets += 1;
+        this.sessionBasketUnits += items;
         shopper.state = "exiting";
         shopper.exitTarget = this.checkoutExitTarget(checkout);
         this.clearShopperPath(shopper);
@@ -865,6 +902,8 @@ export class ShopperSim {
   getLiveMetrics() {
     const hourly = this.elapsed > 0.5 ? 3600 / this.elapsed : 0;
     const inStoreStates = new Set(["entering", "shopping", "browsing", "queuing", "checking_out"]);
+    const checkoutInteractions = Math.round(this.sessionCheckoutInteractions);
+    const avgBasketSize = this.sessionBaskets ? this.sessionBasketUnits / this.sessionBaskets : 0;
     return {
       elapsed: this.elapsed,
       simulationEnabled: this.simulationEnabled,
@@ -875,13 +914,21 @@ export class ShopperSim {
       sessionEntries: this.sessionEntries,
       sessionExits: this.sessionLeaves,
       sessionLeaves: this.sessionLeaves,
-      sessionShelfInteractions: this.sessionShelfInteractions,
-      sessionPaymentInteractions: this.sessionPaymentInteractions,
+      // Product grabs = every module the shoppers touched (excludes checkout).
+      sessionProductGrabs: this.sessionProductGrabs,
+      sessionShelfInteractions: this.sessionProductGrabs,
+      // Checkout interactions are tracked separately (0.5 × basket).
+      sessionCheckoutInteractions: checkoutInteractions,
+      sessionPaymentInteractions: checkoutInteractions,
+      sessionBaskets: this.sessionBaskets,
+      avgBasketSize,
       entriesPerHour: Math.round(this.sessionEntries * hourly),
       exitsPerHour: Math.round(this.sessionLeaves * hourly),
       leavesPerHour: Math.round(this.sessionLeaves * hourly),
-      shelfInteractionsPerHour: Math.round(this.sessionShelfInteractions * hourly),
-      paymentInteractionsPerHour: Math.round(this.sessionPaymentInteractions * hourly),
+      productGrabsPerHour: Math.round(this.sessionProductGrabs * hourly),
+      shelfInteractionsPerHour: Math.round(this.sessionProductGrabs * hourly),
+      checkoutInteractionsPerHour: Math.round(this.sessionCheckoutInteractions * hourly),
+      paymentInteractionsPerHour: Math.round(this.sessionCheckoutInteractions * hourly),
       sessionCaptures: Math.round(this.sessionCaptures),
       sessionRaw: Math.round(this.sessionRaw),
       liveCapturedPerHour: Math.round(this.sessionCaptures * hourly),
