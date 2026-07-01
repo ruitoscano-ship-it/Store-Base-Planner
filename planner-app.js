@@ -446,7 +446,7 @@
     const mod = await ensureLayoutDocumentModule();
     const store = mod.loadTemplatesStore();
     const template = store.templates.find((entry) => entry.id === plannerTemplateSelect?.value);
-    const document = template?.document || buildCurrentLayoutDocument({ exportedManually: true });
+    const layoutDocument = template?.document || buildCurrentLayoutDocument({ exportedManually: true });
     const name = template?.name || "store-layout-template";
     let previewImage = template?.previewImage || null;
     if (!previewImage) previewImage = await captureLayoutPreviewImage();
@@ -455,7 +455,7 @@
       name,
       exportedAt: new Date().toISOString(),
       previewImage,
-      document
+      document: layoutDocument
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -3598,8 +3598,8 @@
     if (!plannerState.canvas) initPlanner();
     if (!plannerState.canvas) return;
     await ensureLayoutDocumentModule();
-    const document = buildCurrentLayoutDocument();
-    const blob = new Blob([JSON.stringify(document, null, 2)], { type: "application/json" });
+    const layoutDocument = buildCurrentLayoutDocument();
+    const blob = new Blob([JSON.stringify(layoutDocument, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
