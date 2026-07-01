@@ -814,15 +814,15 @@
                     <h4>Occupancy simulation</h4>
                     <div class="planner-sim-control">
                       <label for="simOccupancySlider">
-                        <span>Concurrent shoppers</span>
+                        <span>Shoppers in simulation</span>
                         <strong id="simOccupancyVal">24</strong>
                       </label>
                       <input id="simOccupancySlider" type="range" min="1" max="120" value="24" step="1" />
                     </div>
                     <div class="planner-sim-actions">
                       <button type="button" class="action-btn active" id="simPlayBtn">Pause</button>
-                      <button type="button" class="action-btn" id="simRandomizeBtn">Randomize</button>
-                      <button type="button" class="action-btn active" id="simReentryBtn" title="Toggle whether shoppers re-enter or the run ends once everyone leaves">Re-entry: On</button>
+                      <button type="button" class="action-btn" id="simRandomizeBtn">Restart</button>
+                      <button type="button" class="action-btn" id="simReentryBtn" title="When off, everyone who enters eventually leaves and the run ends">Re-entry: Off</button>
                     </div>
                     <div class="planner-sim-actions planner-sim-camera-actions">
                       <button type="button" class="action-btn active" id="simIsoBtn">Isometric</button>
@@ -831,86 +831,34 @@
                       <button type="button" class="action-btn" id="simZoomOutBtn" title="Zoom out">Zoom −</button>
                     </div>
                     <div class="planner-sim-kpis">
-                      <div class="planner-sim-kpis-foot">
-                        <div class="planner-sim-kpi planner-sim-kpi-accent">
-                          <span>Inside store</span>
-                          <strong id="simPeopleInside">0</strong>
-                        </div>
-                        <div class="planner-sim-kpi">
-                          <span>Entered (session)</span>
-                          <strong id="simPeopleEntering">0</strong>
-                        </div>
-                        <div class="planner-sim-kpi">
-                          <span>Exits (session)</span>
-                          <strong id="simPeopleLeaving">0</strong>
-                        </div>
-                      </div>
-                      <div class="planner-sim-kpis-foot">
-                        <div class="planner-sim-kpi">
-                          <span>Entries / hr</span>
-                          <strong id="simEntriesPerHour">—</strong>
-                        </div>
-                        <div class="planner-sim-kpi">
-                          <span>Exits / hr</span>
-                          <strong id="simExitsPerHour">—</strong>
-                        </div>
-                        <div class="planner-sim-kpi planner-sim-kpi-accent">
-                          <span>Product grabs</span>
-                          <strong id="simShelfInteractionsLive">0</strong>
-                        </div>
-                        <div class="planner-sim-kpi planner-sim-kpi-accent">
-                          <span>Avg basket size</span>
-                          <strong id="simAvgBasket">0</strong>
-                        </div>
-                        <div class="planner-sim-kpi planner-sim-kpi-accent">
-                          <span>Checkout interactions</span>
-                          <strong id="simPaymentInteractions">0</strong>
-                        </div>
+                      <div class="planner-sim-kpi planner-sim-kpi-accent">
+                        <span>People in store</span>
+                        <strong id="simPeopleInside">0</strong>
                       </div>
                       <div class="planner-sim-kpi">
-                        <span>Session captures</span>
-                        <strong id="simSessionCaptures">0</strong>
+                        <span>Avg time in store</span>
+                        <strong id="simAvgDwell">—</strong>
                       </div>
                       <div class="planner-sim-kpi">
-                        <span>Live rate / hr</span>
-                        <strong id="simLiveRate">—</strong>
+                        <span>Product grabs</span>
+                        <strong id="simProductGrabs">0</strong>
                       </div>
                       <div class="planner-sim-kpi">
-                        <span>Captured / hr</span>
-                        <strong id="simCapturedInteractions">—</strong>
+                        <span>Avg basket size</span>
+                        <strong id="simAvgBasket">0</strong>
                       </div>
-                      <div class="planner-sim-kpi">
-                        <span>Raw potential / hr</span>
-                        <strong id="simRawInteractions">—</strong>
-                      </div>
-                      <div class="planner-sim-kpi">
-                        <span>Capture rate</span>
-                        <strong id="simCaptureRate">—</strong>
-                      </div>
-                      <div class="planner-sim-kpi">
-                        <span>Floor coverage</span>
-                        <strong id="simCoveragePct">—</strong>
-                      </div>
-                      <div class="planner-sim-kpi">
-                        <span>Product grabs / hr (est.)</span>
-                        <strong id="simShelfInteractions">—</strong>
-                      </div>
-                      <div class="planner-sim-kpi">
-                        <span>Tracking events / hr</span>
-                        <strong id="simTrackingEvents">—</strong>
+                      <div class="planner-sim-kpi planner-sim-kpi-accent">
+                        <span>People exiting</span>
+                        <strong id="simPeopleLeaving">0</strong>
                       </div>
                     </div>
                     <div class="planner-sim-legend">
-                      <span>Low</span>
+                      <span>Low traffic</span>
                       <div class="planner-sim-legend-bar" aria-hidden="true"></div>
-                      <span>High</span>
-                    </div>
-                    <div class="planner-sim-zones">
-                      <h5>Zone breakdown</h5>
-                      <div id="simZoneList"></div>
+                      <span>High traffic</span>
                     </div>
                     <p class="planner-sim-note" id="simFootnote">
-                      Estimates combine occupancy, camera grid coverage (~3 m), and monitoring zone placement.
+                      Each shopper enters, grabs products from shelves, checks out, and leaves. Heatmap shows where people spend time.
                     </p>
                   </div>
                   <div class="planner-3d-toolbar" id="planner3dToolbar">

@@ -40,23 +40,11 @@
   const simFitBtn = document.getElementById("simFitBtn");
   const simZoomInBtn = document.getElementById("simZoomInBtn");
   const simZoomOutBtn = document.getElementById("simZoomOutBtn");
-  const simSessionCaptures = document.getElementById("simSessionCaptures");
   const simPeopleInside = document.getElementById("simPeopleInside");
-  const simPeopleEntering = document.getElementById("simPeopleEntering");
   const simPeopleLeaving = document.getElementById("simPeopleLeaving");
-  const simEntriesPerHour = document.getElementById("simEntriesPerHour");
-  const simExitsPerHour = document.getElementById("simExitsPerHour");
-  const simLiveRate = document.getElementById("simLiveRate");
-  const simCapturedInteractions = document.getElementById("simCapturedInteractions");
-  const simRawInteractions = document.getElementById("simRawInteractions");
-  const simCaptureRate = document.getElementById("simCaptureRate");
-  const simCoveragePct = document.getElementById("simCoveragePct");
-  const simShelfInteractions = document.getElementById("simShelfInteractions");
-  const simShelfInteractionsLive = document.getElementById("simShelfInteractionsLive");
-  const simPaymentInteractions = document.getElementById("simPaymentInteractions");
+  const simAvgDwell = document.getElementById("simAvgDwell");
+  const simProductGrabs = document.getElementById("simProductGrabs");
   const simAvgBasket = document.getElementById("simAvgBasket");
-  const simTrackingEvents = document.getElementById("simTrackingEvents");
-  const simZoneList = document.getElementById("simZoneList");
   const simFootnote = document.getElementById("simFootnote");
   const applyStoreSizeBtn = document.getElementById("applyStoreSizeBtn");
   const plannerAddButtons = Array.from(document.querySelectorAll(".planner-add-btn"));
@@ -251,7 +239,7 @@
       showMonitoringVizPref = doc.preferences.showMonitoringViz !== false;
       simOccupancyPref = Number(doc.preferences.simOccupancy) || 24;
       simPlaying = doc.preferences.simPlaying !== false;
-      simReentryPref = doc.preferences.simReentry !== false;
+      simReentryPref = doc.preferences.simReentry === true;
       syncMonitoringGridButton();
       if (simOccupancySlider) simOccupancySlider.value = String(simOccupancyPref);
       if (simOccupancyVal) simOccupancyVal.textContent = String(simOccupancyPref);
@@ -381,7 +369,7 @@
         activePresetId: presetId,
         costModel: { ...defaultSenseiOptions },
         layout,
-        preferences: { showMonitoringViz: true, simOccupancy: 24, simPlaying: true, simReentry: true },
+        preferences: { showMonitoringViz: true, simOccupancy: 24, simPlaying: true, simReentry: false },
         templateMeta: { presetId, builtin: true }
       });
       store = mod.upsertTemplate(store, {
@@ -616,7 +604,7 @@
   let plannerBatchAdding = false;
   let showMonitoringVizPref = true;
   let simOccupancyPref = 24;
-  let simReentryPref = true;
+  let simReentryPref = false;
   let computeStoreSimulationFn = null;
   let ShopperSimClass = null;
   let shopperSim = null;
@@ -664,60 +652,53 @@
     if (clearShoppers && planner3dView) planner3dView.clearShoppers();
   }
 
-  function updateSimulationTrafficKpis(live = null, staticResult = null) {
-    const hasLive = live && live.elapsed > 0.5;
-    if (simEntriesPerHour) {
-      simEntriesPerHour.textContent = hasLive
-        ? `${number.format(live.entriesPerHour)}/hr`
-        : staticResult
-          ? `${number.format(staticResult.entriesPerHour ?? 0)}/hr`
-          : "—";
-    }
-    if (simExitsPerHour) {
-      simExitsPerHour.textContent = hasLive
-        ? `${number.format(live.exitsPerHour ?? live.leavesPerHour)}/hr`
-        : staticResult
-          ? `${number.format(staticResult.exitsPerHour ?? 0)}/hr`
-          : "—";
-    }
+  function formatDwellTime(seconds) {
+    if (!seconds || seconds <= 0) return "—";
+    if (seconds < 60) return `${Math.round(seconds)}s`;
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
   }
 
-  function renderLiveSimulationDashboard(sim, staticResult) {
+  function renderLiveSimulationDashboard(sim) {
     const live = sim.getLiveMetrics();
     if (!live.simulationEnabled) {
-      simPeopleInside.textContent = "0";
-      simPeopleEntering.textContent = "0";
-      simPeopleLeaving.textContent = "0";
-      if (simShelfInteractionsLive) simShelfInteractionsLive.textContent = "0";
-      if (simPaymentInteractions) simPaymentInteractions.textContent = "0";
+      if (simPeopleInside) simPeopleInside.textContent = "0";
+      if (simAvgDwell) simAvgDwell.textContent = "—";
+      if (simProductGrabs) simProductGrabs.textContent = "0";
       if (simAvgBasket) simAvgBasket.textContent = "0";
-      simSessionCaptures.textContent = "0";
-      simLiveRate.textContent = "—";
-      updateSimulationTrafficKpis(null, null);
+      if (simPeopleLeaving) simPeopleLeaving.textContent = "0";
       if (simFootnote) {
         simFootnote.textContent = live.statusMessage || "Please add an entrance and checkout to run the simulation.";
       }
-      if (planner3dHint) {
-        planner3dHint.textContent = live.statusMessage || "Please add an entrance and checkout to run the simulation.";
-      }
       return;
     }
-    simPeopleInside.textContent = number.format(live.peopleInside);
-    simPeopleEntering.textContent = number.format(live.sessionEntries);
-    simPeopleLeaving.textContent = number.format(live.sessionExits ?? live.sessionLeaves);
-    if (simShelfInteractionsLive) {
-      simShelfInteractionsLive.textContent = number.format(live.sessionProductGrabs ?? live.sessionShelfInteractions);
-    }
-    if (simPaymentInteractions) {
-      simPaymentInteractions.textContent = number.format(live.sessionCheckoutInteractions ?? live.sessionPaymentInteractions);
-    }
+
+    if (simPeopleInside) simPeopleInside.textContent = number.format(live.peopleInside);
+    if (simAvgDwell) simAvgDwell.textContent = formatDwellTime(live.avgDwellSeconds);
+    if (simProductGrabs) simProductGrabs.textContent = number.format(live.sessionProductGrabs);
     if (simAvgBasket) {
-      simAvgBasket.textContent = live.avgBasketSize ? live.avgBasketSize.toFixed(1) : "0";
+      simAvgBasket.textContent = live.avgBasketSize > 0 ? live.avgBasketSize.toFixed(1) : "0";
     }
-    simSessionCaptures.textContent = number.format(live.sessionCaptures);
-    simLiveRate.textContent = live.elapsed > 0.5 ? `${number.format(live.liveCapturedPerHour)}/hr` : "—";
-    updateSimulationTrafficKpis(live, staticResult);
-    if (staticResult) renderSimulationDashboard(staticResult, live);
+    if (simPeopleLeaving) {
+      const exited = live.sessionLeaves ?? 0;
+      if (live.replenish) {
+        simPeopleLeaving.textContent = number.format(exited);
+      } else {
+        const cohort = live.cohortSize || live.sessionEntries || 0;
+        simPeopleLeaving.textContent = cohort > 0 ? `${exited} / ${cohort}` : String(exited);
+      }
+    }
+
+    if (simFootnote) {
+      if (live.finished) {
+        simFootnote.textContent = `Simulation complete — all ${live.cohortSize || live.sessionLeaves} shoppers exited. Avg dwell ${formatDwellTime(live.avgDwellSeconds)}, avg basket ${live.avgBasketSize.toFixed(1)}.`;
+      } else if (live.replenish) {
+        simFootnote.textContent = "Continuous mode — new shoppers enter as others leave.";
+      } else {
+        simFootnote.textContent = `${live.cohortSize || live.peopleInside} shoppers started · grab products, checkout, then exit.`;
+      }
+    }
   }
 
   function startLiveSimulationLoop() {
@@ -746,21 +727,14 @@
 
       if (now - lastDashboardUpdate > 350) {
         lastDashboardUpdate = now;
-        const layout = getCachedLayoutSnapshot();
-        const staticResult = layout && computeStoreSimulationFn
-          ? computeStoreSimulationFn(layout, shopperSim.shoppers.length)
-          : null;
-        renderLiveSimulationDashboard(shopperSim, staticResult);
+        renderLiveSimulationDashboard(shopperSim);
       }
 
-      // Single-cohort mode: stop once everyone who entered has left.
       if (metrics.finished) {
         simPlaying = false;
         syncSimPlayButton();
         stopLiveSimulation();
-        if (simFootnote) {
-          simFootnote.textContent = "Simulation ended — everyone who entered has left (re-entry off). Press Randomize or toggle re-entry to run again.";
-        }
+        renderLiveSimulationDashboard(shopperSim);
       }
     };
 
@@ -779,11 +753,7 @@
         planner3dView.clearShoppers();
       }
     }
-    const layout = getPlannerLayoutSnapshot();
-    const staticResult = layout && computeStoreSimulationFn
-      ? computeStoreSimulationFn(layout, shopperSim.shoppers.length)
-      : null;
-    renderLiveSimulationDashboard(shopperSim, staticResult);
+    renderLiveSimulationDashboard(shopperSim);
     startLiveSimulationLoop();
   }
 
@@ -791,40 +761,6 @@
     if (!simPlayBtn) return;
     simPlayBtn.textContent = simPlaying ? "Pause" : "Play";
     simPlayBtn.classList.toggle("active", simPlaying);
-  }
-
-  function renderSimulationDashboard(result, live = null) {
-    if (!result) return;
-    simOccupancyVal.textContent = String(result.occupancy);
-    simCapturedInteractions.textContent = number.format(
-      live?.liveCapturedPerHour > 0 ? live.liveCapturedPerHour : result.capturedInteractionsPerHour
-    );
-    simRawInteractions.textContent = number.format(result.rawInteractionsPerHour);
-    simCaptureRate.textContent = `${result.captureRatePct}%`;
-    simCoveragePct.textContent = `${result.coveragePct}%`;
-    simShelfInteractions.textContent = number.format(
-      live?.shelfInteractionsPerHour > 0 ? live.shelfInteractionsPerHour : result.shelfInteractionsPerHour
-    );
-    simTrackingEvents.textContent = number.format(result.trackingEventsPerHour);
-    updateSimulationTrafficKpis(live, result);
-
-    if (!result.zoneCount) {
-      simZoneList.innerHTML = '<p class="offline-note" style="margin:0;">Add monitoring zones on the 2D plan to refine capture estimates.</p>';
-    } else {
-      simZoneList.innerHTML = result.zoneBreakdown
-        .map(
-          (zone) => `
-        <div class="planner-sim-zone-row">
-          <div><strong>${zone.label}</strong><br /><span style="color:var(--muted);">${zone.capability} · ${zone.areaSqm} m²</span></div>
-          <div style="text-align:right;">${number.format(zone.expectedPerHour)}/hr<br /><span style="color:var(--muted);">${zone.capturePct}% cam</span></div>
-        </div>`
-        )
-        .join("");
-    }
-
-    simFootnote.textContent = live?.statusMessage
-      ? live.statusMessage
-      : `${result.cameraCount} ceiling cameras · ${result.zoneCount} monitoring zones · ${number.format(result.storeAreaSqm)} m² selling area. Shoppers enter via the gate, shop for 5–35 s, queue at checkout (0.5–1 s), then leave through the checkout gate.`;
   }
 
   async function runStoreSimulation() {
@@ -838,7 +774,7 @@
     const occupancy = Number(simOccupancySlider?.value || simOccupancyPref);
     const result = computeStoreSimulation(layout, occupancy);
     simOccupancyPref = result.occupancy;
-    renderSimulationDashboard(result);
+    if (simOccupancyVal) simOccupancyVal.textContent = String(result.occupancy);
     if (planner3dView && plannerViewMode === "simulation") {
       planner3dView.updateHeatmap(result.heatmap);
     }
@@ -869,7 +805,7 @@
           ? blocked
           : simPlaying
             ? "Live simulation · drag to orbit · scroll or Zoom ± · Isometric / Fit for all angles"
-            : "Simulation paused · press Play or Randomize · use camera controls to explore";
+            : "Simulation paused · press Play or Restart · use camera controls to explore";
       } else {
         planner3dHint.textContent = planner3dHumanPlaced
           ? "Stick figure placed · Drop human to reposition · Walk for first-person tour"
@@ -3428,7 +3364,7 @@
       showMonitoringVizPref = state.preferences.showMonitoringViz !== false;
       simOccupancyPref = Number(state.preferences.simOccupancy) || 24;
       simPlaying = state.preferences.simPlaying !== false;
-      simReentryPref = state.preferences.simReentry !== false;
+      simReentryPref = state.preferences.simReentry === true;
       syncMonitoringGridButton();
       if (simOccupancySlider) simOccupancySlider.value = String(simOccupancyPref);
       if (simOccupancyVal) simOccupancyVal.textContent = String(simOccupancyPref);
@@ -3499,11 +3435,7 @@
     if (simOccupancyVal) simOccupancyVal.textContent = String(simOccupancyPref);
     persistState();
     if (plannerViewMode === "simulation") {
-      await ensureShopperSim();
-      if (shopperSim) {
-        shopperSim.setCount(simOccupancyPref);
-        if (planner3dView) planner3dView.updateShoppers(shopperSim.getShopperPositions());
-      }
+      await resetLiveSimulation({ randomize: true });
     } else {
       runStoreSimulation();
     }
@@ -3536,19 +3468,12 @@
   });
 
   simRandomizeBtn?.addEventListener("click", async () => {
-    await ensureShopperSim();
-    if (!shopperSim) return;
-    shopperSim.randomize();
-    if (planner3dView) {
-      planner3dView.updateShoppers(shopperSim.getShopperPositions());
-      planner3dView.updateHeatmap(shopperSim.getHeatmap());
-    }
     if (!simPlaying) {
       simPlaying = true;
       syncSimPlayButton();
       syncSimulationUi();
     }
-    startLiveSimulationLoop();
+    await resetLiveSimulation({ randomize: true });
   });
 
   simIsoBtn?.addEventListener("click", () => {

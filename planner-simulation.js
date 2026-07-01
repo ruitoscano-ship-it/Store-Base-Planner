@@ -217,11 +217,13 @@ export class ShopperSim {
     this.sessionCheckoutInteractions = 0;
     this.sessionBaskets = 0;
     this.sessionBasketUnits = 0;
+    this.sessionDwellTotal = 0;
+    this.sessionDwellCount = 0;
+    this.cohortSize = 0;
     this.targetOccupancy = 0;
     this.elapsed = 0;
-    // When true, occupancy is continuously replenished as shoppers leave.
-    // When false, a single cohort shops and the run ends once everyone leaves.
-    this.replenish = true;
+    // Single-cohort mode by default: everyone who enters eventually leaves, no respawn.
+    this.replenish = false;
     this.everSpawned = false;
     this.finished = false;
     this.setCount(count, { trackEntries: false });
@@ -386,6 +388,14 @@ export class ShopperSim {
     }
   }
 
+  recordShopperExit(shopper) {
+    if (shopper.enteredAt != null) {
+      this.sessionDwellTotal += Math.max(0, this.elapsed - shopper.enteredAt);
+      this.sessionDwellCount += 1;
+    }
+    this.sessionLeaves += 1;
+  }
+
   matchesLayout(layout) {
     return this.signature === layoutSignature(layout);
   }
@@ -399,6 +409,9 @@ export class ShopperSim {
     }
     const target = clamp(Math.round(Number(count) || 0), 0, 120);
     this.targetOccupancy = target;
+    if (!this.replenish && this.shoppers.length === 0) {
+      this.cohortSize = target;
+    }
     while (this.shoppers.length < target) {
       const spawned = this.spawnShopper({ atEntrance: true, countEntry: trackEntries });
       if (!spawned) break;
@@ -552,7 +565,7 @@ export class ShopperSim {
       pathIndex: 0,
       pathGoalKey: null,
       pathStuckTime: 0,
-      entryCounted: !countEntry
+      entryCounted: atEntrance ? false : !countEntry
     };
   }
 
@@ -568,6 +581,9 @@ export class ShopperSim {
       this.sessionCheckoutInteractions = 0;
       this.sessionBaskets = 0;
       this.sessionBasketUnits = 0;
+      this.sessionDwellTotal = 0;
+      this.sessionDwellCount = 0;
+      this.cohortSize = 0;
       this.everSpawned = false;
       this.finished = false;
       this.elapsed = 0;
@@ -582,11 +598,14 @@ export class ShopperSim {
     this.sessionCheckoutInteractions = 0;
     this.sessionBaskets = 0;
     this.sessionBasketUnits = 0;
+    this.sessionDwellTotal = 0;
+    this.sessionDwellCount = 0;
     this.everSpawned = false;
     this.finished = false;
     this.elapsed = 0;
     this.checkoutQueues = new Map(this.checkouts.map((checkout) => [checkout.id, []]));
     const count = this.targetOccupancy || this.shoppers.length;
+    this.cohortSize = count;
     this.shoppers = [];
     this.setCount(count, { trackEntries: false });
   }
@@ -639,6 +658,7 @@ export class ShopperSim {
         this.clearShopperPath(shopper);
         if (!shopper.entryCounted) {
           shopper.entryCounted = true;
+          shopper.enteredAt = this.elapsed;
           this.sessionEntries += 1;
         }
       }
@@ -773,7 +793,7 @@ export class ShopperSim {
       const dist = this.navigateShopperPath(shopper, exitTarget.x, exitTarget.z, excludeIds, 0.95);
       const passedGate = hasPassedThroughCheckoutGate(shopper, checkout, this.w, this.d);
       if (dist < CHECKOUT_PASS_RADIUS || passedGate) {
-        this.sessionLeaves += 1;
+        this.recordShopperExit(shopper);
         this.removeFromCheckoutQueues(shopper.id);
         shopper.remove = true;
       }
@@ -924,28 +944,25 @@ export class ShopperSim {
   getLiveMetrics() {
     const hourly = this.elapsed > 0.5 ? 3600 / this.elapsed : 0;
     const inStoreStates = new Set(["entering", "shopping", "browsing", "queuing", "checking_out"]);
-    const checkoutInteractions = Math.round(this.sessionCheckoutInteractions);
     const avgBasketSize = this.sessionBaskets ? this.sessionBasketUnits / this.sessionBaskets : 0;
+    const avgDwellSeconds = this.sessionDwellCount ? this.sessionDwellTotal / this.sessionDwellCount : 0;
     return {
       elapsed: this.elapsed,
       simulationEnabled: this.simulationEnabled,
       statusMessage: this.getStatusMessage(),
       replenish: this.replenish,
       finished: this.finished,
+      cohortSize: this.cohortSize,
       shopperCount: this.shoppers.length,
       peopleInside: this.shoppers.filter((shopper) => inStoreStates.has(shopper.state)).length,
       queueLength: Array.from(this.checkoutQueues.values()).reduce((sum, queue) => sum + queue.length, 0),
       sessionEntries: this.sessionEntries,
       sessionExits: this.sessionLeaves,
       sessionLeaves: this.sessionLeaves,
-      // Product grabs = every module the shoppers touched (excludes checkout).
       sessionProductGrabs: this.sessionProductGrabs,
-      sessionShelfInteractions: this.sessionProductGrabs,
-      // Checkout interactions are tracked separately (0.5 × basket).
-      sessionCheckoutInteractions: checkoutInteractions,
-      sessionPaymentInteractions: checkoutInteractions,
       sessionBaskets: this.sessionBaskets,
       avgBasketSize,
+      avgDwellSeconds,
       entriesPerHour: Math.round(this.sessionEntries * hourly),
       exitsPerHour: Math.round(this.sessionLeaves * hourly),
       leavesPerHour: Math.round(this.sessionLeaves * hourly),
