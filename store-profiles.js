@@ -122,6 +122,20 @@ const DEFAULT_ARTIFACTS = {
     opacity3d: 0.95,
     tag2d: "WALL"
   },
+  "sign-pharmacy": {
+    label: "Pharmacy sign",
+    type: "wall-sign",
+    widthMeters: 5,
+    depthMeters: 0.1,
+    heightMeters: 2.4,
+    shelfLevels: 0,
+    signText: "PHARMACY",
+    textColor: "#ffffff",
+    panelColor: "#b8e0d2",
+    palette: { fill: "#b8e0d2", stroke: "#5c9a82" },
+    color3d: "#b8e0d2",
+    opacity3d: 1
+  },
   warehouse: {
     label: "Back of house",
     type: "zone",
@@ -363,7 +377,10 @@ function normalizeArtifact(kind, input, fallback) {
     opacity3d: input.opacity3d != null ? clamp(Number(input.opacity3d), 0.05, 1) : base.opacity3d,
     gatePalette: input.gatePalette ?? base.gatePalette,
     monitorCapability: input.monitorCapability ?? base.monitorCapability,
-    monitorMetrics: Array.isArray(input.monitorMetrics) ? [...input.monitorMetrics] : base.monitorMetrics
+    monitorMetrics: Array.isArray(input.monitorMetrics) ? [...input.monitorMetrics] : base.monitorMetrics,
+    signText: input.signText ?? base.signText,
+    textColor: input.textColor ?? base.textColor,
+    panelColor: input.panelColor ?? base.panelColor
   };
 }
 

@@ -239,7 +239,13 @@ export function createPlanner3D(containerEl, options = {}) {
   let heatmapImageData = null;
   let heatmapCols = 0;
   let heatmapRows = 0;
-  let artifactConfig = structuredClone(options.artifacts || getAllArtifacts());
+  function mergeArtifactConfig(incoming) {
+    const defaults = getAllArtifacts();
+    if (!incoming) return structuredClone(defaults);
+    return structuredClone({ ...defaults, ...incoming });
+  }
+
+  let artifactConfig = mergeArtifactConfig(options.artifacts);
   let plannerConfig = structuredClone(options.planner || DEFAULT_PLANNER);
   let interactionMode = "edit";
   let stickFigure = null;
@@ -254,7 +260,21 @@ export function createPlanner3D(containerEl, options = {}) {
   }
 
   function getArtifactSpec(kind) {
-    return artifactConfig[kind] || {
+    const spec = artifactConfig[kind];
+    if (spec) return spec;
+    if (kind.startsWith("sign-")) {
+      return {
+        label: "Wall sign",
+        type: "wall-sign",
+        widthMeters: 5,
+        depthMeters: 0.1,
+        heightMeters: 2.4,
+        signText: "SIGN",
+        textColor: "#ffffff",
+        panelColor: "#b8e0d2"
+      };
+    }
+    return {
       label: "Fixture",
       widthMeters: 1,
       depthMeters: 1,
@@ -348,6 +368,107 @@ export function createPlanner3D(containerEl, options = {}) {
     mesh.position.y = yOffset + height / 2;
     parent.add(mesh);
     return mesh;
+  }
+
+  function createWallSignTexture(text, textColor, panelColor) {
+    const canvas = document.createElement("canvas");
+    const texW = 2048;
+    const texH = 512;
+    canvas.width = texW;
+    canvas.height = texH;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    const panel = panelColor || "#b8e0d2";
+    const fill = textColor || "#ffffff";
+    const label = String(text || "SIGN").toUpperCase();
+
+    ctx.fillStyle = panel;
+    ctx.fillRect(0, 0, texW, texH);
+
+    ctx.strokeStyle = "#5c9a82";
+    ctx.lineWidth = 10;
+    ctx.strokeRect(6, 6, texW - 12, texH - 12);
+
+    let fontSize = 220;
+    const fontFamily = "Arial, Helvetica, sans-serif";
+    const fitFont = () => {
+      ctx.font = `bold ${fontSize}px ${fontFamily}`;
+    };
+    fitFont();
+    while (fontSize > 48 && ctx.measureText(label).width > texW * 0.86) {
+      fontSize -= 6;
+      fitFont();
+    }
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+    ctx.miterLimit = 2;
+
+    const cx = texW / 2;
+    const cy = texH / 2;
+    ctx.strokeStyle = "#0b5345";
+    ctx.lineWidth = Math.max(8, fontSize * 0.07);
+    ctx.strokeText(label, cx, cy);
+    ctx.fillStyle = fill;
+    ctx.fillText(label, cx, cy);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    texture.needsUpdate = true;
+    return texture;
+  }
+
+  function buildWallSign(parent, obj, spec, footprintW) {
+    const storeW = storeSize.w || 20;
+    const storeD = storeSize.d || 12;
+    const x = obj.meters.x;
+    const z = obj.meters.z;
+    const panelW = footprintW;
+    const panelH = Math.min(1.05, Math.max(0.72, (spec.heightMeters ?? 2.4) * 0.38));
+    const mountY = Math.min(wallHeight() - panelH / 2 - 0.18, Math.max(2.15, spec.heightMeters ?? 2.4));
+    const inset = 0.16;
+
+    let localX = 0;
+    let localZ = 0;
+    let planeRotY = 0;
+
+    const distBack = z;
+    const distFront = storeD - z;
+    const distLeft = x;
+    const distRight = storeW - x;
+    const minDist = Math.min(distBack, distFront, distLeft, distRight);
+
+    if (minDist === distBack) {
+      localZ = inset - z;
+    } else if (minDist === distFront) {
+      localZ = storeD - inset - z;
+      planeRotY = Math.PI;
+    } else if (minDist === distLeft) {
+      localX = inset - x;
+      planeRotY = -Math.PI / 2;
+    } else {
+      localX = storeW - inset - x;
+      planeRotY = Math.PI / 2;
+    }
+
+    const texture = createWallSignTexture(spec.signText, spec.textColor, spec.panelColor);
+    const mat = texture
+      ? new THREE.MeshBasicMaterial({
+          map: texture,
+          side: THREE.FrontSide,
+          polygonOffset: true,
+          polygonOffsetFactor: -2,
+          polygonOffsetUnits: -2
+        })
+      : makeMaterial(spec, "wall-sign");
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(panelW, panelH), mat);
+    plane.position.set(localX, mountY, localZ);
+    plane.rotation.y = planeRotY;
+    plane.renderOrder = 3;
+    parent.add(plane);
   }
 
   function findFixtureGroup(object) {
@@ -1070,6 +1191,11 @@ export function createPlanner3D(containerEl, options = {}) {
       return group;
     }
 
+    if (spec.type === "wall-sign" || obj.kind.startsWith("sign-")) {
+      buildWallSign(group, obj, spec, footprintW);
+      return group;
+    }
+
     if (obj.kind.startsWith("monitor-")) {
       addMonitoringOverlay(group, spec, footprintW, footprintD, obj.kind);
       return group;
@@ -1286,13 +1412,13 @@ export function createPlanner3D(containerEl, options = {}) {
 
   return {
     setConfig({ artifacts, planner } = {}) {
-      if (artifacts) artifactConfig = structuredClone(artifacts);
+      if (artifacts) artifactConfig = mergeArtifactConfig(artifacts);
       if (planner) plannerConfig = structuredClone(planner);
       if (lastLayout && active) rebuildStore(lastLayout, { preserveSelectionId: selectedGroup?.userData?.objectId || null });
     },
 
     sync(layout, syncOptions = {}) {
-      if (syncOptions.artifacts) artifactConfig = structuredClone(syncOptions.artifacts);
+      if (syncOptions.artifacts) artifactConfig = mergeArtifactConfig(syncOptions.artifacts);
       if (syncOptions.planner) plannerConfig = structuredClone(syncOptions.planner);
       if (!layout) return;
       lastLayout = layout;
@@ -1304,7 +1430,7 @@ export function createPlanner3D(containerEl, options = {}) {
     },
 
     cacheLayout(layout, syncOptions = {}) {
-      if (syncOptions.artifacts) artifactConfig = structuredClone(syncOptions.artifacts);
+      if (syncOptions.artifacts) artifactConfig = mergeArtifactConfig(syncOptions.artifacts);
       if (syncOptions.planner) plannerConfig = structuredClone(syncOptions.planner);
       if (!layout) return;
       lastLayout = layout;

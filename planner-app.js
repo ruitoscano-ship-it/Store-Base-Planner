@@ -195,7 +195,7 @@
         flushPlanner3DTransforms();
       }
       const syncOpts = {
-        artifacts: storeProfileConfig?.artifacts,
+        artifacts: getMergedProfileArtifacts(storeProfileConfig),
         planner: storeProfileConfig?.planner,
         refitCamera: Boolean(options.refitCamera)
       };
@@ -485,7 +485,7 @@
     }
     const layout = refreshCachedLayout();
     planner3dView.sync(layout, {
-      artifacts: storeProfileConfig?.artifacts,
+      artifacts: getMergedProfileArtifacts(storeProfileConfig),
       planner: storeProfileConfig?.planner,
       refitCamera: true
     });
@@ -531,6 +531,12 @@
     return PLANNER_ARTIFACTS[kind] || { label: kind, w: 1, h: 1, widthMeters: 1, depthMeters: 1 };
   }
 
+  function getMergedProfileArtifacts(config) {
+    const defaults = config?.artifactDefaults || {};
+    const fromApi = config?.artifacts || {};
+    return { ...defaults, ...fromApi };
+  }
+
   function applyArtifactConfigFromProfiles(config) {
     if (!config?.artifacts) return;
     plannerSettings = {
@@ -556,7 +562,10 @@
         opacity3d: spec.opacity3d,
         gatePalette: spec.gatePalette,
         monitorCapability: spec.monitorCapability,
-        monitorMetrics: spec.monitorMetrics
+        monitorMetrics: spec.monitorMetrics,
+        signText: spec.signText,
+        textColor: spec.textColor,
+        panelColor: spec.panelColor
       };
     });
     renderPlannerAddButtons();
@@ -1268,7 +1277,7 @@
     try {
       const { createPlanner3D } = await import("./planner-3d.js");
       planner3dView = createPlanner3D(planner3dContainer, {
-      artifacts: storeProfileConfig?.artifacts,
+      artifacts: getMergedProfileArtifacts(storeProfileConfig),
       planner: storeProfileConfig?.planner,
       onObjectTransform: applyPlannerTransformFrom3D,
       onObjectDelete: deletePlannerObjectById,
@@ -1487,7 +1496,7 @@
       applyArtifactConfigFromProfiles(storeProfileConfig);
       if (planner3dView) {
         planner3dView.setConfig({
-          artifacts: storeProfileConfig.artifacts,
+          artifacts: getMergedProfileArtifacts(storeProfileConfig),
           planner: storeProfileConfig.planner
         });
       }
@@ -1833,6 +1842,8 @@
     [9.0, 10.2, 11.4, 12.6].forEach((x) =>
       fixtures.push({ kind: "shelf-ambient", x: round(x), y: round(M + 0.45 / 2), angle: 0 })
     );
+    // Back-wall "PHARMACY" sign — flush to rear wall so 3D mounts it above the gondolas.
+    fixtures.push({ kind: "sign-pharmacy", x: round(W / 2), y: round(0.08), angle: 0 });
 
     // Right wall: prescription storage behind the service desk (faces -X).
     [1.5, 2.7, 3.9, 5.1, 6.3].forEach((y) =>
@@ -1916,7 +1927,7 @@
       widthMeters: 15.5,
       heightMeters: 10,
       fixtures: pharmacyFixtures,
-      summary: "155 m² pharmacy: left-wall OTC run, back-wall gondolas + cold chain, 2 central wellness aisles, L-shaped dispensing counter, waiting zone, 2 checkouts, 4 entry gates."
+      summary: "155 m² pharmacy: back-wall PHARMACY sign, left-wall OTC run, back-wall gondolas + cold chain, 2 central wellness aisles, L-shaped dispensing counter, waiting zone, 2 checkouts, 4 entry gates."
     }
   };
 
@@ -2666,6 +2677,34 @@
           })
         );
       }
+      return shapes;
+    } else if (type === "wall-sign" || kind.startsWith("sign-")) {
+      const panel = spec.panelColor || spec.palette?.fill || "#b8e0d2";
+      const stroke = spec.palette?.stroke || "#5c9a82";
+      const text = spec.signText || "SIGN";
+      const textColor = spec.textColor || "#ffffff";
+      const bandH = Math.max(22, height * 8, width * 0.1);
+      shapes.push(
+        new fabric.Rect({
+          width,
+          height: bandH,
+          fill: panel,
+          stroke,
+          strokeWidth: Math.max(strokeW, 1.2),
+          originX: "center",
+          originY: "center"
+        }),
+        new fabric.Text(text, {
+          fontSize: Math.max(12, plannerFontSize(1.05)),
+          fontFamily: "Inter, Arial, sans-serif",
+          fontWeight: "800",
+          fill: textColor,
+          charSpacing: 40,
+          originX: "center",
+          originY: "center"
+        })
+      );
+      return shapes;
     } else if (type === "cage") {
       shapes.push(
         new fabric.Rect({
@@ -3486,7 +3525,20 @@
   function addPlannerObject(kind, options = {}) {
     if (!plannerState.canvas) return;
     flushPlanner3DTransforms();
-    const spec = PLANNER_ARTIFACTS[kind];
+    let spec = PLANNER_ARTIFACTS[kind];
+    if (!spec && kind.startsWith("sign-")) {
+      spec = {
+        label: "Wall sign",
+        w: 5,
+        h: 0.1,
+        type: "wall-sign",
+        heightMeters: 2.4,
+        signText: "SIGN",
+        textColor: "#ffffff",
+        panelColor: "#b8e0d2",
+        palette: { fill: "#b8e0d2", stroke: "#5c9a82" }
+      };
+    }
     if (!spec) return;
     const width = metersToPx(spec.w);
     const height = metersToPx(spec.h);
@@ -3580,9 +3632,9 @@
       keepInStore(event?.target);
       if (selectionContainsWall(event?.target)) {
         applyWallInteraction(event?.target, { snapAngle: false, snapPosition: true });
-      } else {
-        capturePlannerPosesFromTarget(event?.target);
+        refreshAllWallLinks();
       }
+      capturePlannerPosesFromTarget(event?.target);
       liveSync3d();
     });
     plannerState.canvas.on("object:scaling", (event) => {
