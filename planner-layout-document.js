@@ -1,7 +1,13 @@
 /** Canonical store layout document + saved template helpers (browser + Node). */
 
 export const LAYOUT_DOC_VERSION = 2;
-export const CANVAS_CUSTOM_PROPS = ["plannerKind", "plannerObjectId", "plannerMeters", "plannerPoseMeters"];
+export const CANVAS_CUSTOM_PROPS = [
+  "plannerKind",
+  "plannerObjectId",
+  "plannerMeters",
+  "plannerPoseMeters",
+  "plannerWallLinks"
+];
 export const TEMPLATES_STORAGE_KEY = "smart_store_planner_templates_v1";
 
 export function layoutSnapshotSignature(layout) {

@@ -49,6 +49,7 @@
   const applyStoreSizeBtn = document.getElementById("applyStoreSizeBtn");
   const plannerAddButtons = Array.from(document.querySelectorAll(".planner-add-btn"));
   const plannerFixtureButtons = document.getElementById("plannerFixtureButtons");
+  const plannerDividerButtons = document.getElementById("plannerDividerButtons");
   const plannerMonitorButtons = document.getElementById("plannerMonitorButtons");
   const plannerExportPngBtn = document.getElementById("plannerExportPngBtn");
   const plannerExportSvgBtn = document.getElementById("plannerExportSvgBtn");
@@ -114,10 +115,17 @@
   let storeArtifactKinds = [];
   let monitorArtifactKinds = [];
   let layoutDocModule = null;
+  let wallLinksModule = null;
   let cachedLayoutSnapshot = null;
   let cachedLayoutSignature = "";
   let lastSyncedLayoutSignature = "";
   let layoutApplying = false;
+
+  async function ensureWallLinksModule() {
+    if (wallLinksModule) return wallLinksModule;
+    wallLinksModule = await import("./planner-wall-links.js");
+    return wallLinksModule;
+  }
 
   async function ensureLayoutDocumentModule() {
     if (layoutDocModule) return layoutDocModule;
@@ -160,7 +168,8 @@
             "plannerKind",
             "plannerObjectId",
             "plannerMeters",
-            "plannerPoseMeters"
+            "plannerPoseMeters",
+            "plannerWallLinks"
           ])
         : null,
       preferences: {
@@ -553,6 +562,8 @@
     renderPlannerAddButtons();
   }
 
+  const DIVIDER_ARTIFACT_KINDS = ["separator-wall"];
+
   function renderPlannerAddButtons() {
     const renderGroup = (container, kinds) => {
       if (!container) return;
@@ -563,17 +574,22 @@
         })
         .join("");
     };
-    renderGroup(plannerFixtureButtons, storeArtifactKinds);
+    renderGroup(
+      plannerFixtureButtons,
+      storeArtifactKinds.filter((kind) => !DIVIDER_ARTIFACT_KINDS.includes(kind))
+    );
+    renderGroup(plannerDividerButtons, DIVIDER_ARTIFACT_KINDS);
     renderGroup(plannerMonitorButtons, monitorArtifactKinds);
   }
 
   function bindPlannerAddButtonContainers() {
-    [plannerFixtureButtons, plannerMonitorButtons].forEach((container) => {
+    [plannerFixtureButtons, plannerDividerButtons, plannerMonitorButtons].forEach((container) => {
       if (!container || container.dataset.bound === "1") return;
       container.dataset.bound = "1";
-      container.addEventListener("click", (event) => {
+      container.addEventListener("click", async (event) => {
         const button = event.target.closest(".planner-add-btn");
         if (!button?.dataset.kind) return;
+        await ensureWallLinksModule();
         if (!plannerState.canvas) initPlanner();
         addPlannerObject(button.dataset.kind);
       });
@@ -917,6 +933,144 @@
     const pose = readMeterPoseFromFabric(obj);
     obj.plannerPoseMeters = pose;
     return pose;
+  }
+
+  function meterPointFromCanvas(point) {
+    return {
+      x: (point.x - PLANNER_MARGIN) / plannerState.scale,
+      z: (point.y - PLANNER_MARGIN) / plannerState.scale
+    };
+  }
+
+  /** Endpoints in store meters using Fabric's transform (matches the 2D shape). */
+  function wallEndpointsFromObject(obj, lengthMeters) {
+    if (!window.fabric || !obj?.calcTransformMatrix) {
+      const pose = obj.plannerPoseMeters || capturePlannerPoseMeters(obj);
+      return wallLinksModule?.wallEndpoints(pose, lengthMeters) ?? { start: { x: pose.x, z: pose.z }, end: { x: pose.x, z: pose.z } };
+    }
+    const halfPx = (lengthMeters / 2) * plannerState.scale;
+    const matrix = obj.calcTransformMatrix();
+    const startPx = fabric.util.transformPoint(new fabric.Point(-halfPx, 0), matrix);
+    const endPx = fabric.util.transformPoint(new fabric.Point(halfPx, 0), matrix);
+    return {
+      start: meterPointFromCanvas(startPx),
+      end: meterPointFromCanvas(endPx)
+    };
+  }
+
+  function wallEndpointsForPose(pose, lengthMeters) {
+    if (!window.fabric?.util?.composeMatrix) {
+      return wallLinksModule?.wallEndpoints(pose, lengthMeters) ?? { start: { x: pose.x, z: pose.z }, end: { x: pose.x, z: pose.z } };
+    }
+    const halfPx = (lengthMeters / 2) * plannerState.scale;
+    const cx = PLANNER_MARGIN + pose.x * plannerState.scale;
+    const cy = PLANNER_MARGIN + pose.z * plannerState.scale;
+    const matrix = fabric.util.composeMatrix({
+      angle: pose.angle || 0,
+      translateX: cx,
+      translateY: cy
+    });
+    const startPx = fabric.util.transformPoint(new fabric.Point(-halfPx, 0), matrix);
+    const endPx = fabric.util.transformPoint(new fabric.Point(halfPx, 0), matrix);
+    return {
+      start: meterPointFromCanvas(startPx),
+      end: meterPointFromCanvas(endPx)
+    };
+  }
+
+  function listWallObjectsOnCanvas() {
+    if (!plannerState.canvas || !wallLinksModule) return [];
+    const { isWallKind, wallLengthMeters } = wallLinksModule;
+    return plannerState.canvas
+      .getObjects()
+      .filter((obj) => isPlannerFixture(obj) && isWallKind(obj.plannerKind))
+      .map((obj) => {
+        const spec = getArtifactSpec(obj.plannerKind);
+        const pose = capturePlannerPoseMeters(obj);
+        const lengthMeters = wallLengthMeters(obj, spec);
+        return {
+          id: ensurePlannerObjectId(obj),
+          obj,
+          pose,
+          lengthMeters,
+          endpoints: wallEndpointsFromObject(obj, lengthMeters)
+        };
+      });
+  }
+
+  function refreshAllWallLinks() {
+    if (!plannerState.canvas || !wallLinksModule) return;
+    const { computeWallLinksFromEndpoints } = wallLinksModule;
+    const walls = listWallObjectsOnCanvas();
+    walls.forEach((wall) => {
+      wall.obj.plannerWallLinks = computeWallLinksFromEndpoints(wall.endpoints, wall.id, walls);
+    });
+  }
+
+  function applyWallInteraction(target, { snapAngle = true, snapPosition = true } = {}) {
+    if (!wallLinksModule || !target || !plannerState.canvas) return false;
+
+    const { isWallKind, findWallSnap, snapWallAngle } = wallLinksModule;
+    const endpointForPose = (pose, lengthMeters) => wallEndpointsForPose(pose, lengthMeters);
+    let snappedAny = false;
+
+    const processWall = (obj) => {
+      if (!isWallKind(obj.plannerKind)) return false;
+      const spec = getArtifactSpec(obj.plannerKind);
+      const lengthMeters = wallLinksModule.wallLengthMeters(obj, spec);
+      let pose = capturePlannerPoseMeters(obj);
+      const walls = listWallObjectsOnCanvas();
+      const others = walls.filter((wall) => wall.obj !== obj);
+      let changed = false;
+
+      if (snapAngle && others.length) {
+        const angled = snapWallAngle(pose, others);
+        if (angled.angle !== pose.angle) {
+          pose = angled;
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        writeMeterPoseToFabric(obj, pose);
+        obj.setCoords();
+      }
+
+      if (snapPosition && others.length) {
+        const movingEndpoints = wallEndpointsFromObject(obj, lengthMeters);
+        const snap = findWallSnap(pose, lengthMeters, ensurePlannerObjectId(obj), others, {
+          movingEndpoints,
+          endpointForPose
+        });
+        if (snap) {
+          writeMeterPoseToFabric(obj, snap.pose);
+          obj.setCoords();
+          changed = true;
+        }
+      }
+
+      return changed;
+    };
+
+    if (isActiveSelectionTarget(target)) {
+      snappedAny = target.getObjects().some((child) => processWall(child));
+    } else if (isPlannerFixture(target)) {
+      snappedAny = processWall(target);
+    }
+
+    if (snappedAny) {
+      plannerState.canvas.requestRenderAll();
+    }
+    return snappedAny;
+  }
+
+  function selectionContainsWall(target) {
+    if (!wallLinksModule || !target) return false;
+    const { isWallKind } = wallLinksModule;
+    if (isActiveSelectionTarget(target)) {
+      return target.getObjects().some((obj) => isWallKind(obj.plannerKind));
+    }
+    return isWallKind(target.plannerKind);
   }
 
   function isActiveSelectionTarget(target) {
@@ -1653,6 +1807,67 @@
     return fixtures;
   }
 
+  // "Pharmacy" prefab: ~155 m² (15.5 × 10 m) community pharmacy — tall OTC /
+  // health runs on the left wall, flanking back-wall gondolas with a central
+  // cold-chain case, prescription storage on the right, an L-shaped dispensing
+  // counter + checkout in the back-right, two central double-sided wellness
+  // aisles, a front-right waiting / queue zone (left open), front impulse cold
+  // + self-checkout, and entry gates on the front.
+  function pharmacyFixtures() {
+    const round = (n) => Number(n.toFixed(2));
+    const M = 0.55;
+    const W = 15.5;
+    const D = 10;
+    const fixtures = [];
+
+    // Left wall: tall OTC / health product run (faces +X interior).
+    [1.8, 3.0, 4.2, 5.4, 6.6, 7.8, 9.0].forEach((y) =>
+      fixtures.push({ kind: "shelf-ambient", x: round(M + 0.45 / 2), y: round(y), angle: 270 })
+    );
+
+    // Back wall: flanking gondola runs with a central cold-chain gap (faces +Y).
+    [2.0, 3.2, 4.4, 5.6].forEach((x) =>
+      fixtures.push({ kind: "shelf-ambient", x: round(x), y: round(M + 0.45 / 2), angle: 0 })
+    );
+    fixtures.push({ kind: "shelf-cold", x: round(7.4), y: round(M + 0.55 / 2), angle: 0 });
+    [9.0, 10.2, 11.4, 12.6].forEach((x) =>
+      fixtures.push({ kind: "shelf-ambient", x: round(x), y: round(M + 0.45 / 2), angle: 0 })
+    );
+
+    // Right wall: prescription storage behind the service desk (faces -X).
+    [1.5, 2.7, 3.9, 5.1, 6.3].forEach((y) =>
+      fixtures.push({ kind: "shelf-ambient", x: round(W - M - 0.45 / 2), y: round(y), angle: 90 })
+    );
+    fixtures.push({ kind: "shelf-cold", x: round(W - M - 0.55 / 2), y: round(7.5), angle: 90 });
+
+    // Back-right L-shaped dispensing counter + pharmacist checkout.
+    fixtures.push({ kind: "service-deli", x: round(12.6), y: round(M + 1.1 / 2), angle: 0 });
+    fixtures.push({ kind: "service-bakery", x: round(W - M - 1.0 / 2), y: round(2.2), angle: 90 });
+    fixtures.push({ kind: "checkout", x: round(11.8), y: round(2.5), angle: 0 });
+
+    // Two central double-sided wellness / cosmetics aisles.
+    [5.4, 8.8].forEach((x) => {
+      [3.0, 5.2, 7.4].forEach((y) =>
+        fixtures.push({ kind: "shelf-island", x: round(x), y: round(y), angle: 90 })
+      );
+    });
+
+    // Front-right waiting / queue zone (open floor — traffic monitoring only).
+    fixtures.push({ kind: "monitor-people-zone", x: round(12.0), y: round(7.8), angle: 0 });
+
+    // Front: impulse cold case + self-checkout near the exit.
+    fixtures.push({ kind: "shelf-cold", x: round(10.8), y: round(D - M - 0.55 / 2), angle: 180 });
+    fixtures.push({ kind: "checkout", x: round(13.0), y: round(D - M - 0.18 / 2), angle: 180 });
+
+    // Entry / exit gates along the front and a side fire exit.
+    [3.0, 5.5, 8.0].forEach((x) =>
+      fixtures.push({ kind: "entry-gated", x: round(x), y: round(D - M - 0.18 / 2), angle: 180 })
+    );
+    fixtures.push({ kind: "entry-gated", x: round(M + 0.18 / 2), y: round(5.5), angle: 270 });
+
+    return fixtures;
+  }
+
   const POD_CONSTRUCTS = {
     "base-pod": {
       label: "Base pod",
@@ -1695,6 +1910,13 @@
       heightMeters: 30,
       fixtures: twelveKSupermarketFixtures,
       summary: "1,200 m² full-line: deli + fish + bakery, chilled wall, ambient side runs, central island grid, produce hall, coffee/juice, 7 checkouts, 4 entry gates."
+    },
+    pharmacy: {
+      label: "Pharmacy",
+      widthMeters: 15.5,
+      heightMeters: 10,
+      fixtures: pharmacyFixtures,
+      summary: "155 m² pharmacy: left-wall OTC run, back-wall gondolas + cold chain, 2 central wellness aisles, L-shaped dispensing counter, waiting zone, 2 checkouts, 4 entry gates."
     }
   };
 
@@ -1730,7 +1952,7 @@
 
     const area = widthMeters * heightMeters;
     plannerPresetSummary.textContent = `${pod.label}: ${widthMeters}×${heightMeters} m (${number.format(area)} m²) · ${pod.summary}`;
-    plannerStatus.textContent = `${pod.label} construct loaded — compact grab-and-go format. Rearrange or duplicate fixtures as needed.`;
+    plannerStatus.textContent = `${pod.label} construct loaded — ${pod.summary} Rearrange or duplicate fixtures as needed.`;
     plannerStatus.style.color = "var(--ok)";
 
     plannerState.canvas.discardActiveObject();
@@ -2404,17 +2626,46 @@
         })
       );
     } else if (type === "wall") {
+      const fill = spec.palette?.fill || "#d1d5db";
+      const stroke = spec.palette?.stroke || "#374151";
+      const depthPx = Math.max(4, height);
       shapes.push(
         new fabric.Rect({
           width,
-          height: Math.max(3, height),
-          fill: "#4b5563",
-          stroke: "#111827",
+          height: depthPx,
+          fill,
+          stroke,
           strokeWidth: strokeW,
           originX: "center",
           originY: "center"
         })
       );
+      const postRadius = Math.max(2.5, depthPx * 0.75);
+      [-width / 2, width / 2].forEach((left) => {
+        shapes.push(
+          new fabric.Circle({
+            radius: postRadius,
+            fill: stroke,
+            left,
+            originX: "center",
+            originY: "center"
+          })
+        );
+      });
+      if (spec.tag2d) {
+        shapes.push(
+          new fabric.Text(spec.tag2d, {
+            fontSize: Math.max(7, plannerFontSize(0.45)),
+            fontFamily: "Inter, Arial, sans-serif",
+            fontWeight: "700",
+            fill: stroke,
+            left: 0,
+            top: 0,
+            originX: "center",
+            originY: "center"
+          })
+        );
+      }
     } else if (type === "cage") {
       shapes.push(
         new fabric.Rect({
@@ -3197,6 +3448,7 @@
       plannerState.canvas.loadFromJSON(canvasJson, () => {
         plannerState.canvas.renderAll();
         syncPlannerMetaFromCanvas();
+        refreshAllWallLinks();
         drawPlannerBoundary({ refitViewport });
         layoutApplying = false;
         resolve(true);
@@ -3256,6 +3508,12 @@
     });
     group.plannerKind = kind;
     group.plannerMeters = { w: spec.w, h: spec.h };
+    if (wallLinksModule?.isWallKind(kind)) {
+      group.lockScalingX = true;
+      group.lockScalingY = true;
+      group.lockUniScaling = true;
+      group.plannerWallLinks = { start: null, end: null };
+    }
     if (options.objectId) {
       group.plannerObjectId = options.objectId;
     } else {
@@ -3265,6 +3523,10 @@
     group.setCoords();
     clampObjectWithinStore(group);
     capturePlannerPoseMeters(group);
+    if (wallLinksModule?.isWallKind(kind)) {
+      applyWallInteraction(group, { snapAngle: true, snapPosition: true });
+      refreshAllWallLinks();
+    }
     if (!options.silent) {
       plannerState.canvas.setActiveObject(group);
     }
@@ -3301,6 +3563,10 @@
     };
     plannerState.canvas.on("object:modified", (event) => {
       keepInStore(event?.target);
+      if (selectionContainsWall(event?.target)) {
+        applyWallInteraction(event?.target, { snapAngle: true, snapPosition: true });
+        refreshAllWallLinks();
+      }
       capturePlannerPosesFromTarget(event?.target);
       persistState();
       sync3d();
@@ -3312,7 +3578,11 @@
     });
     plannerState.canvas.on("object:moving", (event) => {
       keepInStore(event?.target);
-      capturePlannerPosesFromTarget(event?.target);
+      if (selectionContainsWall(event?.target)) {
+        applyWallInteraction(event?.target, { snapAngle: false, snapPosition: true });
+      } else {
+        capturePlannerPosesFromTarget(event?.target);
+      }
       liveSync3d();
     });
     plannerState.canvas.on("object:scaling", (event) => {
@@ -3349,7 +3619,13 @@
         simReentry: simReentryPref
       },
       canvasJson: plannerState.canvas
-        ? plannerState.canvas.toDatalessJSON(["plannerKind", "plannerObjectId", "plannerMeters", "plannerPoseMeters"])
+        ? plannerState.canvas.toDatalessJSON([
+            "plannerKind",
+            "plannerObjectId",
+            "plannerMeters",
+            "plannerPoseMeters",
+            "plannerWallLinks"
+          ])
         : null
     };
   }
@@ -3787,6 +4063,7 @@
   });
 
   (async () => {
+    await ensureWallLinksModule();
     bindPlannerAddButtonContainers();
     await loadStoreProfilesFromApi();
     initPlanner();

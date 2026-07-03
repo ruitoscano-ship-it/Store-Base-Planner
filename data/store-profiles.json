@@ -115,13 +115,16 @@
       "tag2d": "SCO"
     },
     "separator-wall": {
-      "label": "Interior wall",
+      "label": "Wall segment",
       "type": "wall",
-      "widthMeters": 4,
+      "widthMeters": 1,
       "depthMeters": 0.12,
       "heightMeters": 2.8,
       "shelfLevels": 0,
-      "color3d": "#374151"
+      "palette": { "fill": "#d1d5db", "stroke": "#374151" },
+      "color3d": "#e5e7eb",
+      "opacity3d": 0.95,
+      "tag2d": "WALL"
     },
     "warehouse": {
       "label": "Back of house",
