@@ -4,606 +4,31 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Store Planner · Smart Store</title>
-    <style>
-      :root {
-        --bg: #e9eae6;
-        --card: #eeefeb;
-        --text: #111111;
-        --muted: #3d3d3d;
-        --border: #1a1a1a;
-        --accent: #d9f04f;
-        --ok: #15803d;
-        --warn: #b45309;
-        --bad: #b91c1c;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        min-height: 100vh;
-        font-family: Inter, Avenir, Segoe UI, Roboto, Arial, sans-serif;
-        color: var(--text);
-        background: var(--bg);
-      }
-
-      .container {
-        max-width: min(1680px, 100%);
-        margin: 0 auto;
-        padding: 12px 16px 24px;
-      }
-
-      .topbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-        flex-wrap: wrap;
-        border: 1px solid var(--border);
-        background: var(--card);
-        padding: 10px 14px;
-        margin-bottom: 12px;
-      }
-
-      .brand {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-
-      .logo-dot {
-        width: 28px;
-        height: 28px;
-        background: #0b0b0b;
-        color: var(--accent);
-        display: grid;
-        place-items: center;
-        font-weight: 800;
-        font-size: 0.85rem;
-      }
-
-      .brand-title {
-        font-size: 1rem;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.4px;
-      }
-
-      .brand-sub {
-        display: block;
-        font-size: 0.75rem;
-        color: var(--muted);
-        font-weight: 500;
-        text-transform: none;
-        letter-spacing: 0;
-      }
-
-      .nav-actions {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-
-      .action-btn {
-        padding: 8px 12px;
-        border: 1px solid var(--border);
-        background: var(--bg);
-        color: var(--text);
-        cursor: pointer;
-        font-size: 0.84rem;
-        font-weight: 600;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-      }
-
-      .action-btn:hover {
-        background: var(--accent);
-      }
-
-      .action-btn.active {
-        background: var(--accent);
-      }
-
-      .action-btn:disabled {
-        opacity: 0.45;
-        cursor: not-allowed;
-      }
-
-      .action-btn:disabled:hover {
-        background: var(--bg);
-      }
-
-      .page-intro {
-        margin-bottom: 12px;
-        border: 1px solid var(--border);
-        background: var(--card);
-        padding: 14px 16px;
-      }
-
-      .page-intro h1 {
-        margin: 0 0 6px;
-        font-size: clamp(1.35rem, 2.2vw, 1.85rem);
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: -0.01em;
-      }
-
-      .page-intro p {
-        margin: 0;
-        color: var(--muted);
-        max-width: 820px;
-        line-height: 1.45;
-      }
-
-      .panel {
-        border: 1px solid var(--border);
-        background: var(--card);
-        padding: 14px;
-      }
-
-      .card h3 {
-        margin: 0 0 8px;
-        font-size: 0.95rem;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-      }
-
-      .readiness-sub {
-        margin: 0 0 10px;
-        color: var(--muted);
-        font-size: 0.85rem;
-        line-height: 1.4;
-      }
-
-      .offline-note {
-        margin: 0;
-        font-size: 0.8rem;
-        color: var(--muted);
-      }
-
-      .blueprint-info {
-        margin: 10px 0 4px;
-        padding: 12px 14px;
-        border: 1px solid var(--accent, #d9f04f);
-        border-radius: 10px;
-        background: linear-gradient(180deg, rgba(217, 240, 79, 0.16), rgba(217, 240, 79, 0.05));
-      }
-
-      .blueprint-info[hidden] {
-        display: none;
-      }
-
-      .blueprint-info-head {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 6px;
-      }
-
-      .blueprint-info-badge {
-        font-size: 0.62rem;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: #1a1a1a;
-        background: var(--accent, #d9f04f);
-        padding: 2px 7px;
-        border-radius: 999px;
-      }
-
-      .blueprint-info-title {
-        font-size: 0.78rem;
-        font-weight: 600;
-        color: var(--text, inherit);
-      }
-
-      .blueprint-info-area {
-        display: flex;
-        align-items: baseline;
-        gap: 10px;
-        flex-wrap: wrap;
-      }
-
-      .blueprint-info-value {
-        font-size: 1.5rem;
-        font-weight: 700;
-        line-height: 1.1;
-        color: var(--text, inherit);
-      }
-
-      .blueprint-info-dims {
-        font-size: 0.9rem;
-        font-weight: 500;
-        color: var(--muted);
-      }
-
-      .blueprint-info-note {
-        margin: 6px 0 0;
-        font-size: 0.74rem;
-        line-height: 1.4;
-        color: var(--muted);
-      }
-
-      .planner-layout {
-        display: grid;
-        grid-template-columns: 300px 1fr;
-        gap: 12px;
-        align-items: stretch;
-        min-height: min(78vh, 820px);
-      }
-
-      .planner-layout > div:last-child {
-        display: flex;
-        flex-direction: column;
-        min-height: 0;
-        min-width: 0;
-      }
-
-      .planner-tools {
-        border: 1px solid var(--border);
-        background: var(--bg);
-        padding: 12px;
-        overflow-y: auto;
-        max-height: min(78vh, 820px);
-      }
-
-      .planner-tools h4 {
-        margin: 0 0 10px;
-        font-size: 0.9rem;
-      }
-
-      .planner-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        margin-bottom: 10px;
-      }
-
-      .planner-grid label {
-        display: block;
-        font-size: 0.75rem;
-        color: var(--muted);
-        margin-bottom: 4px;
-      }
-
-      .planner-grid input {
-        width: 100%;
-        border: 1px solid var(--border);
-        background: #f3f4f0;
-        color: var(--text);
-        padding: 6px 8px;
-      }
-
-      .planner-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-bottom: 10px;
-      }
-
-      .planner-actions .action-btn {
-        flex: 1 1 130px;
-      }
-
-      .planner-preset-actions .action-btn {
-        flex: 1 1 88px;
-        font-size: 0.78rem;
-      }
-
-      .planner-preset-btn.active {
-        background: var(--accent);
-      }
-
-      .planner-canvas-wrap.hidden {
-        display: none;
-      }
-
-      .planner-view-toolbar {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 8px;
-      }
-
-      .planner-view-stage {
-        position: relative;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        min-height: 520px;
-        min-width: 0;
-      }
-
-      .planner-canvas-wrap,
-      .planner-3d-wrap {
-        flex: 1;
-        min-height: 520px;
-        border: 1px solid var(--border);
-        background: #f3f4f0;
-        position: relative;
-      }
-
-      .planner-3d-wrap {
-        display: flex;
-        flex-direction: column;
-      }
-
-      .planner-3d-wrap.hidden {
-        display: none;
-      }
-
-      #planner3dContainer {
-        flex: 1;
-        min-height: 420px;
-        width: 100%;
-      }
-
-      .planner-3d-toolbar {
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        z-index: 5;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        max-width: calc(100% - 20px);
-      }
-
-      .planner-3d-toolbar .action-btn {
-        font-size: 0.78rem;
-        padding: 6px 10px;
-      }
-
-      .planner-3d-toolbar .action-btn:disabled {
-        opacity: 0.45;
-        cursor: not-allowed;
-      }
-
-      .planner-3d-hint {
-        position: absolute;
-        bottom: 52px;
-        left: 10px;
-        right: 10px;
-        z-index: 5;
-        font-size: 0.78rem;
-        color: #f3f4f0;
-        background: rgba(17, 24, 39, 0.72);
-        padding: 6px 10px;
-        pointer-events: none;
-      }
-
-      .planner-3d-legend {
-        position: absolute;
-        bottom: 10px;
-        left: 10px;
-        right: 10px;
-        z-index: 5;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        font-size: 0.72rem;
-        color: #e5e7eb;
-        background: rgba(17, 24, 39, 0.72);
-        padding: 6px 10px;
-        pointer-events: none;
-      }
-
-      .planner-3d-legend span {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-      }
-
-      .planner-3d-legend i {
-        width: 10px;
-        height: 10px;
-        border-radius: 2px;
-        display: inline-block;
-      }
-
-      .planner-sim-dashboard {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        z-index: 6;
-        width: min(320px, calc(100% - 20px));
-        max-height: calc(100% - 20px);
-        overflow-y: auto;
-        background: rgba(255, 255, 255, 0.94);
-        border: 1px solid var(--border);
-        padding: 12px;
-        font-size: 0.8rem;
-      }
-
-      .planner-sim-dashboard.hidden {
-        display: none;
-      }
-
-      .planner-sim-dashboard h4 {
-        margin: 0 0 10px;
-        font-size: 0.88rem;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-      }
-
-      .planner-sim-control {
-        margin-bottom: 12px;
-      }
-
-      .planner-sim-control label {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 0.78rem;
-        color: var(--muted);
-        margin-bottom: 6px;
-      }
-
-      .planner-sim-control input[type="range"] {
-        width: 100%;
-      }
-
-      .planner-sim-kpis {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        margin-bottom: 12px;
-      }
-
-      .planner-sim-kpi {
-        border: 1px solid var(--border);
-        background: var(--bg);
-        padding: 8px;
-      }
-
-      .planner-sim-kpi span {
-        display: block;
-        font-size: 0.68rem;
-        color: var(--muted);
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-      }
-
-      .planner-sim-kpi strong {
-        display: block;
-        margin-top: 4px;
-        font-size: 1.05rem;
-      }
-
-      .planner-sim-kpis-foot {
-        grid-column: 1 / -1;
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 8px;
-      }
-
-      .planner-sim-kpi-accent {
-        border-color: rgba(6, 182, 212, 0.35);
-        background: rgba(6, 182, 212, 0.06);
-      }
-
-      .planner-sim-kpi-accent strong {
-        color: #0891b2;
-      }
-
-      .planner-sim-legend {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        margin-bottom: 10px;
-        font-size: 0.72rem;
-        color: var(--muted);
-      }
-
-      .planner-sim-legend-bar {
-        flex: 1;
-        height: 10px;
-        border: 1px solid var(--border);
-        background: linear-gradient(90deg, #1e40af 0%, #22c55e 35%, #eab308 65%, #ef4444 100%);
-      }
-
-      .planner-sim-zones {
-        border-top: 1px solid var(--border);
-        padding-top: 8px;
-      }
-
-      .planner-sim-zones h5 {
-        margin: 0 0 6px;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        color: var(--muted);
-      }
-
-      .planner-sim-zone-row {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 4px 8px;
-        padding: 5px 0;
-        border-bottom: 1px solid #ddd;
-        font-size: 0.74rem;
-      }
-
-      .planner-sim-zone-row:last-child {
-        border-bottom: none;
-      }
-
-      .planner-sim-note {
-        margin: 10px 0 0;
-        font-size: 0.72rem;
-        color: var(--muted);
-        line-height: 1.35;
-      }
-
-      .planner-sim-actions {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 12px;
-      }
-
-      .planner-sim-actions .action-btn {
-        flex: 1;
-        font-size: 0.78rem;
-      }
-
-      .planner-sim-actions .action-btn.active {
-        background: var(--accent);
-      }
-
-      .planner-sim-camera-actions {
-        margin-top: 6px;
-      }
-
-      .planner-3d-toolbar.hidden {
-        display: none;
-      }
-
-      .planner-canvas-wrap {
-        overflow: hidden;
-      }
-
-      .planner-canvas-wrap #plannerCanvas,
-      .planner-canvas-wrap .lower-canvas {
-        width: 100% !important;
-        height: 100% !important;
-      }
-
-      @media (max-width: 1020px) {
-        .planner-layout {
-          grid-template-columns: 1fr;
-        }
-
-        .planner-tools {
-          max-height: none;
-        }
-
-        .planner-view-stage,
-        .planner-canvas-wrap,
-        .planner-3d-wrap {
-          min-height: 420px;
-        }
-      }
-    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/workbench.css" />
+    <link rel="stylesheet" href="/planner-page.css" />
   </head>
   <body>
     <div class="container">
-      <header class="topbar">
-        <div class="brand">
-          <div class="logo-dot">P</div>
-          <div>
-            <span class="brand-title">Store Planner</span>
-            <span class="brand-sub">Layout, monitoring zones &amp; 3D walkthrough</span>
+      <header class="wb-header">
+        <div class="wb-header-row topbar">
+          <div class="brand">
+            <div class="logo-dot">P</div>
+            <div>
+              <span class="brand-title wb-wordmark">store planner</span>
+              <span class="brand-sub">Layout, monitoring zones &amp; 3D walkthrough</span>
+            </div>
           </div>
+          <nav class="nav-actions">
+            <a class="action-btn" href="/">← Simulator</a>
+            <a class="action-btn" href="/backoffice.html">Backoffice</a>
+            <button type="button" class="action-btn" id="plannerExportStateBtn">Export session</button>
+            <button type="button" class="action-btn" id="plannerImportStateBtn">Import session</button>
+            <button type="button" class="action-btn" id="plannerResetBtn">Reset</button>
+            <input id="plannerImportStateInput" type="file" accept="application/json" hidden />
+          </nav>
         </div>
-        <nav class="nav-actions">
-          <a class="action-btn" href="/">← Simulator</a>
-          <a class="action-btn" href="/backoffice.html">Backoffice</a>
-          <button type="button" class="action-btn" id="plannerExportStateBtn">Export session</button>
-          <button type="button" class="action-btn" id="plannerImportStateBtn">Import session</button>
-          <button type="button" class="action-btn" id="plannerResetBtn">Reset</button>
-          <input id="plannerImportStateInput" type="file" accept="application/json" style="display: none;" />
-        </nav>
       </header>
 
       <section class="page-intro">
@@ -693,7 +118,7 @@
                 Save and reload complete layouts — fixtures, monitoring zones, and view preferences stay in sync across 2D, 3D, and simulation.
               </p>
               <label for="plannerTemplateSelect">Saved templates</label>
-              <select id="plannerTemplateSelect" style="width: 100%; margin: 6px 0 8px; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: inherit;"></select>
+              <select id="plannerTemplateSelect" style="width: 100%; margin: 6px 0 8px; padding: 8px; border-radius: 3px; border: 1px solid var(--border); background: var(--wb-surface); color: inherit;"></select>
               <p class="offline-note" id="plannerTemplateSummary">No saved templates yet.</p>
               <div class="planner-actions" style="margin-bottom: 12px;">
                 <button type="button" class="action-btn" id="plannerLoadTemplateBtn">Load template</button>
@@ -739,7 +164,7 @@
               <div class="planner-grid">
                 <div>
                   <label for="senseiFormat">Store format</label>
-                  <select id="senseiFormat" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: inherit;">
+                  <select id="senseiFormat" style="width: 100%; padding: 8px; border-radius: 3px; border: 1px solid var(--border); background: var(--wb-surface); color: inherit;">
                     <option value="auto">Auto (from area)</option>
                     <option value="POD">POD</option>
                     <option value="Corner">Corner</option>
@@ -749,14 +174,14 @@
                 </div>
                 <div>
                   <label for="senseiProjectType">Project type</label>
-                  <select id="senseiProjectType" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: inherit;">
+                  <select id="senseiProjectType" style="width: 100%; padding: 8px; border-radius: 3px; border: 1px solid var(--border); background: var(--wb-surface); color: inherit;">
                     <option value="full">Full (tracking + shelf)</option>
                     <option value="tracking">Tracking only</option>
                   </select>
                 </div>
                 <div>
                   <label for="senseiCountry">Installation country</label>
-                  <select id="senseiCountry" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: inherit;">
+                  <select id="senseiCountry" style="width: 100%; padding: 8px; border-radius: 3px; border: 1px solid var(--border); background: var(--wb-surface); color: inherit;">
                     <option value="PT">Portugal</option>
                     <option value="ES">Spain</option>
                     <option value="IT">Italy</option>
@@ -767,7 +192,7 @@
                 </div>
                 <div>
                   <label for="senseiUplink">Network uplink</label>
-                  <select id="senseiUplink" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: inherit;">
+                  <select id="senseiUplink" style="width: 100%; padding: 8px; border-radius: 3px; border: 1px solid var(--border); background: var(--wb-surface); color: inherit;">
                     <option value="Wired Only">Wired only</option>
                     <option value="Wired + 5G">Wired + 5G backup</option>
                   </select>
@@ -881,7 +306,7 @@
                     <button type="button" class="action-btn active" id="planner3dGridBtn">Camera grid</button>
                   </div>
                   <div class="planner-3d-legend">
-                    <span><i style="background:#d9f04f;"></i>Ambient</span>
+                    <span><i style="background:#fff9c4;"></i>Ambient</span>
                     <span><i style="background:#3b82f6;"></i>Cold</span>
                     <span><i style="background:#f97316;"></i>Hot</span>
                     <span><i style="background:#06b6d4;"></i>Count</span>

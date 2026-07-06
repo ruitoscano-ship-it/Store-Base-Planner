@@ -1,0 +1,261 @@
+/* Store Planner page — extends workbench.css */
+
+.planner-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 16px;
+  align-items: stretch;
+  min-height: min(78vh, 820px);
+}
+
+.planner-layout > div:last-child {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.planner-tools {
+  border: 1px solid var(--wb-border);
+  border-radius: var(--wb-radius);
+  background: var(--wb-surface);
+  padding: 14px;
+  overflow-y: auto;
+  max-height: min(78vh, 820px);
+}
+
+.planner-tools h4 {
+  margin: 0 0 8px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wb-text-muted);
+}
+
+.planner-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.planner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.planner-actions .action-btn {
+  flex: 1 1 130px;
+}
+
+.planner-preset-actions .action-btn {
+  flex: 1 1 88px;
+  font-size: 0.78rem;
+}
+
+.planner-view-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.planner-view-stage {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 520px;
+  min-width: 0;
+}
+
+.planner-canvas-wrap,
+.planner-3d-wrap {
+  flex: 1;
+  min-height: 520px;
+  border: 1px solid var(--wb-border);
+  border-radius: var(--wb-radius);
+  background: var(--wb-surface-muted);
+  position: relative;
+  overflow: hidden;
+}
+
+.planner-canvas-wrap.hidden,
+.planner-3d-wrap.hidden,
+.planner-3d-toolbar.hidden,
+.planner-sim-dashboard.hidden {
+  display: none;
+}
+
+.planner-3d-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+#planner3dContainer {
+  flex: 1;
+  min-height: 420px;
+  width: 100%;
+}
+
+.planner-3d-toolbar {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: calc(100% - 20px);
+}
+
+.planner-3d-toolbar .action-btn {
+  font-size: 0.76rem;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.planner-3d-hint {
+  position: absolute;
+  bottom: 52px;
+  left: 10px;
+  right: 10px;
+  z-index: 5;
+  font-size: 0.78rem;
+  color: #f9f8f6;
+  background: rgba(0, 0, 0, 0.78);
+  padding: 8px 12px;
+  border-radius: var(--wb-radius);
+  pointer-events: none;
+}
+
+.planner-3d-legend {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.72rem;
+  color: #f9f8f6;
+  background: rgba(0, 0, 0, 0.78);
+  padding: 8px 12px;
+  border-radius: var(--wb-radius);
+  pointer-events: none;
+}
+
+.planner-3d-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.planner-sim-dashboard {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 6;
+  width: min(320px, calc(100% - 20px));
+  max-height: calc(100% - 20px);
+  overflow-y: auto;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid var(--wb-border);
+  border-radius: var(--wb-radius);
+  padding: 14px;
+  font-size: 0.8rem;
+}
+
+.planner-sim-dashboard h4 {
+  margin: 0 0 10px;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--wb-text-muted);
+}
+
+.planner-sim-kpis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.planner-sim-kpi {
+  border: 1px solid var(--wb-border);
+  background: var(--wb-surface-muted);
+  padding: 8px;
+  border-radius: var(--wb-radius);
+}
+
+.planner-sim-kpi span {
+  display: block;
+  font-size: 0.66rem;
+  color: var(--wb-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.planner-sim-kpi strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.05rem;
+}
+
+.planner-sim-kpis-foot {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+.planner-sim-kpi-accent {
+  border-color: var(--wb-border-medium);
+  background: var(--wb-highlight);
+}
+
+.blueprint-info {
+  margin: 10px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--wb-highlight-border);
+  border-radius: var(--wb-radius);
+  background: var(--wb-highlight);
+}
+
+.blueprint-info-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wb-text);
+  background: var(--wb-surface);
+  padding: 2px 7px;
+  border: 1px solid var(--wb-border);
+  border-radius: var(--wb-radius);
+}
+
+.planner-canvas-wrap #plannerCanvas,
+.planner-canvas-wrap .lower-canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+@media (max-width: 1020px) {
+  .planner-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .planner-tools {
+    max-height: none;
+  }
+
+  .planner-view-stage,
+  .planner-canvas-wrap,
+  .planner-3d-wrap {
+    min-height: 420px;
+  }
+}

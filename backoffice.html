@@ -4,216 +4,26 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Store Profile Backoffice</title>
-    <style>
-      :root {
-        --bg: #e9eae6;
-        --card: #eeefeb;
-        --text: #111111;
-        --muted: #3d3d3d;
-        --border: #1a1a1a;
-        --accent: #d9f04f;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        font-family: Inter, Avenir, Segoe UI, Roboto, Arial, sans-serif;
-        color: var(--text);
-        background: var(--bg);
-      }
-
-      .container {
-        max-width: 1180px;
-        margin: 0 auto;
-        padding: 20px 22px 40px;
-      }
-
-      .topbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-        border: 1px solid var(--border);
-        padding: 12px 14px;
-        margin-bottom: 14px;
-      }
-
-      h1 {
-        margin: 0;
-        font-size: 1.5rem;
-      }
-
-      .subtitle {
-        margin: 4px 0 0;
-        color: var(--muted);
-        font-size: 0.9rem;
-      }
-
-      .btn {
-        border: 1px solid var(--border);
-        background: var(--bg);
-        color: var(--text);
-        padding: 8px 12px;
-        font-weight: 700;
-        cursor: pointer;
-        text-decoration: none;
-        display: inline-block;
-      }
-
-      .btn:hover {
-        background: var(--accent);
-      }
-
-      .btn-primary {
-        background: var(--accent);
-      }
-
-      .admin-token-input {
-        border: 1px solid var(--border);
-        background: var(--bg);
-        color: var(--text);
-        padding: 8px 10px;
-        min-width: 140px;
-        font: inherit;
-      }
-
-      .panel {
-        border: 1px solid var(--border);
-        background: var(--card);
-        padding: 14px;
-        margin-bottom: 14px;
-      }
-
-      .panel h2 {
-        margin: 0 0 10px;
-        font-size: 1rem;
-      }
-
-      .grid-4 {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(140px, 1fr));
-        gap: 10px;
-      }
-
-      .grid-3 {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(140px, 1fr));
-        gap: 10px;
-      }
-
-      label {
-        display: block;
-        font-size: 0.78rem;
-        color: var(--muted);
-        margin-bottom: 4px;
-      }
-
-      input {
-        width: 100%;
-        border: 1px solid var(--border);
-        background: #f3f4f0;
-        color: var(--text);
-        padding: 7px 8px;
-      }
-
-      table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-
-      th,
-      td {
-        border-bottom: 1px solid #bbb;
-        padding: 8px 6px;
-        text-align: left;
-        font-size: 0.86rem;
-        vertical-align: top;
-      }
-
-      th {
-        font-size: 0.78rem;
-        text-transform: uppercase;
-        letter-spacing: 0.4px;
-      }
-
-      td input {
-        min-width: 72px;
-      }
-
-      td input[type="number"] {
-        max-width: 96px;
-      }
-
-      .prop-id {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        font-size: 0.76rem;
-        color: var(--muted);
-      }
-
-      .hint {
-        color: var(--muted);
-        font-size: 0.82rem;
-        margin: 0 0 10px;
-      }
-
-      .status {
-        margin: 0;
-        font-size: 0.85rem;
-      }
-
-      .status.ok {
-        color: #1f7a3f;
-      }
-
-      .status.warn {
-        color: #9a6a00;
-      }
-
-      .status.bad {
-        color: #7d1820;
-      }
-
-      .api-block {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        font-size: 0.82rem;
-        background: #f3f4f0;
-        border: 1px solid var(--border);
-        padding: 10px;
-        margin: 8px 0;
-        white-space: pre-wrap;
-        word-break: break-all;
-      }
-
-      .actions {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        margin-top: 10px;
-      }
-
-      @media (max-width: 900px) {
-        .grid-4,
-        .grid-3 {
-          grid-template-columns: 1fr 1fr;
-        }
-      }
-    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/workbench.css" />
   </head>
   <body>
     <div class="container">
-      <header class="topbar">
-        <div>
-          <h1>Store Profile Backoffice</h1>
-          <p class="subtitle">Configure store layout presets, Sensei calculator defaults, prop dimensions, and review simulator verticals. CAPEX uses Setup_Calculator.html rules via sensei-setup-assumptions.json.</p>
-        </div>
-        <div class="actions">
-          <a class="btn" href="/">Open Simulator</a>
-          <a class="btn" href="/planner.html">Open Store Planner</a>
-          <input class="admin-token-input" id="adminToken" type="password" placeholder="Admin token" title="Required when ADMIN_TOKEN is set on the server" autocomplete="off" />
-          <button class="btn btn-primary" id="saveBtn" type="button">Save configuration</button>
+      <header class="wb-header">
+        <div class="wb-header-row topbar">
+          <div class="brand">
+            <div>
+              <span class="brand-title wb-wordmark">backoffice</span>
+              <span class="brand-sub">Store profiles, fixtures, Sensei defaults &amp; verticals</span>
+            </div>
+          </div>
+          <div class="actions">
+            <a class="btn" href="/">Open Simulator</a>
+            <a class="btn" href="/planner.html">Open Store Planner</a>
+            <input class="admin-token-input" id="adminToken" type="password" placeholder="Admin token" title="Required when ADMIN_TOKEN is set on the server" autocomplete="off" />
+            <button class="btn btn-primary" id="saveBtn" type="button">Save configuration</button>
+          </div>
         </div>
       </header>
 
@@ -228,14 +38,14 @@
         <div class="grid-4">
           <div>
             <label for="senseiProjectType">Project type</label>
-            <select id="senseiProjectType" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: inherit;">
+            <select id="senseiProjectType" style="width: 100%; padding: 8px; background: var(--wb-surface); border-radius: 3px; color: inherit;">
               <option value="full">Full (tracking + shelf)</option>
               <option value="tracking">Tracking only</option>
             </select>
           </div>
           <div>
             <label for="senseiFormat">Default format</label>
-            <select id="senseiFormat" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: inherit;">
+            <select id="senseiFormat" style="width: 100%; padding: 8px; background: var(--wb-surface); border-radius: 3px; color: inherit;">
               <option value="auto">Auto (from area)</option>
               <option value="POD">POD</option>
               <option value="Corner">Corner</option>
@@ -245,7 +55,7 @@
           </div>
           <div>
             <label for="senseiCountry">Installation country</label>
-            <select id="senseiCountry" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: inherit;">
+            <select id="senseiCountry" style="width: 100%; padding: 8px; background: var(--wb-surface); border-radius: 3px; color: inherit;">
               <option value="PT">Portugal</option>
               <option value="ES">Spain</option>
               <option value="IT">Italy</option>
@@ -256,7 +66,7 @@
           </div>
           <div>
             <label for="senseiUplink">Network uplink</label>
-            <select id="senseiUplink" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: inherit;">
+            <select id="senseiUplink" style="width: 100%; padding: 8px; background: var(--wb-surface); border-radius: 3px; color: inherit;">
               <option value="Wired Only">Wired only</option>
               <option value="Wired + 5G">Wired + 5G backup</option>
             </select>

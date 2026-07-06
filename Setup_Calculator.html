@@ -5,34 +5,34 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Sensei · Setup Calculator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg:#F5F5EC;
-    --bg2:#EEEEE4;
-    --bg3:#E2E2D6;
+    --bg:#F9F8F6;
+    --bg2:#F3F2EF;
+    --bg3:#EEEDEA;
     --surface:#FFFFFF;
-    --border:rgba(0,0,0,0.07);
+    --border:rgba(0,0,0,0.08);
     --border2:rgba(0,0,0,0.14);
-    --text:#0A0A0A;
-    --text2:#3D3D36;
-    --text3:#8A8A7E;
-    --yellow:#F0F078;
-    --yellow-dim:#D8D860;
-    --yellow-bg:#FAFAE6;
+    --text:#000000;
+    --text2:#666666;
+    --text3:#888888;
+    --yellow:#FFF9C4;
+    --yellow-dim:#F5EEB8;
+    --yellow-bg:#FFFDF0;
     --green:#1A6B1A;
     --green-light:#EAF7EA;
     --amber:#7A5200;
-    --amber-light:#FFF8DC;
+    --amber-light:#FFF9C4;
     --red:#A80000;
     --red-light:#FFF2F2;
     --sidebar-w:200px;
     --topbar-h:56px;
-    --font:'DM Sans',system-ui,sans-serif;
+    --font:Inter,Avenir,'Segoe UI',Roboto,Arial,sans-serif;
     --mono:'DM Mono','Courier New',monospace;
-    --r:10px;
-    --r-lg:14px;
-    --r-xl:18px;
+    --r:3px;
+    --r-lg:4px;
+    --r-xl:4px;
   }
 
   *{box-sizing:border-box;margin:0;padding:0}
@@ -44,33 +44,33 @@
   /* ── Sidebar ── */
   .sidebar{
     width:var(--sidebar-w);min-width:var(--sidebar-w);
-    background:#111110;
+    background:var(--bg2);
     display:flex;flex-direction:column;
-    overflow:hidden;border-right:1px solid rgba(255,255,255,0.04);
+    overflow:hidden;border-right:1px solid var(--border2);
   }
   .sidebar-header{
     padding:20px 16px 16px;
     display:flex;align-items:center;gap:10px;
-    border-bottom:1px solid rgba(255,255,255,0.05);
+    border-bottom:1px solid var(--border2);
     flex-shrink:0;
   }
   .sidebar-logo-dot{
-    width:26px;height:26px;border-radius:8px;
-    background:var(--yellow);
+    width:26px;height:26px;border-radius:var(--r);
+    background:#000000;
     display:flex;align-items:center;justify-content:center;
     flex-shrink:0;font-size:11px;font-weight:800;
-    color:#111110;letter-spacing:-0.5px;
+    color:#ffffff;letter-spacing:-0.5px;
   }
   .sidebar-logo{
     display:flex;flex-direction:column;
-    font-size:13px;font-weight:700;color:#FFFFFF;letter-spacing:0.02em;
+    font-size:13px;font-weight:700;color:var(--text);letter-spacing:-0.02em;
     line-height:1.2;
   }
-  .sidebar-version{font-size:9px;color:rgba(255,255,255,0.25);font-weight:400;letter-spacing:0.04em;margin-top:1px}
+  .sidebar-version{font-size:9px;color:var(--text3);font-weight:400;letter-spacing:0.04em;margin-top:1px}
 
   .sidebar-nav{padding:8px 8px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:1px}
   .nav-section{
-    font-size:8px;font-weight:700;color:rgba(255,255,255,0.2);
+    font-size:8px;font-weight:700;color:var(--text3);
     letter-spacing:0.14em;text-transform:uppercase;
     padding:14px 8px 4px;
   }
@@ -79,12 +79,12 @@
     display:flex;align-items:center;gap:8px;
     padding:8px 10px;cursor:pointer;
     font-size:12px;font-weight:500;letter-spacing:0.01em;
-    color:rgba(255,255,255,0.38);
-    border-radius:7px;transition:all 0.1s;
+    color:var(--text2);
+    border-radius:var(--r);transition:all 0.1s;
     user-select:none;position:relative;
   }
-  .nav-item:hover{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.65)}
-  .nav-item.active{background:var(--yellow);color:#111110;font-weight:700}
+  .nav-item:hover{background:var(--bg3);color:var(--text)}
+  .nav-item.active{background:var(--yellow);color:var(--text);font-weight:700}
   .nav-item.active svg{opacity:1}
   .nav-item svg{flex-shrink:0;opacity:0.45;transition:opacity 0.1s}
   .nav-item:hover svg{opacity:0.7}
@@ -101,7 +101,7 @@
   .main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
   .topbar{
     height:var(--topbar-h);flex-shrink:0;
-    background:rgba(245,245,236,0.85);backdrop-filter:blur(20px);
+    background:var(--bg);
     border-bottom:1px solid var(--border2);
     padding:0 28px;
     display:flex;align-items:center;justify-content:space-between;
@@ -125,11 +125,11 @@
   .btn:hover{background:var(--bg2);border-color:rgba(0,0,0,0.25)}
   .btn:active{transform:scale(0.98)}
   .btn-primary{
-    background:#111110;color:var(--yellow);
-    border-color:#111110;
-    box-shadow:0 1px 4px rgba(0,0,0,0.2);
+    background:#000000;color:#ffffff;
+    border-color:#000000;
+    box-shadow:none;
   }
-  .btn-primary:hover{background:#222220;border-color:#222220}
+  .btn-primary:hover{background:#222222;border-color:#222222}
   .btn-danger{background:var(--red-light);color:var(--red);border-color:rgba(168,0,0,0.15)}
   .btn-danger:hover{background:#ffe4e4}
   .btn-sm{padding:4px 10px;font-size:11px;border-radius:5px}

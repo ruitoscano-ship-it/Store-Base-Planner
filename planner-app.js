@@ -3200,7 +3200,7 @@
     const measured = Boolean(dims);
     if (plannerBlueprintBadge) {
       plannerBlueprintBadge.textContent = measured ? "Measured" : "Estimated";
-      plannerBlueprintBadge.style.background = measured ? "var(--accent, #d9f04f)" : "#f6c84c";
+      plannerBlueprintBadge.style.background = measured ? "var(--wb-highlight, #fff9c4)" : "#f5eeb8";
     }
     if (plannerBlueprintNote) {
       plannerBlueprintNote.textContent = measured
@@ -3554,7 +3554,7 @@
       hasRotatingPoint: true,
       cornerStyle: "rect",
       cornerColor: "#111111",
-      cornerStrokeColor: "#d9f04f",
+      cornerStrokeColor: "#111111",
       transparentCorners: false,
       borderColor: "#111111"
     });
