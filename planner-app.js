@@ -3164,7 +3164,7 @@
       if (calibration.healthy == null) {
         saasCalibrationDetail.textContent = calibration.message;
       } else {
-        saasCalibrationDetail.textContent = `${calibration.message} CapEx ${currency.format(calibration.capexEur)} vs SaaS ${currency.format(calibration.saasTotalEur)} (cap ${currency.format(calibration.saasCapEur)}).`;
+        saasCalibrationDetail.textContent = `${calibration.message} CapEx ${currency.format(calibration.capexEur)} vs annual SaaS ${currency.format(calibration.saasAnnualEur)} (${currency.format(calibration.saasMonthlyEur)}/mo · cap ${currency.format(calibration.saasCapEur)}).`;
       }
     }
   }

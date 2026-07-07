@@ -56,40 +56,45 @@ function computeSaasProposedCost(areaSqm, rateOverrides = {}) {
 }
 
 const CAPEX_SAAS_HEALTHY_RATIO = 3;
+const SAAS_MONTHS_PER_YEAR = 12;
 
-function evaluateCapexSaasCalibration(capexEur, saasTotalEur) {
+function evaluateCapexSaasCalibration(capexEur, saasMonthlyEur) {
   const capex = Number(capexEur);
-  const saas = Number(saasTotalEur);
-  if (!Number.isFinite(capex) || capex < 0 || !Number.isFinite(saas) || saas <= 0) {
+  const saasMonthly = Number(saasMonthlyEur);
+  if (!Number.isFinite(capex) || capex < 0 || !Number.isFinite(saasMonthly) || saasMonthly <= 0) {
     return {
       healthy: null,
       ratio: null,
       capRatio: CAPEX_SAAS_HEALTHY_RATIO,
       capexEur: Number.isFinite(capex) ? capex : null,
-      saasTotalEur: Number.isFinite(saas) ? saas : null,
+      saasMonthlyEur: Number.isFinite(saasMonthly) ? saasMonthly : null,
+      saasAnnualEur: null,
       saasCapEur: null,
-      message: "CapEx and SaaS totals required to calibrate."
+      message: "CapEx and monthly SaaS totals required to calibrate."
     };
   }
-  const saasCapEur = CAPEX_SAAS_HEALTHY_RATIO * saas;
-  const ratio = capex / saas;
+  const saasAnnualEur = saasMonthly * SAAS_MONTHS_PER_YEAR;
+  const saasCapEur = CAPEX_SAAS_HEALTHY_RATIO * saasAnnualEur;
+  const ratio = capex / saasAnnualEur;
   const healthy = capex < saasCapEur;
   return {
     healthy,
     ratio,
     capRatio: CAPEX_SAAS_HEALTHY_RATIO,
     capexEur: capex,
-    saasTotalEur: saas,
+    saasMonthlyEur: saasMonthly,
+    saasAnnualEur,
     saasCapEur,
     message: healthy
-      ? `CapEx is ${ratio.toFixed(2)}× SaaS — below the ${CAPEX_SAAS_HEALTHY_RATIO}× cap (healthy).`
-      : `CapEx is ${ratio.toFixed(2)}× SaaS — at or above the ${CAPEX_SAAS_HEALTHY_RATIO}× cap (review pricing).`
+      ? `CapEx is ${ratio.toFixed(2)}× annual SaaS — below the ${CAPEX_SAAS_HEALTHY_RATIO}× cap (healthy).`
+      : `CapEx is ${ratio.toFixed(2)}× annual SaaS — at or above the ${CAPEX_SAAS_HEALTHY_RATIO}× cap (review pricing).`
   };
 }
 
 const PlannerSaasCost = {
   DEFAULT_SAAS_TIERS,
   CAPEX_SAAS_HEALTHY_RATIO,
+  SAAS_MONTHS_PER_YEAR,
   mergeSaasTiers,
   resolveSaasTier,
   computeSaasProposedCost,
