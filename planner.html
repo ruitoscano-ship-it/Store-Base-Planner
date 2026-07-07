@@ -227,6 +227,27 @@
                 <summary style="cursor: pointer; color: var(--muted); font-size: 0.88rem;">Hardware BOM breakdown</summary>
                 <pre id="senseiBomBreakdown" style="font-size: 0.72rem; white-space: pre-wrap; margin-top: 6px; max-height: 220px; overflow: auto;"></pre>
               </details>
+
+              <h4 style="margin-top: 18px;">SaaS proposed cost</h4>
+              <p class="readiness-sub" style="margin: 0 0 8px;">
+                Tiered €/m² from store selling area. Override rates below to model pricing scenarios.
+              </p>
+              <div class="saas-tier-chart" id="saasTierChart" aria-hidden="true"></div>
+              <div class="saas-tier-rates" id="saasTierRates"></div>
+              <div class="planner-actions" style="margin: 8px 0;">
+                <button type="button" class="action-btn" id="saasTierResetBtn">Reset tier rates</button>
+              </div>
+              <p class="offline-note">Active band: <strong id="saasActiveBand">—</strong></p>
+              <p class="offline-note">Rate: <strong id="saasRatePerSqm">—</strong>/m²</p>
+              <p class="offline-note">SaaS proposed cost: <strong id="saasProposedTotal">—</strong></p>
+              <p class="offline-note" id="saasFormulaNote">—</p>
+
+              <div class="saas-calibration" id="saasCalibrationPanel">
+                <p class="saas-calibration-kicker">Price calibration</p>
+                <p class="saas-calibration-rule">Healthy when CapEx &lt; 3× SaaS proposed cost.</p>
+                <p class="saas-calibration-flag" id="saasCalibrationFlag">—</p>
+                <p class="offline-note" id="saasCalibrationDetail">—</p>
+              </div>
             </aside>
 
             <div>
@@ -333,6 +354,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="planner-sensei-cost.js"></script>
+    <script src="planner-saas-cost.js"></script>
     <script src="planner-app.js"></script>
   </body>
 </html>

@@ -259,3 +259,129 @@
     min-height: 420px;
   }
 }
+
+/* SaaS tier pricing chart */
+.saas-tier-chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 120px;
+  margin: 10px 0 12px;
+  padding: 12px 8px 4px;
+  border: 1px solid var(--wb-border);
+  border-radius: var(--wb-radius);
+  background: var(--wb-surface-muted);
+}
+
+.saas-tier-bar {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.saas-tier-bar-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #4a7fc1;
+}
+
+.saas-tier-bar-fill {
+  width: 100%;
+  max-width: 42px;
+  border-radius: 3px 3px 0 0;
+  background: #6b9fd4;
+  transition: height 0.15s ease, background 0.15s ease;
+}
+
+.saas-tier-bar.active .saas-tier-bar-fill {
+  background: #2f6fad;
+}
+
+.saas-tier-bar.active .saas-tier-bar-value {
+  color: #1e4f7a;
+  font-weight: 700;
+}
+
+.saas-tier-bar-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.62rem;
+  color: var(--wb-text-secondary);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.saas-tier-rates {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.saas-tier-rate-row {
+  display: grid;
+  grid-template-columns: 1fr 72px;
+  gap: 8px;
+  align-items: center;
+}
+
+.saas-tier-rate-row label {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--wb-text);
+}
+
+.saas-tier-rate-row input {
+  padding: 6px 8px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.saas-tier-rate-row.active label {
+  font-weight: 700;
+}
+
+.saas-calibration {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--wb-border);
+  border-radius: var(--wb-radius);
+  background: var(--wb-surface-muted);
+}
+
+.saas-calibration-kicker {
+  margin: 0 0 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wb-text-muted);
+}
+
+.saas-calibration-rule {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  color: var(--wb-text-secondary);
+}
+
+.saas-calibration-flag {
+  margin: 0 0 6px;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.saas-calibration-flag.healthy {
+  color: var(--wb-ok);
+}
+
+.saas-calibration-flag.unhealthy {
+  color: var(--wb-bad);
+}
+
+.saas-calibration-flag.pending {
+  color: var(--wb-text-muted);
+}

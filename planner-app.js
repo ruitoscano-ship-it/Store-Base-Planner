@@ -98,6 +98,15 @@
   const plannerEstimatedCapexLabel = document.getElementById("plannerEstimatedCapex");
   const plannerEstimatedCostPerSqmLabel = document.getElementById("plannerEstimatedCostPerSqm");
   const senseiBomBreakdown = document.getElementById("senseiBomBreakdown");
+  const saasTierChart = document.getElementById("saasTierChart");
+  const saasTierRates = document.getElementById("saasTierRates");
+  const saasTierResetBtn = document.getElementById("saasTierResetBtn");
+  const saasActiveBandLabel = document.getElementById("saasActiveBand");
+  const saasRatePerSqmLabel = document.getElementById("saasRatePerSqm");
+  const saasProposedTotalLabel = document.getElementById("saasProposedTotal");
+  const saasFormulaNote = document.getElementById("saasFormulaNote");
+  const saasCalibrationFlag = document.getElementById("saasCalibrationFlag");
+  const saasCalibrationDetail = document.getElementById("saasCalibrationDetail");
   const STORAGE_KEY = "smart_store_planner_v1";
   const LEGACY_SIMULATOR_KEY = "smart_store_simulator_v1";
   const PLANNER_MARGIN = 20;
@@ -2963,6 +2972,106 @@
     updatePlannerEstimate();
   }
 
+  function getSaasTierRateOverrides() {
+    const overrides = {};
+    if (!saasTierRates) return overrides;
+    saasTierRates.querySelectorAll("[data-saas-tier-id]").forEach((input) => {
+      const id = input.dataset.saasTierId;
+      const value = Number(input.value);
+      if (id && !Number.isNaN(value)) overrides[id] = value;
+    });
+    return overrides;
+  }
+
+  function saasTierChartLabel(tier) {
+    if (tier.id === "tier-15") return "15";
+    if (tier.maxSqm === Infinity) return "1200+";
+    return String(tier.minSqm);
+  }
+
+  function renderSaasTierChart(tiers, activeTierId) {
+    if (!saasTierChart) return;
+    const maxRate = Math.max(...tiers.map((t) => t.rateEur), 1);
+    saasTierChart.innerHTML = tiers
+      .map((tier) => {
+        const heightPct = Math.max(12, (tier.rateEur / maxRate) * 100);
+        const active = tier.id === activeTierId ? " active" : "";
+        return `<div class="saas-tier-bar${active}" data-saas-chart-tier="${tier.id}">
+          <span class="saas-tier-bar-value">€${tier.rateEur}</span>
+          <div class="saas-tier-bar-fill" style="height:${heightPct}px"></div>
+          <span class="saas-tier-bar-label">${saasTierChartLabel(tier)}</span>
+        </div>`;
+      })
+      .join("");
+  }
+
+  function renderSaasTierRateInputs(tiers, activeTierId) {
+    if (!saasTierRates) return;
+    saasTierRates.innerHTML = tiers
+      .map(
+        (tier) => `<div class="saas-tier-rate-row${tier.id === activeTierId ? " active" : ""}" data-saas-row-tier="${tier.id}">
+        <label for="saas-rate-${tier.id}">${tier.label} (€/m²)</label>
+        <input id="saas-rate-${tier.id}" type="number" min="0" max="9999" step="0.01" value="${tier.rateEur}" data-saas-tier-id="${tier.id}" />
+      </div>`
+      )
+      .join("");
+    saasTierRates.querySelectorAll("[data-saas-tier-id]").forEach((input) => {
+      input.addEventListener("input", () => {
+        updatePlannerEstimate();
+        persistState();
+      });
+    });
+  }
+
+  function initSaasTierRatesUI(rateOverrides = {}) {
+    const saas = globalThis.PlannerSaasCost;
+    if (!saas || !saasTierRates) return;
+    const tiers = saas.mergeSaasTiers(rateOverrides);
+    renderSaasTierRateInputs(tiers, null);
+    renderSaasTierChart(tiers, null);
+  }
+
+  function updateSaasProposedCostDisplay(areaSqm) {
+    const saas = globalThis.PlannerSaasCost;
+    if (!saas) return null;
+    const result = saas.computeSaasProposedCost(areaSqm, getSaasTierRateOverrides());
+    if (saasActiveBandLabel) saasActiveBandLabel.textContent = result.bandLabel;
+    if (saasRatePerSqmLabel) saasRatePerSqmLabel.textContent = currency.format(result.rateEurPerSqm);
+    if (saasProposedTotalLabel) saasProposedTotalLabel.textContent = currency.format(result.totalEur);
+    if (saasFormulaNote) saasFormulaNote.textContent = result.formula;
+    renderSaasTierChart(result.tiers, result.tier.id);
+    if (saasTierRates) {
+      saasTierRates.querySelectorAll(".saas-tier-rate-row").forEach((row) => {
+        row.classList.toggle("active", row.dataset.saasRowTier === result.tier.id);
+      });
+    }
+    return result;
+  }
+
+  function updateCapexSaasCalibration(capexEur, saasTotalEur) {
+    const saas = globalThis.PlannerSaasCost;
+    if (!saas || !saasCalibrationFlag) return;
+    const calibration = saas.evaluateCapexSaasCalibration(capexEur, saasTotalEur);
+    saasCalibrationFlag.classList.remove("healthy", "unhealthy", "pending");
+    if (calibration.healthy === true) {
+      saasCalibrationFlag.textContent = "Healthy";
+      saasCalibrationFlag.classList.add("healthy");
+    } else if (calibration.healthy === false) {
+      saasCalibrationFlag.textContent = "Review pricing";
+      saasCalibrationFlag.classList.add("unhealthy");
+    } else {
+      saasCalibrationFlag.textContent = "Pending";
+      saasCalibrationFlag.classList.add("pending");
+    }
+    if (saasCalibrationDetail) {
+      if (calibration.healthy == null) {
+        saasCalibrationDetail.textContent = calibration.message;
+      } else {
+        saasCalibrationDetail.textContent = `${calibration.message} CapEx ${currency.format(calibration.capexEur)} vs SaaS ${currency.format(calibration.saasTotalEur)} (cap ${currency.format(calibration.saasCapEur)}).`;
+      }
+    }
+  }
+
   function getPlannerSenseiOptions() {
     const pctRefRaw = senseiPctRefInput?.value?.trim();
     return {
@@ -2974,7 +3083,8 @@
       addSpare: Boolean(senseiAddSpareInput?.checked),
       scaleDiscount: clamp(Number(senseiScaleDiscountInput?.value) || 0, 0, 50),
       hasExternalTeam: Boolean(senseiExternalTeamInput?.checked),
-      pctRef: pctRefRaw ? clamp(Number(pctRefRaw) / 100, 0, 1) : null
+      pctRef: pctRefRaw ? clamp(Number(pctRefRaw) / 100, 0, 1) : null,
+      saasTierRates: getSaasTierRateOverrides()
     };
   }
 
@@ -2994,6 +3104,7 @@
           ? String(Math.round(Number(safeModel.pctRef) * 100))
           : "";
     }
+    initSaasTierRatesUI(safeModel.saasTierRates || {});
   }
 
   function countLayoutForEstimate() {
@@ -3031,6 +3142,7 @@
     if (countTotalModulesLabel) countTotalModulesLabel.textContent = String(totalModules);
     if (senseiDoorCountLabel) senseiDoorCountLabel.textContent = String(doors);
     if (senseiAreaLabel) senseiAreaLabel.textContent = number.format(areaSqm);
+    const saasResult = updateSaasProposedCostDisplay(areaSqm);
 
     const sensei = globalThis.PlannerSenseiCost;
     if (!sensei || !senseiAssumptions) {
@@ -3041,6 +3153,7 @@
           updatePlannerEstimate();
         });
       }
+      updateCapexSaasCalibration(null, saasResult?.totalEur);
       return;
     }
 
@@ -3059,6 +3172,7 @@
       if (senseiDetectedFormatLabel) senseiDetectedFormatLabel.textContent = result.format || "—";
       plannerEstimatedCapexLabel.textContent = "—";
       if (senseiBomBreakdown) senseiBomBreakdown.textContent = result.error;
+      updateCapexSaasCalibration(null, saasResult?.totalEur);
       return;
     }
 
@@ -3071,6 +3185,7 @@
     plannerEstimatedCapexLabel.textContent = currency.format(result.summary.capexEur);
     plannerEstimatedCostPerSqmLabel.textContent = `${currency.format(result.summary.capexPerSqmEur)}/m²`;
     if (senseiBomBreakdown) senseiBomBreakdown.textContent = formatSenseiBom(result.bom);
+    updateCapexSaasCalibration(result.summary.capexEur, saasResult?.totalEur);
     updateMonitoringSummary();
   }
 
@@ -4033,6 +4148,16 @@
         persistState();
       })
     );
+
+  if (saasTierResetBtn) {
+    saasTierResetBtn.addEventListener("click", () => {
+      initSaasTierRatesUI({});
+      updatePlannerEstimate();
+      persistState();
+    });
+  }
+
+  initSaasTierRatesUI();
 
   plannerLoadBlueprintBtn.addEventListener("click", () => plannerBlueprintInput.click());
   plannerBlueprintInput.addEventListener("change", async (event) => {
