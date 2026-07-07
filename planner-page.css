@@ -385,3 +385,256 @@
 .saas-calibration-flag.pending {
   color: var(--wb-text-muted);
 }
+
+/* Proposal Approach preview modal */
+.proposal-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.proposal-modal.hidden {
+  display: none;
+}
+
+.proposal-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(17, 17, 17, 0.45);
+}
+
+.proposal-modal-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(920px, 100%);
+  max-height: min(92vh, 980px);
+  border: 1px solid var(--wb-border);
+  border-radius: var(--wb-radius);
+  background: var(--wb-surface);
+  box-shadow: 0 18px 48px rgba(17, 17, 17, 0.18);
+}
+
+.proposal-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--wb-border);
+}
+
+.proposal-modal-kicker {
+  margin: 0 0 2px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wb-text-muted);
+}
+
+.proposal-modal-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.proposal-modal-close {
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--wb-text-secondary);
+  padding: 0 4px;
+}
+
+.proposal-modal-body {
+  overflow: auto;
+  padding: 16px 18px;
+  background: #fff;
+}
+
+.proposal-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--wb-border);
+}
+
+.proposal-modal-body .proposal-report {
+  max-width: none;
+}
+
+.proposal-modal-body .proposal-report-title {
+  font-size: 1.5rem;
+}
+
+.proposal-modal-body .proposal-snapshot img {
+  max-height: 280px;
+}
+
+.proposal-modal-body .proposal-question-list {
+  padding: 0;
+}
+
+.proposal-modal-body .proposal-question {
+  background: var(--wb-surface-muted);
+}
+
+.proposal-report-kicker {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--wb-text-muted);
+}
+
+.proposal-report-title {
+  margin: 0 0 8px;
+  font-size: 1.5rem;
+}
+
+.proposal-report-meta {
+  margin: 0 0 4px;
+  font-size: 0.88rem;
+  color: var(--wb-text-secondary);
+}
+
+.proposal-report-calibration {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--wb-border);
+  border-radius: var(--wb-radius);
+  font-size: 0.84rem;
+  background: var(--wb-highlight, #fff9c4);
+}
+
+.proposal-section {
+  margin-top: 22px;
+}
+
+.proposal-section h2 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  border-bottom: 1px solid var(--wb-border);
+  padding-bottom: 4px;
+}
+
+.proposal-section-lead {
+  margin: 0 0 10px;
+  font-size: 0.84rem;
+  color: var(--wb-text-secondary);
+}
+
+.proposal-snapshot {
+  margin: 0;
+}
+
+.proposal-snapshot img {
+  display: block;
+  width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  border: 1px solid var(--wb-border);
+  border-radius: var(--wb-radius);
+  background: var(--wb-surface-muted);
+}
+
+.proposal-metric-range {
+  margin: 0 0 6px;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.proposal-metric-mid,
+.proposal-metric-note {
+  margin: 0 0 6px;
+  font-size: 0.88rem;
+  color: var(--wb-text-secondary);
+}
+
+.proposal-question-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.proposal-question {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--wb-border);
+  border-radius: var(--wb-radius);
+}
+
+.proposal-question-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 0.74rem;
+}
+
+.proposal-question-num {
+  font-weight: 700;
+}
+
+.proposal-question-category {
+  color: var(--wb-text-secondary);
+}
+
+.proposal-risk {
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.66rem;
+}
+
+.proposal-risk-critical {
+  background: #fde8e8;
+  color: #9b1c1c;
+}
+
+.proposal-risk-high {
+  background: #fff3e0;
+  color: #b45309;
+}
+
+.proposal-risk-medium {
+  background: #fff9db;
+  color: #946200;
+}
+
+.proposal-risk-low {
+  background: #edf7ed;
+  color: #2f6b2f;
+}
+
+.proposal-question-text {
+  margin: 0 0 6px;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.proposal-question-mitigation {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--wb-text-secondary);
+  line-height: 1.45;
+}
+
+.proposal-report-footer {
+  margin-top: 22px;
+  padding-top: 10px;
+  border-top: 1px solid var(--wb-border);
+  font-size: 0.76rem;
+  color: var(--wb-text-muted);
+}

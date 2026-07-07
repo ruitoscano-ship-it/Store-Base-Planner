@@ -249,6 +249,9 @@
                 <p class="saas-calibration-flag" id="saasCalibrationFlag">—</p>
                 <p class="offline-note" id="saasCalibrationDetail">—</p>
               </div>
+              <div class="planner-actions" style="margin-top: 12px;">
+                <button type="button" class="action-btn" id="proposalApproachBtn">Proposal Approach</button>
+              </div>
             </aside>
 
             <div>
@@ -344,6 +347,24 @@
       </article>
     </div>
 
+    <div class="proposal-modal hidden" id="proposalModal" role="dialog" aria-modal="true" aria-labelledby="proposalModalTitle">
+      <div class="proposal-modal-backdrop" id="proposalModalBackdrop"></div>
+      <div class="proposal-modal-panel">
+        <header class="proposal-modal-header">
+          <div>
+            <p class="proposal-modal-kicker">Preview</p>
+            <h2 id="proposalModalTitle">Proposal Approach</h2>
+          </div>
+          <button type="button" class="proposal-modal-close" id="proposalModalClose" aria-label="Close preview">×</button>
+        </header>
+        <div class="proposal-modal-body" id="proposalModalBody"></div>
+        <footer class="proposal-modal-footer">
+          <button type="button" class="action-btn" id="proposalModalCloseBtn">Close</button>
+          <button type="button" class="action-btn" id="proposalExportPdfBtn">Export PDF</button>
+        </footer>
+      </div>
+    </div>
+
     <script type="importmap">
       {
         "imports": {
@@ -356,6 +377,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="planner-sensei-cost.js"></script>
     <script src="planner-saas-cost.js"></script>
+    <script src="planner-discovery-questions.js"></script>
+    <script src="planner-proposal-report.js"></script>
     <script src="planner-app.js"></script>
   </body>
 </html>

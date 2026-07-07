@@ -108,6 +108,18 @@
   const saasFormulaNote = document.getElementById("saasFormulaNote");
   const saasCalibrationFlag = document.getElementById("saasCalibrationFlag");
   const saasCalibrationDetail = document.getElementById("saasCalibrationDetail");
+  const proposalApproachBtn = document.getElementById("proposalApproachBtn");
+  const proposalExportPdfBtn = document.getElementById("proposalExportPdfBtn");
+
+  function getProposalModalElements() {
+    return {
+      modal: document.getElementById("proposalModal"),
+      backdrop: document.getElementById("proposalModalBackdrop"),
+      body: document.getElementById("proposalModalBody"),
+      close: document.getElementById("proposalModalClose"),
+      closeBtn: document.getElementById("proposalModalCloseBtn")
+    };
+  }
   const STORAGE_KEY = "smart_store_planner_v1";
   const LEGACY_SIMULATOR_KEY = "smart_store_simulator_v1";
   const PLANNER_MARGIN = 20;
@@ -485,28 +497,49 @@
     URL.revokeObjectURL(url);
   }
 
-  async function captureLayoutPreviewImage() {
-    if (!plannerState.canvas) return null;
-    await ensurePlanner3D();
-    const prevActive = plannerViewMode !== "2d";
-    if (!prevActive) {
-      planner3dView.setActive(true);
-      resizePlanner3DView();
-    }
-    const layout = refreshCachedLayout();
-    planner3dView.sync(layout, {
-      artifacts: getMergedProfileArtifacts(storeProfileConfig),
-      planner: storeProfileConfig?.planner,
-      refitCamera: true
+  const PROPOSAL_SNAPSHOT_WIDTH = 960;
+  const PROPOSAL_SNAPSHOT_HEIGHT = 560;
+
+  function waitAnimationFrames(count = 2) {
+    return new Promise((resolve) => {
+      const step = (remaining) => {
+        if (remaining <= 0) {
+          resolve();
+          return;
+        }
+        requestAnimationFrame(() => step(remaining - 1));
+      };
+      step(count);
     });
-    let previewImage = null;
+  }
+
+  async function captureLayoutPreviewImage({ isometric = false, width = PROPOSAL_SNAPSHOT_WIDTH, height = PROPOSAL_SNAPSHOT_HEIGHT } = {}) {
+    if (!plannerState.canvas) return null;
+    const view = await ensurePlanner3D();
+    if (!view) return null;
+
+    const viewWasActive = plannerViewMode !== "2d";
+    const prevCameraView = view.getCameraView?.() || "isometric";
+
     try {
-      previewImage = planner3dView.captureSnapshot();
+      if (!viewWasActive) view.setActive(true);
+      if (isometric) view.setCameraView("isometric");
+      view.resize(width, height);
+      const layout = refreshCachedLayout();
+      view.sync(layout, {
+        artifacts: getMergedProfileArtifacts(storeProfileConfig),
+        planner: storeProfileConfig?.planner,
+        refitCamera: true
+      });
+      await waitAnimationFrames(2);
+      return view.captureSnapshot();
     } catch (_error) {
-      previewImage = null;
+      return null;
+    } finally {
+      if (isometric && prevCameraView !== "isometric") view.setCameraView(prevCameraView);
+      if (!viewWasActive) view.setActive(false);
+      else resizePlanner3DView();
     }
-    if (!prevActive) planner3dView.setActive(false);
-    return previewImage;
   }
 
   async function export3dSnapshotPng() {
@@ -1472,6 +1505,8 @@
 
   let senseiAssumptions = null;
   let senseiAssumptionsLoading = false;
+  let plannerLastEstimate = null;
+  let proposalReportHtml = "";
 
   const legacyDefaultSenseiOptions = {
     format: "auto",
@@ -3134,6 +3169,122 @@
     }
   }
 
+  function closeProposalModal() {
+    const { modal, body } = getProposalModalElements();
+    if (!modal) return;
+    modal.classList.add("hidden");
+    proposalReportHtml = "";
+    if (body) body.innerHTML = "";
+  }
+
+  function openProposalModal(html) {
+    const { modal, body } = getProposalModalElements();
+    if (!modal || !body) return;
+    proposalReportHtml = html;
+    body.innerHTML = html;
+    modal.classList.remove("hidden");
+  }
+
+  async function buildProposalApproachReport() {
+    const report = globalThis.PlannerProposalReport;
+    const questions = globalThis.PlannerDiscoveryQuestions?.DISCOVERY_QUESTIONS || [];
+    if (!report) return null;
+
+    if (!plannerState.canvas) initPlanner();
+    updatePlannerEstimate();
+
+    const areaSqm = Math.max(1, plannerState.widthMeters * plannerState.heightMeters);
+    const saas = globalThis.PlannerSaasCost;
+    const saasResult = saas?.computeSaasProposedCost(areaSqm, getSaasTierRateOverrides());
+
+    let calibrationLabel = null;
+    if (plannerLastEstimate?.capexEur != null && saasResult?.totalEur) {
+      const calibration = saas.evaluateCapexSaasCalibration(plannerLastEstimate.capexEur, saasResult.totalEur);
+      calibrationLabel = calibration.message;
+    }
+
+    const preset =
+      plannerState.activePresetId && STORE_PRESETS[plannerState.activePresetId]
+        ? STORE_PRESETS[plannerState.activePresetId].label
+        : "Custom layout";
+
+    const snapshotDataUrl = await captureLayoutPreviewImage({ isometric: true });
+
+    const data = report.buildProposalReportData({
+      generatedAt: new Date().toISOString(),
+      storeLabel: preset,
+      dimensionsLabel: `${plannerState.widthMeters} × ${plannerState.heightMeters} m`,
+      areaSqm,
+      format: plannerLastEstimate?.format || senseiDetectedFormatLabel?.textContent || "—",
+      snapshotDataUrl,
+      capexEur: plannerLastEstimate?.capexEur,
+      opexMonthlyEur: saasResult?.totalEur,
+      opexFormula: saasResult?.formula,
+      opexBandLabel: saasResult?.bandLabel,
+      calibrationLabel,
+      questions
+    });
+
+    return report.renderProposalReportHtml(data, { currencyFormatter: currency });
+  }
+
+  async function showProposalApproachPreview() {
+    const { modal, body } = getProposalModalElements();
+    if (!modal || !body) {
+      plannerStatus.textContent = "Proposal preview is unavailable on this page.";
+      plannerStatus.style.color = "var(--bad)";
+      return;
+    }
+
+    openProposalModal('<p class="proposal-section-lead">Generating proposal report…</p>');
+    if (proposalApproachBtn) {
+      proposalApproachBtn.disabled = true;
+      proposalApproachBtn.textContent = "Generating…";
+    }
+    if (plannerStatus) {
+      plannerStatus.textContent = "Building proposal preview…";
+      plannerStatus.style.color = "inherit";
+    }
+
+    try {
+      const report = globalThis.PlannerProposalReport;
+      if (!report) {
+        throw new Error("Proposal report module not loaded");
+      }
+      const html = await buildProposalApproachReport();
+      if (!html) {
+        throw new Error("Proposal report could not be rendered");
+      }
+      openProposalModal(html);
+      if (plannerStatus) {
+        plannerStatus.textContent = "Proposal preview ready — export to PDF when satisfied.";
+        plannerStatus.style.color = "var(--ok)";
+      }
+    } catch (err) {
+      console.error("Proposal Approach failed:", err);
+      closeProposalModal();
+      alert("Could not generate the proposal report. Try again after placing fixtures on the plan.");
+      if (plannerStatus) {
+        plannerStatus.textContent = "Proposal report failed to generate.";
+        plannerStatus.style.color = "var(--bad)";
+      }
+    } finally {
+      if (proposalApproachBtn) {
+        proposalApproachBtn.disabled = false;
+        proposalApproachBtn.textContent = "Proposal Approach";
+      }
+    }
+  }
+
+  function exportProposalApproachPdf() {
+    const report = globalThis.PlannerProposalReport;
+    if (!report || !proposalReportHtml) return;
+    const exported = report.exportProposalReportPdf(proposalReportHtml, "Proposal Approach");
+    if (!exported) return;
+    plannerStatus.textContent = "Use Save as PDF in the print dialog.";
+    plannerStatus.style.color = "var(--ok)";
+  }
+
   function getPlannerSenseiOptions() {
     const pctRefRaw = senseiPctRefInput?.value?.trim();
     return {
@@ -3231,6 +3382,7 @@
     );
 
     if (result.error) {
+      plannerLastEstimate = null;
       if (senseiDetectedFormatLabel) senseiDetectedFormatLabel.textContent = result.format || "—";
       plannerEstimatedCapexLabel.textContent = "—";
       if (senseiBomBreakdown) senseiBomBreakdown.textContent = result.error;
@@ -3239,6 +3391,11 @@
     }
 
     if (senseiDetectedFormatLabel) senseiDetectedFormatLabel.textContent = result.format;
+    plannerLastEstimate = {
+      capexEur: result.summary.capexEur,
+      format: result.format,
+      areaSqm
+    };
     if (senseiCamTotalLabel) senseiCamTotalLabel.textContent = String(result.quantities.totalCams);
     if (senseiScaleTotalLabel) senseiScaleTotalLabel.textContent = String(result.quantities.totalScales);
     if (senseiServerTotalLabel) senseiServerTotalLabel.textContent = String(result.quantities.numSrv);
@@ -4220,6 +4377,22 @@
   }
 
   initSaasTierRatesUI();
+
+  proposalApproachBtn?.addEventListener("click", (event) => {
+    event.preventDefault();
+    void showProposalApproachPreview();
+  });
+  const proposalModalEls = getProposalModalElements();
+  proposalModalEls.close?.addEventListener("click", closeProposalModal);
+  proposalModalEls.closeBtn?.addEventListener("click", closeProposalModal);
+  proposalModalEls.backdrop?.addEventListener("click", closeProposalModal);
+  proposalExportPdfBtn?.addEventListener("click", exportProposalApproachPdf);
+  document.addEventListener("keydown", (event) => {
+    const { modal } = getProposalModalElements();
+    if (event.key === "Escape" && modal && !modal.classList.contains("hidden")) {
+      closeProposalModal();
+    }
+  });
 
   plannerLoadBlueprintBtn.addEventListener("click", () => plannerBlueprintInput.click());
   plannerBlueprintInput.addEventListener("change", async (event) => {
