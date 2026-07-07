@@ -3278,10 +3278,19 @@
 
   function exportProposalApproachPdf() {
     const report = globalThis.PlannerProposalReport;
-    if (!report || !proposalReportHtml) return;
-    const exported = report.exportProposalReportPdf(proposalReportHtml, "Proposal Approach");
+    const { body } = getProposalModalElements();
+    const reportHtml = proposalReportHtml || body?.innerHTML || "";
+    if (!report) {
+      alert("Proposal report module not loaded.");
+      return;
+    }
+    if (!reportHtml.trim() || reportHtml.includes("Generating proposal report")) {
+      alert("Generate the proposal preview first, then export to PDF.");
+      return;
+    }
+    const exported = report.exportProposalReportPdf(reportHtml, "Proposal Approach");
     if (!exported) return;
-    plannerStatus.textContent = "Use Save as PDF in the print dialog.";
+    plannerStatus.textContent = "Print dialog opened — choose Save as PDF as the destination.";
     plannerStatus.style.color = "var(--ok)";
   }
 

@@ -166,13 +166,8 @@ function proposalReportPrintStyles() {
   `;
 }
 
-function exportProposalReportPdf(reportHtml, title = "Proposal Approach") {
-  const printWindow = window.open("", "_blank", "noopener,noreferrer");
-  if (!printWindow) {
-    alert("Allow pop-ups to export the PDF, then use Save as PDF in the print dialog.");
-    return false;
-  }
-  printWindow.document.write(`<!DOCTYPE html>
+function buildProposalPrintDocument(reportHtml, title = "Proposal Approach") {
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -180,15 +175,90 @@ function exportProposalReportPdf(reportHtml, title = "Proposal Approach") {
   <style>${proposalReportPrintStyles()}</style>
 </head>
 <body>${reportHtml}</body>
-</html>`);
-  printWindow.document.close();
-  printWindow.focus();
-  const triggerPrint = () => {
-    printWindow.print();
+</html>`;
+}
+
+function waitForDocumentImages(doc, callback) {
+  const images = doc ? Array.from(doc.images || []) : [];
+  if (!images.length) {
+    window.setTimeout(callback, 150);
+    return;
+  }
+  let pending = images.length;
+  const done = () => {
+    pending -= 1;
+    if (pending <= 0) window.setTimeout(callback, 100);
   };
-  if (printWindow.document.readyState === "complete") triggerPrint();
-  else printWindow.addEventListener("load", triggerPrint);
+  images.forEach((img) => {
+    if (img.complete) done();
+    else {
+      img.addEventListener("load", done, { once: true });
+      img.addEventListener("error", done, { once: true });
+    }
+  });
+}
+
+function exportProposalReportPdfViaIframe(reportHtml, title = "Proposal Approach") {
+  const iframe = document.createElement("iframe");
+  iframe.setAttribute("aria-hidden", "true");
+  iframe.style.cssText =
+    "position:fixed;left:-9999px;top:0;width:820px;height:1200px;border:0;opacity:0;pointer-events:none;";
+  document.body.appendChild(iframe);
+
+  const frameWindow = iframe.contentWindow;
+  const doc = iframe.contentDocument || frameWindow?.document;
+  if (!doc || !frameWindow) {
+    iframe.remove();
+    return false;
+  }
+
+  doc.open();
+  doc.write(buildProposalPrintDocument(reportHtml, title));
+  doc.close();
+
+  waitForDocumentImages(doc, () => {
+    try {
+      frameWindow.focus();
+      frameWindow.print();
+    } catch (_error) {
+      /* fall through to cleanup */
+    }
+    window.setTimeout(() => iframe.remove(), 1500);
+  });
   return true;
+}
+
+function exportProposalReportPdfViaBlob(reportHtml, title = "Proposal Approach") {
+  const blob = new Blob([buildProposalPrintDocument(reportHtml, title)], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const printWindow = window.open(url, "_blank");
+  if (!printWindow) {
+    URL.revokeObjectURL(url);
+    return false;
+  }
+
+  const cleanup = () => URL.revokeObjectURL(url);
+  const triggerPrint = () => {
+    try {
+      printWindow.focus();
+      printWindow.print();
+    } catch (_error) {
+      /* ignore */
+    }
+    window.setTimeout(cleanup, 60000);
+  };
+
+  printWindow.addEventListener("load", triggerPrint, { once: true });
+  window.setTimeout(triggerPrint, 1200);
+  return true;
+}
+
+function exportProposalReportPdf(reportHtml, title = "Proposal Approach") {
+  if (!reportHtml || !String(reportHtml).trim()) return false;
+  if (exportProposalReportPdfViaIframe(reportHtml, title)) return true;
+  if (exportProposalReportPdfViaBlob(reportHtml, title)) return true;
+  alert("Could not open the print dialog. Allow pop-ups for this site and try again.");
+  return false;
 }
 
 const PlannerProposalReport = {
