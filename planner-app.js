@@ -65,6 +65,7 @@
   const plannerBlueprintDims = document.getElementById("plannerBlueprintDims");
   const plannerBlueprintNote = document.getElementById("plannerBlueprintNote");
   const plannerClearBtn = document.getElementById("plannerClearBtn");
+  const plannerFullResetBtn = document.getElementById("plannerFullResetBtn");
   const plannerTemplateSelect = document.getElementById("plannerTemplateSelect");
   const plannerTemplateSummary = document.getElementById("plannerTemplateSummary");
   const plannerLoadTemplateBtn = document.getElementById("plannerLoadTemplateBtn");
@@ -2972,6 +2973,67 @@
     updatePlannerEstimate();
   }
 
+  function fullResetPlanner({ confirmDialog = true } = {}) {
+    if (confirmDialog) {
+      const ok = window.confirm(
+        "Reset the entire planner? This clears all fixtures, blueprint overlay, dimensions (20×20 m), cost settings, and your saved session so you can design again from scratch."
+      );
+      if (!ok) return;
+    }
+    if (!plannerState.canvas) initPlanner();
+    if (!plannerState.canvas) return;
+
+    plannerState.canvas.discardActiveObject();
+    clearPlannerObjects();
+    clearPlannerBlueprint();
+    hideBlueprintAreaInfo();
+    if (plannerBlueprintInput) plannerBlueprintInput.value = "";
+
+    plannerWidthInput.value = "20";
+    plannerHeightInput.value = "20";
+    plannerState.widthMeters = 20;
+    plannerState.heightMeters = 20;
+    plannerState.activePresetId = null;
+
+    applyPlannerSenseiOptions(defaultSenseiOptions);
+    initSaasTierRatesUI({});
+
+    highlightActivePresetButton();
+    if (plannerPresetSummary) plannerPresetSummary.textContent = "No baseline loaded.";
+
+    simOccupancyPref = 24;
+    simReentryPref = false;
+    simPlaying = true;
+    showMonitoringVizPref = true;
+    if (simOccupancySlider) simOccupancySlider.value = "24";
+    if (simOccupancyVal) simOccupancyVal.textContent = "24";
+    syncSimPlayButton();
+    syncSimReentryButton();
+    if (planner3dView) planner3dView.setShowMonitoringViz(showMonitoringVizPref);
+    if (planner3dGridBtn) planner3dGridBtn.classList.toggle("active", showMonitoringVizPref);
+
+    drawPlannerBoundary();
+    refreshAllWallLinks();
+    syncPlannerMetaFromCanvas();
+    refreshCachedLayout();
+    plannerState.canvas.requestRenderAll();
+
+    plannerStatus.textContent = "Planner reset — empty 20×20 m canvas. Add fixtures or load a baseline.";
+    plannerStatus.style.color = "var(--ok)";
+
+    updatePlannerEstimate();
+    updateMonitoringSummary();
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (_err) {
+      /* ignore */
+    }
+    persistState();
+    void resetLiveSimulation({ randomize: false });
+    requestPlanner3DSync({ refitCamera: true, force: true });
+    syncSimulationUi();
+  }
+
   function getSaasTierRateOverrides() {
     const overrides = {};
     if (!saasTierRates) return overrides;
@@ -4189,23 +4251,8 @@
   const plannerImportStateBtn = document.getElementById("plannerImportStateBtn");
   const plannerImportStateInput = document.getElementById("plannerImportStateInput");
 
-  plannerResetBtn?.addEventListener("click", () => {
-    plannerWidthInput.value = "20";
-    plannerHeightInput.value = "20";
-    plannerState.widthMeters = 20;
-    plannerState.heightMeters = 20;
-    plannerState.activePresetId = null;
-    applyPlannerSenseiOptions(defaultSenseiOptions);
-    applyStoreDimensions();
-    clearPlannerObjects();
-    clearPlannerBlueprint();
-    highlightActivePresetButton();
-    plannerPresetSummary.textContent = "No baseline loaded.";
-    updatePlannerEstimate();
-    updateMonitoringSummary();
-    persistState();
-    requestPlanner3DSync();
-  });
+  plannerResetBtn?.addEventListener("click", () => fullResetPlanner());
+  plannerFullResetBtn?.addEventListener("click", () => fullResetPlanner());
 
   plannerExportStateBtn?.addEventListener("click", () => {
     const payload = {
