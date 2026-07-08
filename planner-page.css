@@ -115,6 +115,42 @@
   font-size: 0.76rem;
   padding: 6px 10px;
   background: rgba(255, 255, 255, 0.94);
+  color: var(--wb-text);
+  border-color: var(--wb-border-medium);
+}
+
+.planner-3d-toolbar .action-btn:hover {
+  background: #ffffff;
+  color: var(--wb-text);
+  border-color: var(--wb-text-secondary);
+}
+
+.planner-3d-toolbar .action-btn.active {
+  background: var(--wb-highlight);
+  color: var(--wb-text);
+  border-color: var(--wb-highlight-border);
+  font-weight: 700;
+}
+
+.planner-3d-toolbar .action-btn.active:hover {
+  background: var(--wb-highlight);
+  color: var(--wb-text);
+  border-color: var(--wb-highlight-border);
+}
+
+.planner-sim-dashboard .action-btn.active,
+.planner-sim-actions .action-btn.active {
+  background: var(--wb-highlight);
+  color: var(--wb-text);
+  border-color: var(--wb-highlight-border);
+  font-weight: 700;
+}
+
+.planner-sim-dashboard .action-btn.active:hover,
+.planner-sim-actions .action-btn.active:hover {
+  background: var(--wb-highlight);
+  color: var(--wb-text);
+  border-color: var(--wb-highlight-border);
 }
 
 .planner-3d-hint {
