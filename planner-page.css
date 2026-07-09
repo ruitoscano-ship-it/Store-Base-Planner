@@ -214,6 +214,48 @@
   color: var(--wb-text-muted);
 }
 
+.planner-sim-control {
+  margin-bottom: 12px;
+}
+
+.planner-sim-control label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+  color: var(--wb-text-secondary);
+}
+
+.planner-sim-control input[type="range"] {
+  width: 100%;
+}
+
+.planner-sim-price-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.planner-sim-currency {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--wb-text);
+}
+
+.planner-sim-price-input input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--wb-border-medium);
+  border-radius: var(--wb-radius-input);
+  background: var(--wb-surface);
+  color: var(--wb-text);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
 .planner-sim-kpis {
   display: grid;
   grid-template-columns: 1fr 1fr;

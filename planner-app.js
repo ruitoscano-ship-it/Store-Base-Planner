@@ -45,6 +45,8 @@
   const simAvgDwell = document.getElementById("simAvgDwell");
   const simProductGrabs = document.getElementById("simProductGrabs");
   const simAvgBasket = document.getElementById("simAvgBasket");
+  const simAvgBasketPriceInput = document.getElementById("simAvgBasketPriceInput");
+  const simValueGenerated = document.getElementById("simValueGenerated");
   const simFootnote = document.getElementById("simFootnote");
   const applyStoreSizeBtn = document.getElementById("applyStoreSizeBtn");
   const plannerAddButtons = Array.from(document.querySelectorAll(".planner-add-btn"));
@@ -198,7 +200,8 @@
         showMonitoringViz: showMonitoringVizPref,
         simOccupancy: simOccupancyPref,
         simPlaying: simPlaying,
-        simReentry: simReentryPref
+        simReentry: simReentryPref,
+        simAvgBasketPrice: simAvgBasketPricePref
       },
       templateMeta
     });
@@ -271,9 +274,11 @@
       simOccupancyPref = Number(doc.preferences.simOccupancy) || 24;
       simPlaying = doc.preferences.simPlaying !== false;
       simReentryPref = doc.preferences.simReentry === true;
+      simAvgBasketPricePref = getSimAvgBasketPriceFromPref(doc.preferences.simAvgBasketPrice);
       syncMonitoringGridButton();
       if (simOccupancySlider) simOccupancySlider.value = String(simOccupancyPref);
       if (simOccupancyVal) simOccupancyVal.textContent = String(simOccupancyPref);
+      syncSimAvgBasketPriceInput();
       syncSimPlayButton();
       syncSimReentryButton();
       if (planner3dView) planner3dView.setShowMonitoringViz(showMonitoringVizPref);
@@ -673,6 +678,8 @@
   let showMonitoringVizPref = true;
   let simOccupancyPref = 24;
   let simReentryPref = false;
+  const DEFAULT_SIM_AVG_BASKET_PRICE = 12;
+  let simAvgBasketPricePref = DEFAULT_SIM_AVG_BASKET_PRICE;
   let computeStoreSimulationFn = null;
   let ShopperSimClass = null;
   let shopperSim = null;
@@ -706,6 +713,27 @@
     return shopperSim;
   }
 
+  function getSimAvgBasketPriceFromPref(value) {
+    const n = Number(value);
+    return Number.isFinite(n) && n >= 0 ? n : DEFAULT_SIM_AVG_BASKET_PRICE;
+  }
+
+  function getSimAvgBasketPrice() {
+    const raw = simAvgBasketPriceInput?.value ?? simAvgBasketPricePref;
+    return getSimAvgBasketPriceFromPref(raw);
+  }
+
+  function syncSimAvgBasketPriceInput() {
+    simAvgBasketPricePref = getSimAvgBasketPriceFromPref(simAvgBasketPricePref);
+    if (simAvgBasketPriceInput) simAvgBasketPriceInput.value = String(simAvgBasketPricePref);
+  }
+
+  function computeSimValueGenerated(live, basketPriceEur = getSimAvgBasketPrice()) {
+    const price = Number(basketPriceEur);
+    if (!live || !Number.isFinite(price) || price <= 0) return 0;
+    return (live.sessionLeaves ?? 0) * price;
+  }
+
   function syncSimReentryButton() {
     if (!simReentryBtn) return;
     simReentryBtn.textContent = simReentryPref ? "Re-entry: On" : "Re-entry: Off";
@@ -736,6 +764,7 @@
       if (simProductGrabs) simProductGrabs.textContent = "0";
       if (simAvgBasket) simAvgBasket.textContent = "0";
       if (simPeopleLeaving) simPeopleLeaving.textContent = "0";
+      if (simValueGenerated) simValueGenerated.textContent = currency.format(0);
       if (simFootnote) {
         simFootnote.textContent = live.statusMessage || "Please add an entrance and checkout to run the simulation.";
       }
@@ -757,14 +786,21 @@
         simPeopleLeaving.textContent = cohort > 0 ? `${exited} / ${cohort}` : String(exited);
       }
     }
+    const basketPrice = getSimAvgBasketPrice();
+    const valueGenerated = computeSimValueGenerated(live, basketPrice);
+    if (simValueGenerated) simValueGenerated.textContent = currency.format(valueGenerated);
 
     if (simFootnote) {
+      const valueNote =
+        live.sessionLeaves > 0 && basketPrice > 0
+          ? ` Value generated ${currency.format(valueGenerated)} at ${currency.format(basketPrice)} per basket.`
+          : "";
       if (live.finished) {
-        simFootnote.textContent = `Simulation complete — all ${live.cohortSize || live.sessionLeaves} shoppers exited. Avg dwell ${formatDwellTime(live.avgDwellSeconds)}, avg basket ${live.avgBasketSize.toFixed(1)}.`;
+        simFootnote.textContent = `Simulation complete — all ${live.cohortSize || live.sessionLeaves} shoppers exited. Avg dwell ${formatDwellTime(live.avgDwellSeconds)}, avg basket ${live.avgBasketSize.toFixed(1)}.${valueNote}`;
       } else if (live.replenish) {
-        simFootnote.textContent = "Continuous mode — new shoppers enter as others leave.";
+        simFootnote.textContent = `Continuous mode — new shoppers enter as others leave.${valueNote}`;
       } else {
-        simFootnote.textContent = `${live.cohortSize || live.peopleInside} shoppers started · grab products, checkout, then exit.`;
+        simFootnote.textContent = `${live.cohortSize || live.peopleInside} shoppers started · grab products, checkout, then exit.${valueNote}`;
       }
     }
   }
@@ -3039,9 +3075,11 @@
     simOccupancyPref = 24;
     simReentryPref = false;
     simPlaying = true;
+    simAvgBasketPricePref = DEFAULT_SIM_AVG_BASKET_PRICE;
     showMonitoringVizPref = true;
     if (simOccupancySlider) simOccupancySlider.value = "24";
     if (simOccupancyVal) simOccupancyVal.textContent = "24";
+    syncSimAvgBasketPriceInput();
     syncSimPlayButton();
     syncSimReentryButton();
     if (planner3dView) planner3dView.setShowMonitoringViz(showMonitoringVizPref);
@@ -4011,7 +4049,8 @@
         showMonitoringViz: showMonitoringVizPref,
         simOccupancy: simOccupancyPref,
         simPlaying: simPlaying,
-        simReentry: simReentryPref
+        simReentry: simReentryPref,
+        simAvgBasketPrice: simAvgBasketPricePref
       },
       canvasJson: plannerState.canvas
         ? plannerState.canvas.toDatalessJSON([
@@ -4036,9 +4075,11 @@
       simOccupancyPref = Number(state.preferences.simOccupancy) || 24;
       simPlaying = state.preferences.simPlaying !== false;
       simReentryPref = state.preferences.simReentry === true;
+      simAvgBasketPricePref = getSimAvgBasketPriceFromPref(state.preferences.simAvgBasketPrice);
       syncMonitoringGridButton();
       if (simOccupancySlider) simOccupancySlider.value = String(simOccupancyPref);
       if (simOccupancyVal) simOccupancyVal.textContent = String(simOccupancyPref);
+      syncSimAvgBasketPriceInput();
       syncSimPlayButton();
       syncSimReentryButton();
       if (planner3dView) planner3dView.setShowMonitoringViz(showMonitoringVizPref);
@@ -4110,6 +4151,12 @@
     } else {
       runStoreSimulation();
     }
+  });
+
+  simAvgBasketPriceInput?.addEventListener("input", () => {
+    simAvgBasketPricePref = getSimAvgBasketPrice();
+    if (shopperSim) renderLiveSimulationDashboard(shopperSim);
+    persistState();
   });
 
   simPlayBtn?.addEventListener("click", () => {
@@ -4476,6 +4523,7 @@
     await ensureLayoutDocumentModule();
     const restored = await loadPersistedState();
     if (!restored) drawPlannerBoundary();
+    syncSimAvgBasketPriceInput();
     syncPlannerMetaFromCanvas();
     refreshCachedLayout();
     updatePlannerEstimate();
