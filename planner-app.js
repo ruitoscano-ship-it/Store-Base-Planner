@@ -1960,6 +1960,51 @@
     return fixtures;
   }
 
+  // "Gas Station Conv" prefab: ~108 m² (12 × 9 m) roadside convenience store —
+  // five tall back-wall coolers, two central island gondolas, an L-shaped
+  // front-left service counter (pastry case + POS), ambient wall run + coffee /
+  // seating bar on the right, and glass-front entry on the front and left.
+  function gasStationConvFixtures() {
+    const round = (n) => Number(n.toFixed(2));
+    const M = 0.55;
+    const W = 12;
+    const D = 9;
+    const fixtures = [];
+
+    // Back wall: five tall refrigerated / cooler cases (face +Y interior).
+    [2.0, 3.4, 4.8, 6.2, 7.6].forEach((x) =>
+      fixtures.push({ kind: "shelf-cold", x: round(x), y: round(M + 0.55 / 2), angle: 0 })
+    );
+
+    // Right wall: ambient packaged-goods run + coffee / seating bar (face -X).
+    [2.0, 3.3, 4.6].forEach((y) =>
+      fixtures.push({ kind: "shelf-ambient", x: round(W - M - 0.45 / 2), y: round(y), angle: 90 })
+    );
+    fixtures.push({ kind: "station-coffee", x: round(W - M - 0.6 / 2), y: round(6.2), angle: 90 });
+    // Impulse / snack shelf beside the coffee bar, completing the right-wall run.
+    fixtures.push({ kind: "shelf-ambient", x: round(W - M - 0.45 / 2), y: round(7.5), angle: 90 });
+
+    // Two central double-sided island gondolas (parallel, mid-floor aisles).
+    [4.2, 6.6].forEach((y) =>
+      fixtures.push({ kind: "shelf-island", x: round(5.4), y: round(y), angle: 0 })
+    );
+
+    // Front-left L-shaped service counter: pastry display + POS arm.
+    fixtures.push({ kind: "service-bakery", x: round(2.6), y: round(D - M - 1.0 / 2), angle: 180 });
+    fixtures.push({ kind: "service-deli", x: round(M + 1.1 / 2), y: round(D - 2.8), angle: 270 });
+    fixtures.push({ kind: "checkout", x: round(4.4), y: round(D - M - 0.18 / 2), angle: 180 });
+
+    // Glass front + left perimeter: automatic doors / entry.
+    [6.5, 8.5, 10.2].forEach((x) =>
+      fixtures.push({ kind: "entry-open", x: round(x), y: round(D - M - 0.12 / 2), angle: 180 })
+    );
+    [3.5, 5.5].forEach((y) =>
+      fixtures.push({ kind: "entry-open", x: round(M + 0.12 / 2), y: round(y), angle: 270 })
+    );
+
+    return fixtures;
+  }
+
   const POD_CONSTRUCTS = {
     "base-pod": {
       label: "Base pod",
@@ -2009,6 +2054,13 @@
       heightMeters: 10,
       fixtures: pharmacyFixtures,
       summary: "155 m² pharmacy: back-wall PHARMACY sign, left-wall OTC run, back-wall gondolas + cold chain, 2 central wellness aisles, L-shaped dispensing counter, waiting zone, 2 checkouts, 4 entry gates."
+    },
+    "gas-station-conv": {
+      label: "Gas Station Conv",
+      widthMeters: 12,
+      heightMeters: 9,
+      fixtures: gasStationConvFixtures,
+      summary: "108 m² C-store: 5 back-wall coolers, 2 central islands, L-shaped front-left service counter (pastry + POS), right-wall ambient + coffee bar, glass-front entry on front and left."
     }
   };
 
