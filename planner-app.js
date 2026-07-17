@@ -1960,46 +1960,43 @@
     return fixtures;
   }
 
-  // "Gas Station Conv" prefab: ~108 m² (12 × 9 m) roadside convenience store —
-  // five tall back-wall coolers, two central island gondolas, an L-shaped
-  // front-left service counter (pastry case + POS), ambient wall run + coffee /
-  // seating bar on the right, and glass-front entry on the front and left.
+  // "Gas Station Conv" prefab: ~60 m² (10 × 6 m) roadside convenience store
+  // sized so Sensei CapEx stays on a single edge server (~€65K, nearest band
+  // to a €70K ballpark — larger footprints jump to a 3-server BOM ~€115K+).
+  // Layout mirrors the isometric: back-wall coolers, two central islands,
+  // L-shaped front-left service counter, right-wall ambient + coffee bar,
+  // glass-front entry.
   function gasStationConvFixtures() {
     const round = (n) => Number(n.toFixed(2));
     const M = 0.55;
-    const W = 12;
-    const D = 9;
+    const W = 10;
+    const D = 6;
     const fixtures = [];
 
-    // Back wall: five tall refrigerated / cooler cases (face +Y interior).
-    [2.0, 3.4, 4.8, 6.2, 7.6].forEach((x) =>
+    // Back wall: four tall refrigerated / cooler cases (face +Y interior).
+    [1.8, 3.4, 5.0, 6.6].forEach((x) =>
       fixtures.push({ kind: "shelf-cold", x: round(x), y: round(M + 0.55 / 2), angle: 0 })
     );
 
     // Right wall: ambient packaged-goods run + coffee / seating bar (face -X).
-    [2.0, 3.3, 4.6].forEach((y) =>
+    [1.8, 3.1].forEach((y) =>
       fixtures.push({ kind: "shelf-ambient", x: round(W - M - 0.45 / 2), y: round(y), angle: 90 })
     );
-    fixtures.push({ kind: "station-coffee", x: round(W - M - 0.6 / 2), y: round(6.2), angle: 90 });
-    // Impulse / snack shelf beside the coffee bar, completing the right-wall run.
-    fixtures.push({ kind: "shelf-ambient", x: round(W - M - 0.45 / 2), y: round(7.5), angle: 90 });
+    fixtures.push({ kind: "station-coffee", x: round(W - M - 0.6 / 2), y: round(4.4), angle: 90 });
 
     // Two central double-sided island gondolas (parallel, mid-floor aisles).
-    [4.2, 6.6].forEach((y) =>
-      fixtures.push({ kind: "shelf-island", x: round(5.4), y: round(y), angle: 0 })
+    [2.6, 4.2].forEach((y) =>
+      fixtures.push({ kind: "shelf-island", x: round(4.6), y: round(y), angle: 0 })
     );
 
     // Front-left L-shaped service counter: pastry display + POS arm.
-    fixtures.push({ kind: "service-bakery", x: round(2.6), y: round(D - M - 1.0 / 2), angle: 180 });
-    fixtures.push({ kind: "service-deli", x: round(M + 1.1 / 2), y: round(D - 2.8), angle: 270 });
-    fixtures.push({ kind: "checkout", x: round(4.4), y: round(D - M - 0.18 / 2), angle: 180 });
+    fixtures.push({ kind: "service-bakery", x: round(2.3), y: round(D - M - 1.0 / 2), angle: 180 });
+    fixtures.push({ kind: "service-deli", x: round(M + 1.1 / 2), y: round(D - 2.4), angle: 270 });
+    fixtures.push({ kind: "checkout", x: round(4.0), y: round(D - M - 0.18 / 2), angle: 180 });
 
-    // Glass front + left perimeter: automatic doors / entry.
-    [6.5, 8.5, 10.2].forEach((x) =>
+    // Glass front entry (compact door count keeps CapEx in the single-server band).
+    [6.2, 8.2].forEach((x) =>
       fixtures.push({ kind: "entry-open", x: round(x), y: round(D - M - 0.12 / 2), angle: 180 })
-    );
-    [3.5, 5.5].forEach((y) =>
-      fixtures.push({ kind: "entry-open", x: round(M + 0.12 / 2), y: round(y), angle: 270 })
     );
 
     return fixtures;
@@ -2057,10 +2054,10 @@
     },
     "gas-station-conv": {
       label: "Gas Station Conv",
-      widthMeters: 12,
-      heightMeters: 9,
+      widthMeters: 10,
+      heightMeters: 6,
       fixtures: gasStationConvFixtures,
-      summary: "108 m² C-store: 5 back-wall coolers, 2 central islands, L-shaped front-left service counter (pastry + POS), right-wall ambient + coffee bar, glass-front entry on front and left."
+      summary: "60 m² C-store (~€65K CapEx): 4 back-wall coolers, 2 islands, L-shaped pastry/POS counter, right-wall ambient + coffee bar, 2 front doors."
     }
   };
 
