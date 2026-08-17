@@ -7,6 +7,7 @@ COPY package.json server.js server-utils.js store-profiles.js verticals.js plann
 COPY data ./data
 COPY models ./models
 COPY *.html ./
+COPY *.css ./
 COPY planner-*.js ./
 COPY libs ./libs
 
