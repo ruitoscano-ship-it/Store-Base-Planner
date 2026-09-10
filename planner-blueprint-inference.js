@@ -350,6 +350,7 @@ export const BLUEPRINT_INFERRED_KINDS = new Set([
   "shelf-cold",
   "shelf-hot",
   "produce-bin",
+  "pallet",
   "entry-gated",
   "entry-open",
   "checkout",

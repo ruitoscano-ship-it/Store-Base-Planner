@@ -73,6 +73,19 @@ export const DEFAULT_ARTIFACTS = {
     emissive3d: "#16a34a",
     tag2d: "FRESH"
   },
+  pallet: {
+    label: "Pallet (large items)",
+    type: "pallet",
+    widthMeters: 1.2,
+    depthMeters: 0.8,
+    heightMeters: 1.15,
+    shelfLevels: 1,
+    palette: { fill: "#efe2c7", stroke: "#6b4f2a" },
+    color3d: "#c4a574",
+    badge3d: "#a16207",
+    emissive3d: "#854d0e",
+    tag2d: "PAL"
+  },
   "service-deli": {
     label: "Deli / butcher counter",
     type: "service",
@@ -331,6 +344,7 @@ export const STORE_ARTIFACT_KINDS = [
   "shelf-cold",
   "shelf-hot",
   "produce-bin",
+  "pallet",
   "service-deli",
   "service-fish",
   "service-bakery",

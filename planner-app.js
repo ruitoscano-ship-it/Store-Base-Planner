@@ -1767,6 +1767,31 @@
     ];
   }
 
+  // "20 m² pod" prefab: compact 5 × 4 m grab-and-go with back-wall cooler + dry
+  // shelf, two floor pallets for large / bulk items, coffee station, one gate
+  // and one checkout. Differentiator vs Base pod is the pallet merchandising.
+  function twentySqmPodFixtures() {
+    const round = (n) => Number(n.toFixed(2));
+    const M = 0.55;
+    const D = 4;
+    const fixtures = [];
+
+    // Back wall: cooler + dry gondola + coffee (face +Y interior).
+    fixtures.push({ kind: "shelf-cold", x: round(1.1), y: round(M + 0.55 / 2), angle: 0 });
+    fixtures.push({ kind: "shelf-ambient", x: round(2.5), y: round(M + 0.45 / 2), angle: 0 });
+    fixtures.push({ kind: "station-coffee", x: round(3.85), y: round(M + 0.6 / 2), angle: 0 });
+
+    // Floor pallets for large items (Euro 1.2 × 0.8 m footprint).
+    fixtures.push({ kind: "pallet", x: round(1.55), y: round(2.15), angle: 0 });
+    fixtures.push({ kind: "pallet", x: round(3.35), y: round(2.15), angle: 0 });
+
+    // Front: entry gate + self-checkout.
+    fixtures.push({ kind: "entry-gated", x: round(1.35), y: round(D - M - 0.18 / 2), angle: 180 });
+    fixtures.push({ kind: "checkout", x: round(3.55), y: round(D - M - 0.18 / 2), angle: 180 });
+
+    return fixtures;
+  }
+
   // "Cinema Bar" prefab: a larger walk-through format — a self-checkout bank and
   // cooler across the back, a central double-sided island gondola, an L-shaped
   // wall gondola run on the right/bottom, and entry gates wrapping the left and
@@ -2016,6 +2041,13 @@
       heightMeters: 4.5,
       fixtures: makePodFixtures,
       summary: "3 shelves, self-service coffee + juice, 1 checkout, 1 entrance gate."
+    },
+    "pod-20sqm": {
+      label: "20 m² pod",
+      widthMeters: 5,
+      heightMeters: 4,
+      fixtures: twentySqmPodFixtures,
+      summary: "20 m²: back-wall cooler + dry shelf + coffee, 2 floor pallets for large items, 1 gate, 1 checkout."
     },
     "cinema-bar": {
       label: "Cinema Bar",
@@ -2490,6 +2522,70 @@
           fill: stroke,
           left: 0,
           top: height / 2 - Math.max(7, plannerFontSize(0.5)) * 0.7,
+          originX: "center",
+          originY: "center"
+        })
+      );
+    } else if (type === "pallet") {
+      const { fill, stroke } = spec.palette || { fill: "#efe2c7", stroke: "#6b4f2a" };
+      shapes.push(
+        new fabric.Rect({
+          width,
+          height,
+          fill,
+          stroke,
+          strokeWidth: strokeW,
+          originX: "center",
+          originY: "center"
+        })
+      );
+      // Deck slats.
+      for (let i = 0; i < 5; i += 1) {
+        const top = -height / 2 + ((i + 0.5) * height) / 5;
+        shapes.push(
+          new fabric.Rect({
+            width: width * 0.94,
+            height: Math.max(2, height * 0.1),
+            fill: i % 2 === 0 ? "#d7c09a" : "#c9ae7e",
+            stroke,
+            strokeWidth: Math.max(0.4, strokeW * 0.4),
+            left: 0,
+            top,
+            originX: "center",
+            originY: "center"
+          })
+        );
+      }
+      // Large-item cartons on top.
+      const cartonFill = ["#e8d9b8", "#dcc9a4", "#f0e4c8", "#cfb98c"];
+      [
+        [-0.22, -0.18],
+        [0.22, -0.18],
+        [-0.22, 0.18],
+        [0.22, 0.18]
+      ].forEach(([fx, fy], index) => {
+        shapes.push(
+          new fabric.Rect({
+            width: width * 0.34,
+            height: height * 0.28,
+            fill: cartonFill[index % cartonFill.length],
+            stroke,
+            strokeWidth: Math.max(0.5, strokeW * 0.45),
+            left: width * fx,
+            top: height * fy,
+            originX: "center",
+            originY: "center"
+          })
+        );
+      });
+      shapes.push(
+        new fabric.Text(spec.tag2d || "PAL", {
+          fontSize: Math.max(7, plannerFontSize(0.48)),
+          fontFamily: "Inter, Arial, sans-serif",
+          fontWeight: "700",
+          fill: stroke,
+          left: 0,
+          top: height / 2 - Math.max(7, plannerFontSize(0.48)) * 0.65,
           originX: "center",
           originY: "center"
         })
@@ -3417,7 +3513,7 @@
   }
 
   function countLayoutForEstimate() {
-    const counts = { ambient: 0, cold: 0, hot: 0, island: 0, produce: 0, service: 0 };
+    const counts = { ambient: 0, cold: 0, hot: 0, island: 0, produce: 0, pallet: 0, service: 0 };
     let doors = 0;
     if (plannerState.canvas) {
       plannerState.canvas.getObjects().forEach((obj) => {
@@ -3426,6 +3522,7 @@
         if (obj.plannerKind === "shelf-cold") counts.cold += 1;
         if (obj.plannerKind === "shelf-hot") counts.hot += 1;
         if (obj.plannerKind === "produce-bin") counts.produce += 1;
+        if (obj.plannerKind === "pallet") counts.pallet += 1;
         if (
           typeof obj.plannerKind === "string" &&
           (obj.plannerKind.startsWith("service-") || obj.plannerKind.startsWith("station-"))
@@ -3442,10 +3539,18 @@
   function updatePlannerEstimate() {
     const { counts, doors } = countLayoutForEstimate();
     const totalModules =
-      counts.ambient + counts.island + counts.cold + counts.hot + counts.produce + counts.service;
+      counts.ambient +
+      counts.island +
+      counts.cold +
+      counts.hot +
+      counts.produce +
+      counts.pallet +
+      counts.service;
     const areaSqm = Math.max(1, plannerState.widthMeters * plannerState.heightMeters);
 
-    countAmbientShelfLabel.textContent = String(counts.ambient + counts.island + counts.produce + counts.service);
+    countAmbientShelfLabel.textContent = String(
+      counts.ambient + counts.island + counts.produce + counts.pallet + counts.service
+    );
     countColdShelfLabel.textContent = String(counts.cold);
     countHotShelfLabel.textContent = String(counts.hot);
     if (countTotalModulesLabel) countTotalModulesLabel.textContent = String(totalModules);

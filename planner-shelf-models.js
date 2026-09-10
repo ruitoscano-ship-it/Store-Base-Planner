@@ -644,9 +644,69 @@ export function buildProceduralBeverageStation(group, variant, width, depth, hei
   }
 }
 
+/**
+ * Euro-style pallet for large / bulk items — wooden deck with stringers and a
+ * stack of cartons on top so it reads as floor merchandising, not a gondola.
+ */
+export function buildProceduralPallet(group, _spec, width, depth, height) {
+  const wood = new THREE.MeshStandardMaterial({ color: 0xc4a574, roughness: 0.86, metalness: 0.02 });
+  const woodDark = new THREE.MeshStandardMaterial({ color: 0x8b6914, roughness: 0.88, metalness: 0.02 });
+  const carton = new THREE.MeshStandardMaterial({ color: 0xe8d9b8, roughness: 0.78, metalness: 0.03 });
+  const cartonAccent = new THREE.MeshStandardMaterial({ color: 0xd4b483, roughness: 0.74, metalness: 0.03 });
+  const strap = new THREE.MeshStandardMaterial({ color: 0x4b5563, roughness: 0.5, metalness: 0.2 });
+
+  const deckH = Math.min(0.14, height * 0.14);
+  const stringerH = deckH * 0.72;
+  const plankT = Math.max(0.018, deckH * 0.28);
+  const plankCount = 5;
+
+  // Three stringers along depth (classic pallet look).
+  [-width * 0.38, 0, width * 0.38].forEach((x) => {
+    addMesh(group, new THREE.BoxGeometry(width * 0.12, stringerH, depth * 0.96), woodDark, x, stringerH / 2, 0);
+  });
+
+  // Top deck boards.
+  for (let i = 0; i < plankCount; i += 1) {
+    const z = -depth / 2 + ((i + 0.5) * depth) / plankCount;
+    addMesh(
+      group,
+      new THREE.BoxGeometry(width * 0.98, plankT, depth / plankCount - 0.02),
+      wood,
+      0,
+      stringerH + plankT / 2,
+      z
+    );
+  }
+
+  const loadBase = stringerH + plankT;
+  const loadH = Math.max(0.35, height - loadBase - 0.05);
+  const boxW = width * 0.42;
+  const boxD = depth * 0.42;
+  const boxH = loadH * 0.48;
+  const placements = [
+    [-width * 0.22, boxH / 2, -depth * 0.18],
+    [width * 0.22, boxH / 2, -depth * 0.18],
+    [-width * 0.22, boxH / 2, depth * 0.2],
+    [width * 0.22, boxH / 2, depth * 0.2],
+    [0, boxH + boxH * 0.52, 0]
+  ];
+  placements.forEach(([x, y, z], index) => {
+    const mat = index % 2 === 0 ? carton : cartonAccent;
+    const w = index === 4 ? boxW * 1.05 : boxW;
+    const d = index === 4 ? boxD * 1.05 : boxD;
+    const h = index === 4 ? boxH * 0.9 : boxH;
+    addMesh(group, new THREE.BoxGeometry(w, h, d), mat, x, loadBase + y, z);
+    addMesh(group, new THREE.BoxGeometry(w * 1.02, 0.02, d * 0.12), strap, x, loadBase + y + h * 0.15, z);
+  });
+}
+
 export function buildProceduralFixture(group, kind, spec, footprintW, footprintD, height, textures = null) {
   if (kind === "produce-bin") {
     buildProceduralProduceBin(group, spec, footprintW, footprintD, height);
+    return;
+  }
+  if (kind === "pallet") {
+    buildProceduralPallet(group, spec, footprintW, footprintD, height);
     return;
   }
   if (kind && kind.startsWith("station-")) {

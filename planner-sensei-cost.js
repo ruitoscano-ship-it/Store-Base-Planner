@@ -22,13 +22,14 @@ function deriveLayoutInputs({
 }) {
   const area = Math.max(1, Number(widthMeters) * Number(heightMeters));
   // Every merchandised bay is a monitored module: dry/cold/hot gondolas and
-  // islands, plus produce displays and assisted-service / self-service counters
-  // (deli, bakery, fish, coffee, juice). They all drive shelf cameras + bridges.
+  // islands, plus produce displays, large-item pallets, and assisted-service /
+  // self-service counters (deli, bakery, fish, coffee, juice). They all drive
+  // shelf cameras + bridges.
   const gondolaModules =
     (counts.ambient || 0) + (counts.cold || 0) + (counts.hot || 0) + (counts.island || 0);
   const modules = Math.max(
     0,
-    gondolaModules + (counts.produce || 0) + (counts.service || 0)
+    gondolaModules + (counts.produce || 0) + (counts.pallet || 0) + (counts.service || 0)
   );
   const shelfModules = Math.max(1, modules);
   const inferredPctRef = (counts.cold || 0) / Math.max(1, gondolaModules);

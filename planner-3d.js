@@ -1139,6 +1139,7 @@ export function createPlanner3D(containerEl, options = {}) {
     if (
       obj.kind.startsWith("shelf-") ||
       obj.kind === "produce-bin" ||
+      obj.kind === "pallet" ||
       obj.kind.startsWith("service-") ||
       obj.kind.startsWith("station-") ||
       obj.kind === "checkout" ||

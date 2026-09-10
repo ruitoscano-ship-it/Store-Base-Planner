@@ -16,6 +16,7 @@ export const MODULE_KINDS = new Set([
   "shelf-cold",
   "shelf-hot",
   "produce-bin",
+  "pallet",
   "service-deli",
   "service-fish",
   "service-bakery",
@@ -28,6 +29,8 @@ export const COLLISION_KINDS = new Set([
   "shelf-island",
   "shelf-cold",
   "shelf-hot",
+  "produce-bin",
+  "pallet",
   "checkout",
   "separator-wall"
 ]);
