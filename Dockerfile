@@ -5,11 +5,9 @@ WORKDIR /app
 # Application code (no npm install — zero runtime dependencies)
 COPY package.json server.js server-utils.js store-profiles.js verticals.js planner-sensei-cost.js ./
 COPY data ./data
-COPY models ./models
 COPY *.html ./
 COPY *.css ./
 COPY planner-*.js ./
-COPY libs ./libs
 
 RUN mkdir -p /app/data && chown -R node:node /app
 

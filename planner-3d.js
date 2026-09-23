@@ -10,7 +10,6 @@ import {
   resolveMovement,
   WALK_BODY_RADIUS
 } from "./planner-collision.js";
-import { PlannerModelLibrary } from "./planner-model-loader.js";
 import { buildProceduralFixture } from "./planner-shelf-models.js";
 import { StoreTextureKit } from "./planner-textures.js";
 
@@ -209,11 +208,7 @@ export function createPlanner3D(containerEl, options = {}) {
   fill.position.set(-8, 14, -6);
   scene.add(fill);
 
-  const modelLibrary = new PlannerModelLibrary();
   const textureKit = new StoreTextureKit();
-  let modelsLoaded = false;
-  let layoutSyncToken = 0;
-  let fixturesBuiltForToken = -1;
   let transformEmitTimer = null;
 
   const clock = new THREE.Clock();
@@ -1155,20 +1150,6 @@ export function createPlanner3D(containerEl, options = {}) {
       return;
     }
 
-    const useGlb = modelLibrary.hasModel(obj.kind) && modelLibrary.isModelReady(obj.kind);
-    if (useGlb) {
-      const model = modelLibrary.createFixtureModelSync(obj.kind, {
-        width: footprintW,
-        depth: footprintD,
-        height,
-        spec
-      });
-      if (model) {
-        group.add(model);
-        return;
-      }
-    }
-
     addBox(group, footprintW, height, footprintD, spec, obj.kind);
   }
 
@@ -1230,17 +1211,10 @@ export function createPlanner3D(containerEl, options = {}) {
     });
 
     refreshLayoutObstacles(layout);
-    fixturesBuiltForToken = layoutSyncToken;
 
     if (previousSelection && fixtureGroups.has(previousSelection) && interactionMode === "edit") {
       selectFixture(fixtureGroups.get(previousSelection));
     }
-  }
-
-  function rebuildFixtures(layout, preserveSelectionId) {
-    const selectionToPreserve = preserveSelectionId ?? selectedGroup?.userData?.objectId ?? null;
-    clearFixtures();
-    populateFixtures(layout, selectionToPreserve);
   }
 
   function fitCamera(force = false) {
@@ -1281,27 +1255,7 @@ export function createPlanner3D(containerEl, options = {}) {
     orbit.update();
   }
 
-  function refreshFixturesIfReady() {
-    if (!active || !lastLayout || !modelsLoaded) return;
-    if (fixturesBuiltForToken === layoutSyncToken) return;
-    rebuildFixtures(lastLayout, selectedGroup?.userData?.objectId || null);
-  }
-
-  function preloadFixtureModels() {
-    return modelLibrary
-      .preloadAll()
-      .then(() => {
-        modelsLoaded = true;
-        refreshFixturesIfReady();
-      })
-      .catch(() => {
-        modelsLoaded = true;
-        refreshFixturesIfReady();
-      });
-  }
-
   function rebuildStore(layout, { refitCamera = false, preserveSelectionId = null } = {}) {
-    layoutSyncToken += 1;
     lastLayout = layout;
     const selectionToPreserve = preserveSelectionId ?? selectedGroup?.userData?.objectId ?? null;
     clearFixtures();
@@ -1544,7 +1498,6 @@ export function createPlanner3D(containerEl, options = {}) {
       active = isActive;
       if (active) {
         resizeToContainer();
-        preloadFixtureModels();
         if (lastLayout) rebuildStore(lastLayout, { refitCamera: true });
         animate();
       } else {

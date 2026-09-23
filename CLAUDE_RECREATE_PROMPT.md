@@ -25,10 +25,10 @@ Sensei sales and ops teams use this to:
 
 - **Node.js ≥ 18**, **zero npm dependencies** (`package.json` scripts only: `dev` = `node server.js`, `start` = `NODE_ENV=production node server.js`).
 - Plain HTML + CSS + vanilla JS. Shared look: cream canvas, black type, pale-yellow highlights — `workbench.css` plus page CSS.
-- Planner CDNs: Fabric.js 5.3, Three.js 0.160 (import map), PDF.js 3.11. Static `libs/` may hold a local fabric copy.
-- Optional 3D assets: `models/kenney/*.glb`.
+- Planner CDNs: Fabric.js 5.3, Three.js 0.160 (import map), PDF.js 3.11.
+- Optional 3D assets: none required — fixtures are procedural Three.js meshes.
 - Env via `.env` / `.env.example`: `NODE_ENV`, `HOST`, `PORT`, `ADMIN_TOKEN`, `CORS_ORIGIN`, `MAX_BODY_BYTES`.
-- Docker: `node:20-alpine`, copy HTML/CSS/JS/`data`/`models`/`libs`, `VOLUME ["/app/data"]`, healthcheck `GET /api/health`.
+- Docker: `node:20-alpine`, copy HTML/CSS/JS/`data`, `VOLUME ["/app/data"]`, healthcheck `GET /api/health`.
 
 ## Four applications
 
@@ -51,7 +51,7 @@ Sensei sales and ops teams use this to:
 
 **Canvas:** Fabric.js 2D plan; meters; grid; drag/rotate fixtures; snap 1 m `separator-wall` segments.
 
-**Views:** 2D Plan · 3D View · Simulation. 3D: isometric/perspective, walk (WASD + collision), ceiling camera grid ~3 m, FOV cones, Kenney GLBs when present. Active toolbar buttons: **black text on pale-yellow**, never white-on-white.
+**Views:** 2D Plan · 3D View · Simulation. 3D: isometric/perspective, walk (WASD + collision), ceiling camera grid ~3 m, FOV cones, procedural fixture meshes only. Active toolbar buttons: **black text on pale-yellow**, never white-on-white.
 
 **Baselines:** Small / Medium / Large / X-Large / Bespoke (from store profiles API).
 
@@ -118,7 +118,6 @@ planner-wall-links.js  1 m wall snap
 planner-discovery-questions.js
 planner-proposal-report.js
 data/                  verticals.json, store-profiles.json, sensei-setup-assumptions.json
-models/kenney/         Optional GLB
 ```
 
 ## Calibration data
@@ -132,7 +131,7 @@ models/kenney/         Optional GLB
 - `npm run dev` serves all four apps on port 3000.
 - Forecast, CapEx estimate, store-profiles GET, and health work.
 - Planner: prefabs including Gas Station Conv; SaaS + **annual** calibration; Proposal preview + print PDF; sim basket value; Full reset; readable 3D toolbar.
-- Docker build includes `*.html`, `*.css`, `planner-*.js`, `data`, `models`, `libs`.
+- Docker build includes `*.html`, `*.css`, `planner-*.js`, `data`.
 - README matches the running app.
 
 Work incrementally: server + static + APIs, then simulator, then planner 2D/3D/cost, then simulation and proposal.

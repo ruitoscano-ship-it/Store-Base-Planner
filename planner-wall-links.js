@@ -151,11 +151,3 @@ export function computeWallLinksFromEndpoints(endpoints, wallId, others, { maxDi
 
   return links;
 }
-
-export function computeWallLinks(pose, lengthMeters, wallId, others, options = {}) {
-  const endpoints =
-    options.movingEndpoints ??
-    options.endpointForPose?.(pose, lengthMeters) ??
-    wallEndpoints(pose, lengthMeters);
-  return computeWallLinksFromEndpoints(endpoints, wallId, others, options);
-}

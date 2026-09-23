@@ -7,5 +7,6 @@ coverage
 dist
 build
 *.md
+*.zip
 .DS_Store
 npm-debug.log*

@@ -370,31 +370,6 @@ export function getAllArtifacts() {
   return { ...DEFAULT_ARTIFACTS, ...LEGACY_ARTIFACTS };
 }
 
-export function artifactsToPlannerMap(artifacts = getAllArtifacts()) {
-  const map = {};
-  Object.entries(artifacts).forEach(([kind, spec]) => {
-    map[kind] = {
-      label: spec.label,
-      w: spec.widthMeters,
-      h: spec.depthMeters,
-      type: spec.type,
-      heightMeters: spec.heightMeters,
-      shelfLevels: spec.shelfLevels,
-      palette: spec.palette,
-      color3d: spec.color3d,
-      badge3d: spec.badge3d,
-      emissive3d: spec.emissive3d,
-      tag2d: spec.tag2d,
-      opacity3d: spec.opacity3d,
-      serviceVariant: spec.serviceVariant,
-      stationVariant: spec.stationVariant,
-      monitorCapability: spec.monitorCapability,
-      monitorMetrics: spec.monitorMetrics
-    };
-  });
-  return map;
-}
-
 export function layoutStepForArtifact(spec, gapMeters = 0.15) {
   if (!spec) return 1.3;
   const w = spec.widthMeters ?? spec.w ?? 1;

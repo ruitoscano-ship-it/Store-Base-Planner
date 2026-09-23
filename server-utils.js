@@ -31,8 +31,6 @@ const MIME_TYPES = {
   ".gif": "image/gif",
   ".svg": "image/svg+xml",
   ".ico": "image/x-icon",
-  ".glb": "model/gltf-binary",
-  ".gltf": "model/gltf+json",
   ".webp": "image/webp",
   ".woff2": "font/woff2"
 };
@@ -141,7 +139,7 @@ function resolvePublicFile(root, pathname) {
 
 function cacheControlFor(ext) {
   if (ext === ".html") return "no-cache";
-  if ([".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".ico", ".woff2", ".glb", ".gltf"].includes(ext)) {
+  if ([".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".ico", ".woff2"].includes(ext)) {
     return "public, max-age=86400, immutable";
   }
   return "no-cache";

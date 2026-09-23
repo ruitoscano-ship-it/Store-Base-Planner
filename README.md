@@ -113,7 +113,6 @@ planner-sensei-cost.js Shared CAPEX/BOM calculator (client + server)
 planner-app.js         Planner UI (Fabric.js 2D, Three.js 3D, simulation)
 planner-simulation.js  Occupancy simulation with shopper journey script
 data/                  JSON configuration (writable in production)
-models/kenney/         Optional GLB 3D assets
 ```
 
 ## Security notes
